@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090B10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Todo Delivery - Historial y Ganancias</title>
+  
+  <!-- Fuente Google Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              bg: '#090B10',
+              surface: '#121620',
+              surfaceLight: '#1A202E',
+              accent: '#00E58F',
+              accentHover: '#00C77B',
+              warning: '#FFB800',
+              danger: '#FF4D4D',
+              textMuted: '#8E9AA8',
+              border: '#1F2636'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      background-color: #090B10;
+      color: #FFFFFF;
+      overflow-x: hidden;
+      min-height: 100dvh;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-[100dvh] max-w-md mx-auto bg-brand-bg relative pb-10">
+
+  <!-- ============================================== -->
+  <!-- 1. HEADER                                      -->
+  <!-- ============================================== -->
+  <header class="p-5 pt-7 flex items-center justify-between border-b border-brand-border/60 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-30">
+    <div class="flex items-center gap-3">
+      <button onclick="window.history.back()" class="w-10 h-10 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-textMuted active:scale-95 transition-transform">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+      </button>
+      <div>
+        <h1 class="text-base font-extrabold text-white">Historial & Ganancias</h1>
+        <p class="text-xs text-brand-textMuted mt-0.5">Auditoría de viajes completados</p>
+      </div>
+    </div>
+
+    <!-- Marca de la Empresa -->
+    <div class="text-right">
+      <span class="text-xs font-black tracking-tight text-white block">Todo <span class="text-brand-accent">Delivery</span></span>
+      <span class="text-[10px] text-brand-textMuted uppercase font-bold">Rider App</span>
+    </div>
+  </header>
+
+  <main class="p-5 space-y-5">
+
+    <!-- ============================================== -->
+    <!-- 2. SELECTOR DE PERÍODOS (TABS)                 -->
+    <!-- ============================================== -->
+    <nav class="grid grid-cols-3 gap-1.5 p-1 bg-brand-surface border border-brand-border rounded-2xl">
+      <button id="tab-today" onclick="setPeriod('today')" class="py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all bg-brand-accent text-brand-bg shadow-sm">
+        Hoy
+      </button>
+      <button id="tab-week" onclick="setPeriod('week')" class="py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all text-brand-textMuted hover:text-white">
+        Semana
+      </button>
+      <button id="tab-month" onclick="setPeriod('month')" class="py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all text-brand-textMuted hover:text-white">
+        Mes
+      </button>
+    </nav>
+
+    <!-- ============================================== -->
+    <!-- 3. TARJETA RESUMEN DE GANANCIAS DEL PERÍODO   -->
+    <!-- ============================================== -->
+    <section class="bg-brand-surface border border-brand-border rounded-3xl p-6 relative overflow-hidden shadow-xl">
+      <div class="absolute -top-10 -right-10 w-32 h-32 bg-brand-accent/10 rounded-full blur-2xl pointer-events-none"></div>
+
+      <div class="flex items-center justify-between">
+        <span id="periodLabel" class="text-[11px] font-extrabold uppercase tracking-widest text-brand-accent bg-brand-accent/10 px-3 py-1 rounded-full border border-brand-accent/20">
+          Turno Hoy &bull; Jueves
+        </span>
+        <span class="text-xs font-bold text-brand-textMuted flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span>
+          Actualizado
+        </span>
+      </div>
+
+      <div class="mt-4">
+        <span class="text-xs font-bold text-brand-textMuted block">Ganancia Neta Acumulada</span>
+        <div id="statTotalEarnings" class="text-4xl font-black text-white tracking-tight mt-1">
+          $18.450
+        </div>
+      </div>
+
+      <!-- Métricas Secundarias -->
+      <div class="grid grid-cols-3 gap-2 pt-5 mt-5 border-t border-brand-border/60">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">Viajes</span>
+          <span id="statTripCount" class="text-base font-black text-white mt-0.5 block">9</span>
+        </div>
+        <div class="border-l border-brand-border/60 pl-3">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">Horas</span>
+          <span id="statHours" class="text-base font-black text-white mt-0.5 block">4.2 hs</span>
+        </div>
+        <div class="border-l border-brand-border/60 pl-3">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">Propinas</span>
+          <span id="statTips" class="text-base font-black text-brand-accent mt-0.5 block">$1.800</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 4. LISTA DE ENTREGAS CRONOLÓGICAS              -->
+    <!-- ============================================== -->
+    <section class="space-y-3">
+      <div class="flex items-center justify-between px-1">
+        <h2 class="text-xs font-black uppercase tracking-wider text-brand-textMuted">Detalle de Envíos</h2>
+        <span id="listCountLabel" class="text-xs font-bold text-white">9 entregas registradas</span>
+      </div>
+
+      <div id="tripsContainer" class="space-y-2.5">
+
+        <!-- Viaje 1 -->
+        <article onclick="openDetailModal('4820', 'Empanadas Don Luis', 'Calle San Martín 1234, 4° B', '$2.450', '22:40', 'Efectivo', '$8.500', '2.3 km')" 
+          class="bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all">
+          <div class="flex items-center gap-3.5">
+            <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-extrabold text-white">Empanadas Don Luis</h3>
+                <span class="text-[10px] font-black text-brand-textMuted">#4820</span>
+              </div>
+              <p class="text-xs text-brand-textMuted mt-0.5">22:40 &bull; 2.3 km &bull; <strong class="text-brand-warning">Efectivo ($8.500)</strong></p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-black text-brand-accent block">+$2.450</span>
+            <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
+          </div>
+        </article>
+
+        <!-- Viaje 2 -->
+        <article onclick="openDetailModal('4818', 'Pizzería Napolitana', 'Av. Córdoba 890', '$2.100', '21:55', 'Digital', '$0 (Pagado)', '1.8 km')" 
+          class="bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all">
+          <div class="flex items-center gap-3.5">
+            <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-extrabold text-white">Pizzería Napolitana</h3>
+                <span class="text-[10px] font-black text-brand-textMuted">#4818</span>
+              </div>
+              <p class="text-xs text-brand-textMuted mt-0.5">21:55 &bull; 1.8 km &bull; <span class="text-brand-textMuted">Pago Digital</span></p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-black text-brand-accent block">+$2.100</span>
+            <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
+          </div>
+        </article>
+
+        <!-- Viaje 3 -->
+        <article onclick="openDetailModal('4815', 'Burger House', 'Calle Mendoza 450 Sur', '$2.800', '21:10', 'Digital', '$0 (Pagado)', '3.4 km')" 
+          class="bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all">
+          <div class="flex items-center gap-3.5">
+            <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-extrabold text-white">Burger House</h3>
+                <span class="text-[10px] font-black text-brand-textMuted">#4815</span>
+              </div>
+              <p class="text-xs text-brand-textMuted mt-0.5">21:10 &bull; 3.4 km &bull; <span class="text-brand-textMuted">Pago Digital</span></p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-black text-brand-accent block">+$2.800</span>
+            <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
+          </div>
+        </article>
+
+        <!-- Viaje 4 -->
+        <article onclick="openDetailModal('4811', 'Heladería Polar', 'Rivadavia 120 Este', '$1.900', '20:30', 'Efectivo', '$4.200', '1.2 km')" 
+          class="bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all">
+          <div class="flex items-center gap-3.5">
+            <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-extrabold text-white">Heladería Polar</h3>
+                <span class="text-[10px] font-black text-brand-textMuted">#4811</span>
+              </div>
+              <p class="text-xs text-brand-textMuted mt-0.5">20:30 &bull; 1.2 km &bull; <strong class="text-brand-warning">Efectivo ($4.200)</strong></p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-black text-brand-accent block">+$1.900</span>
+            <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================== -->
+  <!-- 5. MODAL DETALLE DE VIAJE SELECCIONADO         -->
+  <!-- ============================================== -->
+  <div id="tripDetailModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="tripDetailContent" class="w-full max-w-md bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-6 space-y-4 transform translate-y-full sm:translate-y-0 transition-transform duration-300">
+      
+      <div class="flex items-start justify-between border-b border-brand-border/60 pb-3">
+        <div>
+          <span id="modalOrderTag" class="text-[10px] font-black uppercase text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded border border-brand-accent/20">
+            ORDEN #4820
+          </span>
+          <h3 id="modalStoreName" class="text-lg font-black text-white mt-1">Empanadas Don Luis</h3>
+          <p id="modalAddress" class="text-xs text-brand-textMuted mt-0.5">Calle San Martín 1234, 4° B</p>
+        </div>
+        <button onclick="closeDetailModal()" class="w-8 h-8 rounded-full bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-textMuted hover:text-white">
+          &times;
+        </button>
+      </div>
+
+      <div class="space-y-2.5 text-xs">
+        <div class="flex justify-between">
+          <span class="text-brand-textMuted font-medium">Hora de finalización:</span>
+          <span id="modalTime" class="font-bold text-white">22:40</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-brand-textMuted font-medium">Distancia recorrida:</span>
+          <span id="modalDistance" class="font-bold text-white">2.3 km</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-brand-textMuted font-medium">Método de cobro cliente:</span>
+          <span id="modalPaymentType" class="font-bold text-brand-warning">Efectivo: $8.500</span>
+        </div>
+        <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
+          <span class="font-bold text-white">Tu Ganancia acreditada:</span>
+          <span id="modalEarnings" class="text-lg font-black text-brand-accent">+$2.450</span>
+        </div>
+      </div>
+
+      <button onclick="closeDetailModal()" class="w-full py-3.5 rounded-xl bg-brand-surfaceLight border border-brand-border text-white font-extrabold text-xs uppercase tracking-wider active:scale-98 transition-all">
+        Cerrar Detalle
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- LÓGICA DE CONTROL DE HISTORIAL Y MODALES       -->
+  <!-- ============================================== -->
+  <script>
+    // Datos simulados por período
+    const dataPeriods = {
+      today: {
+        label: 'Turno Hoy • Jueves',
+        earnings: '$18.450',
+        trips: '9',
+        hours: '4.2 hs',
+        tips: '$1.800',
+        countText: '9 entregas registradas'
+      },
+      week: {
+        label: 'Esta Semana (17 - 23 Ago)',
+        earnings: '$94.200',
+        trips: '46',
+        hours: '22.5 hs',
+        tips: '$8.400',
+        countText: '46 entregas registradas'
+      },
+      month: {
+        label: 'Mes de Agosto 2026',
+        earnings: '$312.000',
+        trips: '154',
+        hours: '78.0 hs',
+        tips: '$26.500',
+        countText: '154 entregas registradas'
+      }
+    };
+
+    function setPeriod(period) {
+      // Alternar clases activas en botones
+      ['today', 'week', 'month'].forEach(p => {
+        const btn = document.getElementById(`tab-${p}`);
+        if (p === period) {
+          btn.className = "py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all bg-brand-accent text-brand-bg shadow-sm";
+        } else {
+          btn.className = "py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all text-brand-textMuted hover:text-white";
+        }
+      });
+
+      // Actualizar datos de la tarjeta resumen
+      const d = dataPeriods[period];
+      document.getElementById('periodLabel').innerText = d.label;
+      document.getElementById('statTotalEarnings').innerText = d.earnings;
+      document.getElementById('statTripCount').innerText = d.trips;
+      document.getElementById('statHours').innerText = d.hours;
+      document.getElementById('statTips').innerText = d.tips;
+      document.getElementById('listCountLabel').innerText = d.countText;
+    }
+
+    // Modal de Detalle de Viaje
+    function openDetailModal(orderId, store, address, earnings, time, payType, payAmount, distance) {
+      document.getElementById('modalOrderTag').innerText = `ORDEN #${orderId}`;
+      document.getElementById('modalStoreName').innerText = store;
+      document.getElementById('modalAddress').innerText = address;
+      document.getElementById('modalEarnings').innerText = `+${earnings}`;
+      document.getElementById('modalTime').innerText = time;
+      document.getElementById('modalDistance').innerText = distance;
+      document.getElementById('modalPaymentType').innerText = `${payType} (${payAmount})`;
+
+      const modal = document.getElementById('tripDetailModal');
+      const content = document.getElementById('tripDetailContent');
+
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      content.classList.remove('translate-y-full');
+
+      if ("vibrate" in navigator) {
+        navigator.vibrate(40);
+      }
+    }
+
+    function closeDetailModal() {
+      const modal = document.getElementById('tripDetailModal');
+      const content = document.getElementById('tripDetailContent');
+
+      content.classList.add('translate-y-full');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+    }
+  </script>
+</body>
+</html>

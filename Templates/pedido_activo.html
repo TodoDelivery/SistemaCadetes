@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Todo Delivery - Modo Ruta</title>
+  <title>Todo Delivery - Modo Ruta & Cobro</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,20 +44,21 @@
       box-sizing: border-box;
       user-select: none;
     }
+    input {
+      user-select: auto;
+    }
     body {
       background-color: #000000;
       color: #FFFFFF;
-      overflow: hidden;
-      height: 100dvh;
+      overflow-x: hidden;
+      min-height: 100dvh;
       width: 100vw;
     }
 
-    /* Estilo del Mapa Vectorial Minimalista */
     .map-bg {
       background: radial-gradient(circle at center, #151A24 0%, #090B10 100%);
     }
     
-    /* Pulso del marcador GPS de la moto */
     @keyframes gpsPulse {
       0% { transform: scale(1); opacity: 0.9; }
       100% { transform: scale(2.6); opacity: 0; }
@@ -66,195 +67,400 @@
       animation: gpsPulse 1.8s infinite ease-out;
     }
 
-    /* Línea de Ruta de navegación iluminada */
     .route-glow {
       filter: drop-shadow(0 0 6px rgba(0, 229, 143, 0.7));
     }
+
+    /* Control de Vistas */
+    .view-screen {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.25s ease-out;
+    }
+    .view-screen.active {
+      display: flex;
+      opacity: 1;
+    }
   </style>
 </head>
-<body class="font-sans antialiased flex flex-col justify-between relative">
+<body class="font-sans antialiased bg-black flex justify-center items-center min-h-[100dvh] w-full p-0 m-0">
 
-  <!-- ======================================================== -->
-  <!-- 1. MAPA GPS EN VIVO INTEGRADO (FONDO COMPLETO)           -->
-  <!-- ======================================================== -->
-  <div class="absolute inset-0 z-0 map-bg overflow-hidden flex items-center justify-center">
-    <!-- SVG Vectorial: Calles, Cuadrícula y Ruta Trazada -->
-    <svg class="w-full h-full object-cover opacity-85" viewBox="0 0 400 800" fill="none">
-      <!-- Calles secundarias oscuras -->
-      <path d="M-50 150 H450 M-50 320 H450 M-50 500 H450 M-50 680 H450" stroke="#1A2230" stroke-width="14" />
-      <path d="M90 -50 V850 M210 -50 V850 M330 -50 V850" stroke="#1A2230" stroke-width="14" />
+  <div class="w-full max-w-md min-h-[100dvh] relative overflow-hidden bg-black flex flex-col justify-between">
+
+    <!-- ======================================================== -->
+    <!-- TEMPLATE 1: MODO RUTA NAVEGACIÓN (GPS EN VIVO)           -->
+    <!-- ======================================================== -->
+    <main id="view-route" class="view-screen active flex-col flex-1 h-[100dvh] relative overflow-hidden justify-between">
       
-      <!-- Avenidas principales -->
-      <path d="M-50 220 H450" stroke="#222B3D" stroke-width="26" />
-      <path d="M210 -50 V850" stroke="#222B3D" stroke-width="26" />
+      <!-- Fondo Vectorial Mapa -->
+      <div class="absolute inset-0 z-0 map-bg overflow-hidden flex items-center justify-center pointer-events-none">
+        <svg class="w-full h-full object-cover opacity-85" viewBox="0 0 400 800" fill="none">
+          <path d="M-50 150 H450 M-50 320 H450 M-50 500 H450 M-50 680 H450" stroke="#1A2230" stroke-width="14" />
+          <path d="M90 -50 V850 M210 -50 V850 M330 -50 V850" stroke="#1A2230" stroke-width="14" />
+          <path d="M-50 220 H450" stroke="#222B3D" stroke-width="26" />
+          <path d="M210 -50 V850" stroke="#222B3D" stroke-width="26" />
+          <path id="routeLine" d="M210 520 L210 220 L370 220" stroke="#00E58F" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" class="route-glow" />
+          <g transform="translate(370, 220)">
+            <circle r="14" fill="#000000" />
+            <circle r="9" fill="#00E58F" />
+            <circle r="4" fill="#FFFFFF" />
+          </g>
+          <g transform="translate(210, 520)">
+            <circle r="22" fill="#00E58F" class="gps-glow opacity-40" />
+            <circle r="13" fill="#00E58F" />
+            <circle r="9" fill="#000000" />
+            <polygon points="210,512 215,524 210,521 205,524" fill="#00E58F" transform="translate(-210, -520)" />
+          </g>
+        </svg>
+
+        <button onclick="recenterMap()" class="pointer-events-auto absolute right-4 bottom-72 w-12 h-12 rounded-2xl bg-brand-surface/90 border border-brand-border backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform shadow-xl">
+          <svg class="w-6 h-6 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Banner de Navegación Superior -->
+      <header class="relative z-10 mx-3 mt-3 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-3xl p-4 shadow-2xl flex items-center gap-4">
+        <div id="navManeuverBox" class="w-16 h-16 rounded-2xl bg-brand-accent flex items-center justify-center text-brand-black shrink-0 shadow-lg">
+          <svg id="navManeuverIcon" class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline gap-2">
+            <span id="navDistance" class="text-2xl font-black text-white tracking-tight">350 m</span>
+            <span class="text-xs font-bold text-brand-accent uppercase tracking-wider">En 2 min</span>
+          </div>
+          <p id="navStreet" class="text-sm font-extrabold text-brand-textMuted truncate mt-0.5">Gire a la derecha en Av. Libertador</p>
+        </div>
+      </header>
+
+      <!-- Bottom Sheet de Operación -->
+      <footer class="relative z-10 bg-brand-surface/95 backdrop-blur-2xl border-t border-brand-border rounded-t-[32px] p-5 pb-7 shadow-2xl space-y-4 max-w-md mx-auto w-full">
+        <div class="w-12 h-1 bg-brand-border rounded-full mx-auto -mt-1 mb-2"></div>
+
+        <div class="flex items-center justify-between">
+          <div>
+            <span id="phaseTag" class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
+              PASO 1 DE 2 &bull; RETIRO
+            </span>
+            <h2 id="destinationTitle" class="text-xl font-black text-white mt-1.5 tracking-tight">Empanadas Don Luis</h2>
+            <p id="orderIdText" class="text-xs font-bold text-brand-textMuted mt-0.5">Orden #4820 &bull; 2 ítems</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Botón Reportar Problema Rápido -->
+            <button onclick="openIncidentModal()" class="w-12 h-12 rounded-2xl bg-brand-surfaceLight border border-brand-danger/40 flex items-center justify-center text-brand-danger active:scale-90 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+            </button>
+
+            <!-- Botón Llamar -->
+            <a href="tel:549264000000" class="w-12 h-12 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent active:scale-90 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <div id="cashBanner" class="p-3.5 bg-brand-surfaceLight rounded-2xl border border-brand-warning/30 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-brand-warning"></span>
+            <span class="text-xs font-bold text-brand-textMuted uppercase tracking-wide">Cobro en Destino:</span>
+          </div>
+          <span class="text-sm font-black text-brand-warning tracking-tight">$8.500 EFECTIVO</span>
+        </div>
+
+        <!-- Botón Deslizante con Rastro -->
+        <div class="relative w-full h-16 bg-brand-surfaceLight border border-brand-border rounded-2xl overflow-hidden flex items-center p-1.5 select-none touch-none" id="swipeTrack">
+          <div id="swipeFill" class="absolute left-0 top-0 bottom-0 w-0 bg-brand-accent rounded-2xl pointer-events-none transition-none"></div>
+
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span id="swipeLabelBase" class="text-xs font-black tracking-widest text-brand-textMuted/70 uppercase pl-8">
+              Deslizar al retirar pedido &gt;&gt;
+            </span>
+          </div>
+
+          <div id="swipeLabelClip" class="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style="clip-path: inset(0 100% 0 0);">
+            <span id="swipeLabelActive" class="text-xs font-black tracking-widest text-black uppercase pl-8">
+              Deslizar al retirar pedido &gt;&gt;
+            </span>
+          </div>
+
+          <div id="swipeHandle" class="relative z-10 w-14 h-full bg-brand-accent rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all touch-none">
+            <svg id="swipeHandleIcon" class="w-6 h-6 transform pointer-events-none" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+            </svg>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <!-- ======================================================== -->
+    <!-- TEMPLATE 2: PANTALLA COMPLETA DE COBRO Y CIERRE DE VIAJE -->
+    <!-- ======================================================== -->
+    <main id="view-checkout" class="view-screen flex-col flex-1 min-h-[100dvh] bg-brand-bg p-5 justify-between">
       
-      <!-- RUTA ACTIVA NEÓN (Verde estilo Uber Driver) -->
-      <path id="routeLine" d="M210 520 L210 220 L370 220" stroke="#00E58F" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" class="route-glow" />
+      <!-- Header Superior -->
+      <header class="pt-2 flex items-center justify-between border-b border-brand-border/60 pb-3">
+        <button onclick="switchScreen('view-route')" class="w-10 h-10 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-textMuted active:scale-95 transition-transform">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </button>
 
-      <!-- Marcador Punto de Destino (Local o Cliente) -->
-      <g transform="translate(370, 220)">
-        <circle r="14" fill="#000000" />
-        <circle r="9" fill="#00E58F" />
-        <circle r="4" fill="#FFFFFF" />
-      </g>
+        <div class="text-center">
+          <h1 class="text-sm font-extrabold text-white">Finalizar Entrega</h1>
+          <span class="text-[10px] text-brand-warning font-bold uppercase tracking-wider">Paso de Cobro</span>
+        </div>
 
-      <!-- Marcador Cadete (Ubicación GPS en vivo con Rumbo) -->
-      <g transform="translate(210, 520)">
-        <circle r="22" fill="#00E58F" class="gps-glow opacity-40" />
-        <circle r="13" fill="#00E58F" />
-        <circle r="9" fill="#000000" />
-        <!-- Flecha de Rumbo -->
-        <polygon points="210,512 215,524 210,521 205,524" fill="#00E58F" transform="translate(-210, -520)" />
-      </g>
-    </svg>
+        <!-- Botón Reportar Problema -->
+        <button onclick="openIncidentModal()" class="px-3 py-2 rounded-xl bg-brand-danger/15 border border-brand-danger/30 text-brand-danger text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+          Reportar
+        </button>
+      </header>
 
-    <!-- Botón Recentrar GPS Flotante -->
-    <button onclick="recenterMap()" class="absolute right-4 bottom-72 w-12 h-12 rounded-2xl bg-brand-surface/90 border border-brand-border backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform shadow-xl">
-      <svg class="w-6 h-6 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-        <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-      </svg>
-    </button>
+      <!-- Cuerpo Central de Cobro -->
+      <div class="space-y-3.5 my-auto py-3">
+        
+        <!-- Tarjeta Importe Gigante -->
+        <section class="bg-brand-surface border border-brand-warning/30 rounded-3xl p-5 text-center shadow-xl">
+          <span class="text-[10px] font-extrabold uppercase tracking-widest text-brand-warning bg-brand-warning/10 px-3 py-1 rounded-full border border-brand-warning/20 inline-block mb-1">
+            Cobro Requerido en Efectivo
+          </span>
+          <div class="text-4xl font-black text-white tracking-tight my-1.5">$8.500</div>
+          <p class="text-xs font-bold text-brand-accent">+$2.450 ganancia acreditada a tu cuenta</p>
+        </section>
+
+        <!-- Datos del Cliente -->
+        <section class="bg-brand-surface border border-brand-border rounded-2xl p-4 space-y-1.5 text-xs">
+          <div class="flex justify-between items-center">
+            <span class="text-brand-textMuted">Cliente:</span>
+            <span class="font-extrabold text-white">Lucas Benítez</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-brand-textMuted">Dirección:</span>
+            <span class="font-bold text-white">Calle San Martín 1234, 4° B</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-brand-textMuted">Pedido:</span>
+            <span class="font-medium text-brand-textMuted">#4820 (1x Docena Empanadas + 1x Coca-Cola)</span>
+          </div>
+        </section>
+
+        <!-- Botón Desplegable Calculadora -->
+        <button 
+          type="button" 
+          onclick="toggleCalcDrawer()" 
+          class="w-full py-3.5 px-4 rounded-2xl bg-brand-surface border border-brand-border hover:border-brand-accent/40 text-xs font-bold text-white flex items-center justify-between transition-all"
+        >
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="4" y="2" width="16" height="20" rx="2"></rect>
+              <line x1="8" y1="6" x2="16" y2="6"></line>
+              <line x1="16" y1="14" x2="16" y2="18"></line>
+              <path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01"></path>
+            </svg>
+            <span>Calculadora Rápida de Vuelto</span>
+          </div>
+          <span id="calcToggleChevron" class="text-brand-textMuted text-xs font-extrabold">Abrir ▼</span>
+        </button>
+
+        <!-- Bloque Calculadora -->
+        <div id="calcDrawer" class="hidden space-y-2 bg-brand-surface p-3.5 rounded-2xl border border-brand-border">
+          <div class="bg-black/60 p-3 rounded-xl border border-brand-border flex items-center justify-between">
+            <div>
+              <span class="text-[10px] text-brand-textMuted uppercase font-bold block">Paga con:</span>
+              <span id="calcDisplay" class="text-lg font-black text-white">$0</span>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] text-brand-textMuted uppercase font-bold block">Vuelto:</span>
+              <span id="calcChangeDisplay" class="text-lg font-black text-brand-warning">$0</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1.5">
+            <button onclick="setFastCash(8500)" class="py-1.5 rounded-lg bg-brand-surfaceLight border border-brand-border text-[11px] font-bold text-white active:scale-95">Exacto</button>
+            <button onclick="setFastCash(10000)" class="py-1.5 rounded-lg bg-brand-surfaceLight border border-brand-border text-[11px] font-bold text-white active:scale-95">$10.000</button>
+            <button onclick="setFastCash(20000)" class="py-1.5 rounded-lg bg-brand-surfaceLight border border-brand-border text-[11px] font-bold text-white active:scale-95">$20.000</button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1.5 text-sm font-bold">
+            <button onclick="appendNum('1')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">1</button>
+            <button onclick="appendNum('2')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">2</button>
+            <button onclick="appendNum('3')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">3</button>
+            <button onclick="appendNum('4')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">4</button>
+            <button onclick="appendNum('5')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">5</button>
+            <button onclick="appendNum('6')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">6</button>
+            <button onclick="appendNum('7')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">7</button>
+            <button onclick="appendNum('8')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">8</button>
+            <button onclick="appendNum('9')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">9</button>
+            <button onclick="clearCalc()" class="py-2 rounded-xl bg-brand-danger/20 text-brand-danger active:scale-95 font-black text-xs">C</button>
+            <button onclick="appendNum('0')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95">0</button>
+            <button onclick="appendNum('00')" class="py-2 rounded-xl bg-brand-surfaceLight text-white active:scale-95 text-xs">00</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Botón Finalizar Viaje Fijo Inferior -->
+      <footer class="pt-2">
+        <button 
+          onclick="completeOrderAndExit()" 
+          class="w-full py-4 px-5 rounded-2xl bg-brand-accent text-brand-black font-black text-sm uppercase tracking-wider hover:bg-brand-accentHover active:scale-98 transition-all shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-2"
+        >
+          <span>Confirmar Cobro y Finalizar Viaje</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </button>
+      </footer>
+    </main>
+
+    <!-- ======================================================== -->
+    <!-- MODAL DE REPORTE DE PROBLEMAS / INCIDENCIAS EN RUTA      -->
+    <!-- ======================================================== -->
+    <div id="incidentModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+      <div id="incidentModalContent" class="w-full max-w-md bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-6 space-y-4 transform translate-y-full sm:translate-y-0 transition-transform duration-300">
+        
+        <div class="flex items-start justify-between border-b border-brand-border/60 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-brand-danger/20 border border-brand-danger/30 flex items-center justify-center text-brand-danger">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-extrabold text-white">Reportar Incidencia</h3>
+              <p class="text-[11px] text-brand-textMuted">Orden #4820 &bull; Todo Delivery Central</p>
+            </div>
+          </div>
+          <button onclick="closeIncidentModal()" class="w-8 h-8 rounded-full bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-textMuted hover:text-white">
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-2">
+          <button onclick="submitIncident('El cliente no atiende la puerta ni el teléfono')" class="w-full p-3.5 rounded-xl bg-brand-surfaceLight border border-brand-border hover:border-brand-danger/50 text-left text-xs font-bold text-white flex items-center justify-between active:scale-98 transition-all">
+            <span>Cliente no responde al timbre / llamada</span>
+            <span class="text-brand-textMuted">&gt;</span>
+          </button>
+          <button onclick="submitIncident('Dirección de entrega incorrecta o inaccesible')" class="w-full p-3.5 rounded-xl bg-brand-surfaceLight border border-brand-border hover:border-brand-danger/50 text-left text-xs font-bold text-white flex items-center justify-between active:scale-98 transition-all">
+            <span>Dirección incorrecta o no existe</span>
+            <span class="text-brand-textMuted">&gt;</span>
+          </button>
+          <button onclick="submitIncident('Cliente se niega a pagar o cancela en puerta')" class="w-full p-3.5 rounded-xl bg-brand-surfaceLight border border-brand-border hover:border-brand-danger/50 text-left text-xs font-bold text-white flex items-center justify-between active:scale-98 transition-all">
+            <span>Cliente se niega a pagar el efectivo</span>
+            <span class="text-brand-textMuted">&gt;</span>
+          </button>
+          <button onclick="submitIncident('Problema mecánico en moto o accidente vial')" class="w-full p-3.5 rounded-xl bg-brand-surfaceLight border border-brand-border hover:border-brand-danger/50 text-left text-xs font-bold text-white flex items-center justify-between active:scale-98 transition-all">
+            <span>Problema con mi vehículo / Emergencia</span>
+            <span class="text-brand-textMuted">&gt;</span>
+          </button>
+        </div>
+
+        <a href="tel:549264000000" class="w-full py-3 rounded-xl bg-brand-surface border border-brand-border text-center text-xs font-bold text-brand-accent block hover:underline">
+          Llamar de urgencia a la Central
+        </a>
+      </div>
+    </div>
+
   </div>
 
   <!-- ======================================================== -->
-  <!-- 2. BANNER DE NAVEGACIÓN SUPERIOR (ALTO IMPACTO / VISIBLE) -->
-  <!-- ======================================================== -->
-  <header class="relative z-10 mx-3 mt-3 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-3xl p-4 shadow-2xl flex items-center gap-4">
-    <!-- Flecha de maniobra gigante -->
-    <div id="navManeuverBox" class="w-16 h-16 rounded-2xl bg-brand-accent flex items-center justify-center text-brand-black shrink-0 shadow-lg">
-      <svg id="navManeuverIcon" class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
-      </svg>
-    </div>
-
-    <!-- Indicación de Giro y Distancia -->
-    <div class="flex-1 min-w-0">
-      <div class="flex items-baseline gap-2">
-        <span id="navDistance" class="text-2xl font-black text-white tracking-tight">350 m</span>
-        <span class="text-xs font-bold text-brand-accent uppercase tracking-wider">En 2 min</span>
-      </div>
-      <p id="navStreet" class="text-sm font-extrabold text-brand-textMuted truncate mt-0.5">
-        Gire a la derecha en Av. Libertador
-      </p>
-    </div>
-  </header>
-
-  <!-- ======================================================== -->
-  <!-- 3. BOTTOM SHEET: PANEL DE CONTROL DE ENTREGA             -->
-  <!-- ======================================================== -->
-  <footer class="relative z-10 bg-brand-surface/95 backdrop-blur-2xl border-t border-brand-border rounded-t-[32px] p-5 pb-7 shadow-2xl space-y-4 max-w-md mx-auto w-full">
-    
-    <!-- Manija táctil -->
-    <div class="w-12 h-1 bg-brand-border rounded-full mx-auto -mt-1 mb-2"></div>
-
-    <!-- Fila 1: Estado del Paso actual y Contacto Directo -->
-    <div class="flex items-center justify-between">
-      <div>
-        <span id="phaseTag" class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
-          PASO 1 DE 2 &bull; RETIRO
-        </span>
-        <h2 id="destinationTitle" class="text-xl font-black text-white mt-1.5 tracking-tight">
-          Empanadas Don Luis
-        </h2>
-        <p id="orderIdText" class="text-xs font-bold text-brand-textMuted mt-0.5">Orden #4820 &bull; 2 ítems</p>
-      </div>
-
-      <!-- Botón de Llamada Gigante -->
-      <a href="tel:549264000000" class="w-14 h-14 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent active:scale-90 transition-transform">
-        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-        </svg>
-      </a>
-    </div>
-
-    <!-- Fila 2: Indicador de Cobro en Efectivo (Solo visible si aplica) -->
-    <div id="cashBanner" class="p-3.5 bg-brand-surfaceLight rounded-2xl border border-brand-warning/30 flex items-center justify-between">
-      <div class="flex items-center gap-2.5">
-        <span class="w-2.5 h-2.5 rounded-full bg-brand-warning"></span>
-        <span class="text-xs font-bold text-brand-textMuted uppercase tracking-wide">Cobro en Destino:</span>
-      </div>
-      <span class="text-sm font-black text-brand-warning tracking-tight">$8.500 EFECTIVO</span>
-    </div>
-
-    <!-- ======================================================== -->
-    <!-- 4. BOTÓN "DESLIZAR PARA CONFIRMAR" (ESTILO UBER)         -->
-    <!-- ======================================================== -->
-    <div class="relative w-full h-16 bg-brand-surfaceLight border border-brand-border rounded-2xl overflow-hidden flex items-center p-1.5 select-none" id="swipeTrack">
-      
-      <!-- Texto central del botón -->
-      <span id="swipeLabel" class="absolute inset-0 flex items-center justify-center text-xs font-black tracking-widest text-white uppercase pointer-events-none pl-10">
-        Deslizar al llegar al local &gt;&gt;
-      </span>
-
-      <!-- Handle / Tirador deslizable táctil -->
-      <div id="swipeHandle" class="w-14 h-full bg-brand-accent rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all">
-        <svg id="swipeHandleIcon" class="w-6 h-6 transform" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-        </svg>
-      </div>
-    </div>
-
-  </footer>
-
-  <!-- ======================================================== -->
-  <!-- LÓGICA DE CONTROL, DESLIZAMIENTO Y CAMBIO DE ESTADOS     -->
+  <!-- LÓGICA DE CONTROL, DESLIZAMIENTO Y NAVEGACIÓN            -->
   <!-- ======================================================== -->
   <script>
-    let stage = 1; // 1: Al local, 2: Retirado/Al cliente, 3: Entregado
+    let stage = 1; // 1: Al local, 2: Retirado / Al cliente
+    const orderTotal = 8500;
+    let inputCashStr = "0";
+
     const handle = document.getElementById('swipeHandle');
     const track = document.getElementById('swipeTrack');
+    const fill = document.getElementById('swipeFill');
+    const labelClip = document.getElementById('swipeLabelClip');
+
     let isDragging = false;
     let startX = 0;
-    let maxTranslate = 0;
+    let currentX = 0;
 
-    // Recalcular dimensiones
-    function updateBounds() {
-      maxTranslate = track.clientWidth - handle.clientWidth - 12;
+    // Cambiar entre pantallas completas
+    function switchScreen(screenId) {
+      document.querySelectorAll('.view-screen').forEach(view => {
+        view.classList.remove('active');
+      });
+      const target = document.getElementById(screenId);
+      if (target) target.classList.add('active');
     }
-    window.addEventListener('resize', updateBounds);
-    updateBounds();
 
-    // Eventos Táctiles (Mobile First)
-    handle.addEventListener('touchstart', (e) => {
+    // Pointer Events Universal (Touch + Mouse)
+    handle.addEventListener('pointerdown', (e) => {
       isDragging = true;
-      startX = e.touches[0].clientX - handle.offsetLeft;
+      startX = e.clientX;
       handle.style.transition = 'none';
+      fill.style.transition = 'none';
+      labelClip.style.transition = 'none';
+      handle.setPointerCapture(e.pointerId);
     });
 
-    window.addEventListener('touchmove', (e) => {
+    handle.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
-      let currentX = e.touches[0].clientX - startX;
-      if (currentX < 0) currentX = 0;
-      if (currentX > maxTranslate) currentX = maxTranslate;
+
+      const maxTranslate = track.clientWidth - handle.clientWidth - 12;
+      const deltaX = e.clientX - startX;
+      currentX = Math.max(0, Math.min(deltaX, maxTranslate));
+
       handle.style.transform = `translateX(${currentX}px)`;
 
-      // Si llega al 90% del recorrido, confirma automáticamente
-      if (currentX >= maxTranslate * 0.9) {
+      const fillWidth = currentX + handle.clientWidth + 6;
+      fill.style.width = `${fillWidth}px`;
+
+      const fillPercent = (fillWidth / track.clientWidth) * 100;
+      labelClip.style.clipPath = `inset(0 ${Math.max(0, 100 - fillPercent)}% 0 0)`;
+
+      if (currentX >= maxTranslate * 0.85) {
         isDragging = false;
+        try { handle.releasePointerCapture(e.pointerId); } catch(err) {}
         triggerStageAdvance();
       }
     });
 
-    window.addEventListener('touchend', () => {
+    const endDrag = (e) => {
       if (!isDragging) return;
       isDragging = false;
-      // Regresar al origen con resorte si no completó
-      handle.style.transition = 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-      handle.style.transform = 'translateX(0px)';
-    });
+      try { handle.releasePointerCapture(e.pointerId); } catch(err) {}
 
-    // Avance de Etapas del Reparto
+      handle.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+      fill.style.transition = 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+      labelClip.style.transition = 'clip-path 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+
+      handle.style.transform = 'translateX(0px)';
+      fill.style.width = '0px';
+      labelClip.style.clipPath = 'inset(0 100% 0 0)';
+    };
+
+    handle.addEventListener('pointerup', endDrag);
+    handle.addEventListener('pointercancel', endDrag);
+
     function triggerStageAdvance() {
-      // Vibración de éxito en el teléfono del cadete
-      if ("vibrate" in navigator) {
-        navigator.vibrate([100, 50, 100]);
-      }
+      if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
 
       handle.style.transition = 'transform 0.2s ease';
+      fill.style.transition = 'width 0.2s ease';
+      labelClip.style.transition = 'clip-path 0.2s ease';
+
       handle.style.transform = 'translateX(0px)';
+      fill.style.width = '0px';
+      labelClip.style.clipPath = 'inset(0 100% 0 0)';
 
       if (stage === 1) {
-        // Pasa a: Pedido retirado -> En camino a casa del cliente
+        // Pedido retirado -> En camino al cliente
         stage = 2;
         document.getElementById('navDistance').innerText = '1.8 km';
         document.getElementById('navStreet').innerText = 'Continúe derecho por Calle San Martín';
@@ -262,14 +468,100 @@
         document.getElementById('phaseTag').className = 'text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-brand-warning/15 text-brand-warning border border-brand-warning/30';
         document.getElementById('destinationTitle').innerText = 'Lucas Benítez (Cliente)';
         document.getElementById('orderIdText').innerText = 'Calle San Martín 1234, Dpto 4B';
-        document.getElementById('swipeLabel').innerText = 'Deslizar para confirmar entrega >>';
-        document.getElementById('swipeHandle').className = 'w-14 h-full bg-brand-warning rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all';
+        
+        document.getElementById('swipeLabelBase').innerText = 'Deslizar para confirmar entrega >>';
+        document.getElementById('swipeLabelActive').innerText = 'Deslizar para confirmar entrega >>';
+        
+        handle.className = 'relative z-10 w-14 h-full bg-brand-warning rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all touch-none';
+        fill.className = 'absolute left-0 top-0 bottom-0 w-0 bg-brand-warning rounded-2xl pointer-events-none transition-none';
       } 
       else if (stage === 2) {
-        // Pedido Entregado -> Vuelve al Panel de Disponibilidad
-        alert("¡Entrega completada! +$2.450 acreditados a tu cuenta.");
-        window.location.href = 'dashboard.html';
+        // Pasa a la pantalla completa de Cobro y Cierre
+        switchScreen('view-checkout');
       }
+    }
+
+    // Calculadora Rápida de Vuelto
+    function toggleCalcDrawer() {
+      const drawer = document.getElementById('calcDrawer');
+      const chevron = document.getElementById('calcToggleChevron');
+      const isHidden = drawer.classList.contains('hidden');
+      
+      if (isHidden) {
+        drawer.classList.remove('hidden');
+        chevron.innerText = 'Cerrar ▲';
+      } else {
+        drawer.classList.add('hidden');
+        chevron.innerText = 'Abrir ▼';
+      }
+    }
+
+    function updateCalcUI() {
+      const numericVal = parseInt(inputCashStr, 10) || 0;
+      document.getElementById('calcDisplay').innerText = `$${numericVal.toLocaleString('es-AR')}`;
+      
+      const change = numericVal - orderTotal;
+      const changeEl = document.getElementById('calcChangeDisplay');
+      
+      if (numericVal === 0) {
+        changeEl.innerText = "$0";
+        changeEl.className = "text-lg font-black text-brand-textMuted";
+      } else if (change < 0) {
+        changeEl.innerText = `Faltan $${Math.abs(change).toLocaleString('es-AR')}`;
+        changeEl.className = "text-sm font-black text-brand-danger";
+      } else {
+        changeEl.innerText = `$${change.toLocaleString('es-AR')}`;
+        changeEl.className = "text-lg font-black text-brand-warning";
+      }
+    }
+
+    function appendNum(num) {
+      if ("vibrate" in navigator) navigator.vibrate(25);
+      if (inputCashStr === "0") {
+        inputCashStr = num;
+      } else if (inputCashStr.length < 7) {
+        inputCashStr += num;
+      }
+      updateCalcUI();
+    }
+
+    function clearCalc() {
+      if ("vibrate" in navigator) navigator.vibrate(40);
+      inputCashStr = "0";
+      updateCalcUI();
+    }
+
+    function setFastCash(val) {
+      if ("vibrate" in navigator) navigator.vibrate(30);
+      inputCashStr = val.toString();
+      updateCalcUI();
+    }
+
+    // Modal de Incidencias
+    function openIncidentModal() {
+      const modal = document.getElementById('incidentModal');
+      const content = document.getElementById('incidentModalContent');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      content.classList.remove('translate-y-full');
+    }
+
+    function closeIncidentModal() {
+      const modal = document.getElementById('incidentModal');
+      const content = document.getElementById('incidentModalContent');
+      content.classList.add('translate-y-full');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    function submitIncident(motive) {
+      if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
+      closeIncidentModal();
+      alert(`Alerta enviada a la Administración de Todo Delivery:\n"${motive}"\n\nLa central se comunicará contigo de inmediato.`);
+    }
+
+    function completeOrderAndExit() {
+      if ("vibrate" in navigator) navigator.vibrate(80);
+      alert("¡Cobro confirmado! Pedido #4820 finalizado con éxito.");
+      window.location.href = 'dashboard.html';
     }
 
     function recenterMap() {

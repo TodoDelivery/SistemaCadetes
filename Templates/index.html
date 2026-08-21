@@ -294,8 +294,7 @@
 
       // Simulación de respuesta del backend
       setTimeout(() => {
-        alert('Credenciales enviadas. ¡Listo para pasar a la pantalla de disponibilidad!');
-        btn.innerHTML = `<span>Iniciar Turno / Conectar</span>`;
+        window.location.href = 'dashboard.html';
         btn.disabled = false;
       }, 1500);
     }
