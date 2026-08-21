@@ -44,6 +44,9 @@
       box-sizing: border-box;
       user-select: none;
     }
+    @view-transition {
+      navigation: auto;
+    }
     body {
       background-color: #090B10;
       color: #FFFFFF;
@@ -84,15 +87,15 @@
       <div class="absolute -top-12 -right-12 w-32 h-32 bg-brand-warning/10 rounded-full blur-2xl pointer-events-none"></div>
 
       <span class="text-[11px] font-extrabold uppercase tracking-widest text-brand-warning bg-brand-warning/10 px-3 py-1 rounded-full border border-brand-warning/20 inline-block mb-3">
-        Efectivo en Mano (A Rendir)
+        Monto Total a Entregar
       </span>
 
       <div class="text-4xl font-black text-white tracking-tight my-1">
-        $16.700
+        $40.000
       </div>
 
       <p class="text-xs text-brand-textMuted max-w-[280px] mx-auto mt-2 leading-relaxed">
-        Monto total cobrado a clientes en efectivo que debes entregar a la central de <strong class="text-white">Todo Delivery</strong>.
+        Monto a entregar a la central de <strong class="text-white">Todo Delivery</strong>.
       </p>
     </section>
 
@@ -106,29 +109,29 @@
 
       <!-- Ganancia Neta Cadete -->
       <div class="flex justify-between items-center text-xs">
-        <span class="text-brand-textMuted font-medium">Tus ganancias (11 envíos)</span>
-        <span class="font-extrabold text-brand-accent text-sm">+$24.500</span>
+        <span class="text-brand-textMuted font-medium">Total facturado en el día. (11 envíos)</span>
+        <span class="font-extrabold text-brand-accent text-sm">+ $100.000</span>
       </div>
 
       <!-- Cobros Efectivo -->
       <div class="flex justify-between items-center text-xs">
-        <span class="text-brand-textMuted font-medium">Cobros en efectivo recibidos</span>
-        <span class="font-extrabold text-white text-sm">$16.700</span>
+        <span class="text-brand-textMuted font-medium">Horas activas como cadete</span>
+        <span class="font-extrabold text-white text-sm">+ 8hs</span>
       </div>
 
       <!-- Cobros Digitales / Ya en Sistema -->
       <div class="flex justify-between items-center text-xs">
-        <span class="text-brand-textMuted font-medium">Cobros digitales (App/Transferencia)</span>
-        <span class="font-extrabold text-brand-textMuted text-sm">$32.100</span>
+        <span class="text-brand-textMuted font-medium">Monto a rendir en la empresa. (40%)</span>
+        <span class="font-extrabold text-brand-textMuted text-sm">- $40.000</span>
       </div>
 
       <!-- Compensación / Ajuste -->
       <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
         <div>
-          <span class="text-xs font-bold text-white block">Neto a transferir/cobrar</span>
-          <span class="text-[10px] text-brand-textMuted">Ganancia vs. Efectivo retenido</span>
+          <span class="text-xs font-bold text-white block">Tus ganancias el dia de hoy </span>
+          <span class="text-[10px] text-brand-textMuted">60% del total facturado en el dia</span>
         </div>
-        <span class="text-base font-black text-brand-accent">+$7.800 a tu favor</span>
+        <span class="text-base font-black text-brand-accent">+$60.000 </span>
       </div>
     </section>
 
