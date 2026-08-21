@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090B10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Todo Delivery - Panel Cadete</title>
+  
+  <!-- Fuente Google Inter / Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              bg: '#090B10',
+              surface: '#121620',
+              surfaceLight: '#1A202E',
+              accent: '#00E58F',
+              accentHover: '#00C77B',
+              accentGlow: 'rgba(0, 229, 143, 0.25)',
+              danger: '#FF4D4D',
+              dangerGlow: 'rgba(255, 77, 77, 0.25)',
+              warning: '#FFB800',
+              textMuted: '#8E9AA8',
+              border: '#1F2636'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      background-color: #090B10;
+      color: #FFFFFF;
+      overflow-x: hidden;
+      min-height: 100dvh;
+    }
+
+    /* Animación de pulso Radar para búsqueda de pedidos */
+    @keyframes radarPulse {
+      0% {
+        transform: scale(0.95);
+        opacity: 0.8;
+      }
+      50% {
+        transform: scale(1.35);
+        opacity: 0.2;
+      }
+      100% {
+        transform: scale(1.8);
+        opacity: 0;
+      }
+    }
+
+    .radar-ring {
+      animation: radarPulse 2.5s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+
+    /* Sombras dinámicas según estado */
+    .glow-online {
+      box-shadow: 0 0 35px -5px rgba(0, 229, 143, 0.3);
+    }
+    .glow-offline {
+      box-shadow: 0 0 35px -5px rgba(255, 77, 77, 0.2);
+    }
+
+    /* Barra de tiempo regresivo para pedido entrante */
+    @keyframes countdown {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .timer-bar {
+      animation: countdown 15s linear forwards;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-[100dvh] max-w-md mx-auto bg-brand-bg relative pb-8">
+
+  <!-- ============================================== -->
+  <!-- 1. HEADER OPERATIVO                             -->
+  <!-- ============================================== -->
+  <header class="p-5 pt-7 flex items-center justify-between border-b border-brand-border/50 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-30">
+    <!-- Perfil del Cadete -->
+    <div class="flex items-center gap-3">
+      <div class="relative">
+        <div class="w-11 h-11 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-white font-bold text-base">
+          RC
+        </div>
+        <!-- Indicador GPS en Vivo -->
+        <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-brand-accent rounded-full border-2 border-brand-bg flex items-center justify-center">
+          <span class="w-1.5 h-1.5 bg-brand-bg rounded-full"></span>
+        </span>
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <h1 class="text-sm font-bold text-white">Ramiro Córdoba</h1>
+          <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-surfaceLight text-brand-textMuted border border-brand-border">CADETE</span>
+        </div>
+        <p class="text-xs text-brand-textMuted flex items-center gap-1 mt-0.5">
+          <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          GPS Preciso &bull; San Juan
+        </p>
+      </div>
+    </div>
+
+    <!-- Marca de la Empresa -->
+    <div class="text-right">
+      <span class="text-xs font-extrabold tracking-tight text-white block">Todo <span class="text-brand-accent">Delivery</span></span>
+      <span class="text-[10px] text-brand-textMuted uppercase tracking-wider font-semibold">Central</span>
+    </div>
+  </header>
+
+  <main class="flex-1 p-5 space-y-6">
+
+    <!-- ============================================== -->
+    <!-- 2. CARD PRINCIPAL: TOGGLE DE ESTADO            -->
+    <!-- ============================================== -->
+    <section id="statusCard" class="relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-online">
+      
+      <!-- Fondo Ilustrativo Radar (Sintético) -->
+      <div id="radarAnimation" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-100 transition-opacity">
+        <div class="w-48 h-48 rounded-full border border-brand-accent/30 radar-ring absolute"></div>
+        <div class="w-32 h-32 rounded-full border border-brand-accent/20 absolute"></div>
+      </div>
+
+      <div class="relative z-10 flex flex-col items-center">
+        <!-- Badge Superior de Estado -->
+        <span id="statusBadge" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-bold uppercase tracking-wider mb-4">
+          <span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span>
+          Conectado - Recibiendo Pedidos
+        </span>
+
+        <h2 id="statusTitle" class="text-2xl font-extrabold text-white tracking-tight">Estás en Turno Activo</h2>
+        <p id="statusDesc" class="text-xs text-brand-textMuted mt-1 max-w-[250px] leading-relaxed">
+          Mantén la app abierta. Los pedidos cercanos asignados por el sistema aparecerán en tu pantalla.
+        </p>
+
+        <!-- Botón Gigante de Conexión/Desconexión -->
+        <button
+          id="toggleBtn"
+          onclick="toggleServiceStatus()"
+          class="mt-6 w-full py-4 px-6 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M12 3v9"></path>
+          </svg>
+          <span id="toggleBtnText">Finalizar Turno</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 3. RESUMEN DE MÉTRICAS DEL DÍA                 -->
+    <!-- ============================================== -->
+    <section>
+      <div class="flex items-center justify-between mb-3 px-1">
+        <h3 class="text-xs font-extrabold uppercase tracking-widest text-brand-textMuted">Métricas de Hoy</h3>
+        <span class="text-xs font-bold text-brand-accent">Turno Tarde</span>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <!-- Ganancias -->
+        <div class="bg-brand-surface border border-brand-border rounded-2xl p-4 flex flex-col justify-between">
+          <div class="text-brand-accent mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div>
+            <span class="text-[11px] font-semibold text-brand-textMuted block">Ganado</span>
+            <span class="text-lg font-extrabold text-white mt-0.5 block">$18.450</span>
+          </div>
+        </div>
+
+        <!-- Entregas Completadas -->
+        <div class="bg-brand-surface border border-brand-border rounded-2xl p-4 flex flex-col justify-between">
+          <div class="text-brand-accent mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <div>
+            <span class="text-[11px] font-semibold text-brand-textMuted block">Pedidos</span>
+            <span class="text-lg font-extrabold text-white mt-0.5 block">9</span>
+          </div>
+        </div>
+
+        <!-- Horas en Línea -->
+        <div class="bg-brand-surface border border-brand-border rounded-2xl p-4 flex flex-col justify-between">
+          <div class="text-brand-textMuted mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div>
+            <span class="text-[11px] font-semibold text-brand-textMuted block">Tiempo</span>
+            <span class="text-lg font-extrabold text-white mt-0.5 block">4.2 hs</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 4. ACCESOS RÁPIDOS Y ESTADO DE CAJA            -->
+    <!-- ============================================== -->
+    <section class="bg-brand-surface border border-brand-border rounded-2xl p-4 flex items-center justify-between">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-warning">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+          </svg>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold text-white">Efectivo en Mano a Rendir</h4>
+          <p class="text-xs text-brand-textMuted mt-0.5">Cobros acumulados: <strong class="text-white">$8.200</strong></p>
+        </div>
+      </div>
+      <button onclick="alert('Muestra el resumen de rendición para entregar a la Administración.')" class="px-3 py-2 bg-brand-surfaceLight hover:bg-brand-border border border-brand-border rounded-xl text-xs font-semibold text-white transition-colors">
+        Detalle
+      </button>
+    </section>
+
+    <!-- BOTÓN DE PRUEBA / SIMULADOR DE PEDIDO ENTRANTE -->
+    <div class="pt-4 text-center">
+      <button 
+        onclick="triggerIncomingOrderModal()"
+        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-brand-surfaceLight border border-brand-border text-xs font-bold text-brand-accent hover:border-brand-accent/50 transition-all"
+      >
+        <span class="w-2 h-2 rounded-full bg-brand-accent"></span>
+        Simular Pedido Entrante (Test)
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ============================================== -->
+  <!-- 5. MODAL DISPATCHER: NUEVO PEDIDO ENTRANTE     -->
+  <!-- ============================================== -->
+  <div id="orderModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="w-full max-w-md bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-6 space-y-5 transform translate-y-full sm:translate-y-0 transition-transform duration-300" id="orderModalContent">
+      
+      <!-- Barra de Tiempo Regresivo -->
+      <div class="w-full h-1.5 bg-brand-surfaceLight rounded-full overflow-hidden">
+        <div id="timerBar" class="h-full bg-brand-accent"></div>
+      </div>
+
+      <!-- Header del Pedido -->
+      <div class="flex items-start justify-between pt-1">
+        <div>
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-[11px] font-extrabold uppercase">
+            ¡NUEVO PEDIDO DISPONIBLE!
+          </span>
+          <h3 class="text-xl font-extrabold text-white mt-2">Empanadas Don Luis</h3>
+          <p class="text-xs text-brand-textMuted mt-0.5">Orden #4820 &bull; 2 artículos</p>
+        </div>
+
+        <!-- Pago Estimado Cadete -->
+        <div class="text-right">
+          <span class="text-2xl font-black text-brand-accent">$2.450</span>
+          <span class="text-[10px] text-brand-textMuted block font-bold uppercase">Tu Ganancia</span>
+        </div>
+      </div>
+
+      <!-- Información de Distancia y Tiempos -->
+      <div class="grid grid-cols-2 gap-2 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-2xl p-3 text-center">
+        <div>
+          <span class="text-[10px] uppercase font-bold text-brand-textMuted block">Distancia Total</span>
+          <span class="text-sm font-extrabold text-white mt-0.5 block">2.3 km</span>
+        </div>
+        <div class="border-l border-brand-border/60">
+          <span class="text-[10px] uppercase font-bold text-brand-textMuted block">Tiempo Estimado</span>
+          <span class="text-sm font-extrabold text-white mt-0.5 block">14 mins</span>
+        </div>
+      </div>
+
+      <!-- Ruta de Retiro y Entrega -->
+      <div class="space-y-3 pl-1">
+        <!-- Punto A: Retiro -->
+        <div class="flex items-start gap-3">
+          <div class="flex flex-col items-center mt-1">
+            <span class="w-3 h-3 rounded-full bg-brand-accent"></span>
+            <span class="w-0.5 h-7 bg-brand-border"></span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-brand-accent uppercase tracking-wider">Retiro en Local</span>
+            <p class="text-xs font-bold text-white">Av. Libertador 450 (Centro)</p>
+          </div>
+        </div>
+
+        <!-- Punto B: Entrega -->
+        <div class="flex items-start gap-3">
+          <div class="flex flex-col items-center">
+            <span class="w-3 h-3 rounded-full bg-brand-warning"></span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-brand-warning uppercase tracking-wider">Entrega al Cliente</span>
+            <p class="text-xs font-bold text-white">Calle San Martín 1234, 4° B</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modalidad de Pago del Cliente -->
+      <div class="p-3 bg-brand-bg rounded-xl border border-brand-border flex items-center justify-between text-xs">
+        <span class="text-brand-textMuted font-medium">Forma de pago cliente:</span>
+        <span class="font-extrabold text-brand-warning bg-brand-warning/10 px-2.5 py-1 rounded-lg border border-brand-warning/20">
+          Efectivo: Cobrar $8.500
+        </span>
+      </div>
+
+      <!-- Botones de Acción Instantánea -->
+      <div class="grid grid-cols-2 gap-3 pt-2">
+        <button
+          onclick="rejectOrder()"
+          class="py-4 px-4 rounded-2xl bg-brand-surfaceLight border border-brand-border text-brand-textMuted font-extrabold text-xs uppercase tracking-wider hover:text-white active:scale-[0.97] transition-all"
+        >
+          Rechazar
+        </button>
+
+        <button
+          onclick="acceptOrder()"
+          class="py-4 px-4 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-xs uppercase tracking-wider hover:bg-brand-accentHover active:scale-[0.97] transition-all shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-1.5"
+        >
+          <span>Aceptar Pedido</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- LÓGICA DE INTERACCIÓN -->
+  <script>
+    let isOnline = true;
+    let timerTimeout;
+
+    // Toggle Conectado / Desconectado
+    function toggleServiceStatus() {
+      isOnline = !isOnline;
+
+      const card = document.getElementById('statusCard');
+      const badge = document.getElementById('statusBadge');
+      const title = document.getElementById('statusTitle');
+      const desc = document.getElementById('statusDesc');
+      const btn = document.getElementById('toggleBtn');
+      const btnText = document.getElementById('toggleBtnText');
+      const radar = document.getElementById('radarAnimation');
+
+      if (isOnline) {
+        // Estado Conectado
+        card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-online";
+        badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-bold uppercase tracking-wider mb-4";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span> Conectado - Recibiendo Pedidos`;
+        title.innerText = "Estás en Turno Activo";
+        desc.innerText = "Mantén la app abierta. Los pedidos cercanos asignados por el sistema aparecerán en tu pantalla.";
+        btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20";
+        btnText.innerText = "Finalizar Turno";
+        radar.style.opacity = "1";
+      } else {
+        // Estado Desconectado
+        card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-offline";
+        badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-danger/15 border border-brand-danger/30 text-brand-danger text-xs font-bold uppercase tracking-wider mb-4";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-danger"></span> Fuera de Servicio`;
+        title.innerText = "Estás Desconectado";
+        desc.innerText = "No recibirás solicitudes de entrega ni reportarás ubicación en tiempo real.";
+        btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-surfaceLight border border-brand-border text-white font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2";
+        btnText.innerText = "Iniciar Turno / Conectar";
+        radar.style.opacity = "0";
+      }
+    }
+
+    // Modal de Pedido Entrante
+    function triggerIncomingOrderModal() {
+      if (!isOnline) {
+        alert("Debes estar en estado CONECTADO para recibir pedidos.");
+        return;
+      }
+
+      const modal = document.getElementById('orderModal');
+      const content = document.getElementById('orderModalContent');
+      const timerBar = document.getElementById('timerBar');
+
+      // Resetear animación del timer
+      timerBar.classList.remove('timer-bar');
+      void timerBar.offsetWidth; // Trigger reflow
+      timerBar.classList.add('timer-bar');
+
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      content.classList.remove('translate-y-full');
+
+      // Notificación táctil / vibración si el dispositivo lo soporta
+      if ("vibrate" in navigator) {
+        navigator.vibrate([200, 100, 200, 100, 400]);
+      }
+
+      // Auto-rechazo al terminar 15s
+      timerTimeout = setTimeout(() => {
+        rejectOrder();
+      }, 15000);
+    }
+
+    function rejectOrder() {
+      clearTimeout(timerTimeout);
+      closeModal();
+    }
+
+    function acceptOrder() {
+      clearTimeout(timerTimeout);
+      closeModal();
+      alert("¡Pedido #4820 Aceptado! Redirigiendo a la pantalla de Navegación y Retiro...");
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('orderModal');
+      const content = document.getElementById('orderModalContent');
+
+      content.classList.add('translate-y-full');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+    }
+  </script>
+</body>
+</html>

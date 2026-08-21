@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Todo Delivery - Modo Ruta</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              black: '#000000',
+              surface: '#111318',
+              surfaceLight: '#1C2029',
+              accent: '#00E58F',
+              accentDark: '#00B36B',
+              warning: '#FFC800',
+              danger: '#FF3B30',
+              textMuted: '#9CA3AF',
+              border: '#262C3A'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      background-color: #000000;
+      color: #FFFFFF;
+      overflow: hidden;
+      height: 100dvh;
+      width: 100vw;
+    }
+
+    /* Estilo del Mapa Vectorial Minimalista */
+    .map-bg {
+      background: radial-gradient(circle at center, #151A24 0%, #090B10 100%);
+    }
+    
+    /* Pulso del marcador GPS de la moto */
+    @keyframes gpsPulse {
+      0% { transform: scale(1); opacity: 0.9; }
+      100% { transform: scale(2.6); opacity: 0; }
+    }
+    .gps-glow {
+      animation: gpsPulse 1.8s infinite ease-out;
+    }
+
+    /* Línea de Ruta de navegación iluminada */
+    .route-glow {
+      filter: drop-shadow(0 0 6px rgba(0, 229, 143, 0.7));
+    }
+  </style>
+</head>
+<body class="font-sans antialiased flex flex-col justify-between relative">
+
+  <!-- ======================================================== -->
+  <!-- 1. MAPA GPS EN VIVO INTEGRADO (FONDO COMPLETO)           -->
+  <!-- ======================================================== -->
+  <div class="absolute inset-0 z-0 map-bg overflow-hidden flex items-center justify-center">
+    <!-- SVG Vectorial: Calles, Cuadrícula y Ruta Trazada -->
+    <svg class="w-full h-full object-cover opacity-85" viewBox="0 0 400 800" fill="none">
+      <!-- Calles secundarias oscuras -->
+      <path d="M-50 150 H450 M-50 320 H450 M-50 500 H450 M-50 680 H450" stroke="#1A2230" stroke-width="14" />
+      <path d="M90 -50 V850 M210 -50 V850 M330 -50 V850" stroke="#1A2230" stroke-width="14" />
+      
+      <!-- Avenidas principales -->
+      <path d="M-50 220 H450" stroke="#222B3D" stroke-width="26" />
+      <path d="M210 -50 V850" stroke="#222B3D" stroke-width="26" />
+      
+      <!-- RUTA ACTIVA NEÓN (Verde estilo Uber Driver) -->
+      <path id="routeLine" d="M210 520 L210 220 L370 220" stroke="#00E58F" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" class="route-glow" />
+
+      <!-- Marcador Punto de Destino (Local o Cliente) -->
+      <g transform="translate(370, 220)">
+        <circle r="14" fill="#000000" />
+        <circle r="9" fill="#00E58F" />
+        <circle r="4" fill="#FFFFFF" />
+      </g>
+
+      <!-- Marcador Cadete (Ubicación GPS en vivo con Rumbo) -->
+      <g transform="translate(210, 520)">
+        <circle r="22" fill="#00E58F" class="gps-glow opacity-40" />
+        <circle r="13" fill="#00E58F" />
+        <circle r="9" fill="#000000" />
+        <!-- Flecha de Rumbo -->
+        <polygon points="210,512 215,524 210,521 205,524" fill="#00E58F" transform="translate(-210, -520)" />
+      </g>
+    </svg>
+
+    <!-- Botón Recentrar GPS Flotante -->
+    <button onclick="recenterMap()" class="absolute right-4 bottom-72 w-12 h-12 rounded-2xl bg-brand-surface/90 border border-brand-border backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform shadow-xl">
+      <svg class="w-6 h-6 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 2. BANNER DE NAVEGACIÓN SUPERIOR (ALTO IMPACTO / VISIBLE) -->
+  <!-- ======================================================== -->
+  <header class="relative z-10 mx-3 mt-3 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-3xl p-4 shadow-2xl flex items-center gap-4">
+    <!-- Flecha de maniobra gigante -->
+    <div id="navManeuverBox" class="w-16 h-16 rounded-2xl bg-brand-accent flex items-center justify-center text-brand-black shrink-0 shadow-lg">
+      <svg id="navManeuverIcon" class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+      </svg>
+    </div>
+
+    <!-- Indicación de Giro y Distancia -->
+    <div class="flex-1 min-w-0">
+      <div class="flex items-baseline gap-2">
+        <span id="navDistance" class="text-2xl font-black text-white tracking-tight">350 m</span>
+        <span class="text-xs font-bold text-brand-accent uppercase tracking-wider">En 2 min</span>
+      </div>
+      <p id="navStreet" class="text-sm font-extrabold text-brand-textMuted truncate mt-0.5">
+        Gire a la derecha en Av. Libertador
+      </p>
+    </div>
+  </header>
+
+  <!-- ======================================================== -->
+  <!-- 3. BOTTOM SHEET: PANEL DE CONTROL DE ENTREGA             -->
+  <!-- ======================================================== -->
+  <footer class="relative z-10 bg-brand-surface/95 backdrop-blur-2xl border-t border-brand-border rounded-t-[32px] p-5 pb-7 shadow-2xl space-y-4 max-w-md mx-auto w-full">
+    
+    <!-- Manija táctil -->
+    <div class="w-12 h-1 bg-brand-border rounded-full mx-auto -mt-1 mb-2"></div>
+
+    <!-- Fila 1: Estado del Paso actual y Contacto Directo -->
+    <div class="flex items-center justify-between">
+      <div>
+        <span id="phaseTag" class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
+          PASO 1 DE 2 &bull; RETIRO
+        </span>
+        <h2 id="destinationTitle" class="text-xl font-black text-white mt-1.5 tracking-tight">
+          Empanadas Don Luis
+        </h2>
+        <p id="orderIdText" class="text-xs font-bold text-brand-textMuted mt-0.5">Orden #4820 &bull; 2 ítems</p>
+      </div>
+
+      <!-- Botón de Llamada Gigante -->
+      <a href="tel:549264000000" class="w-14 h-14 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent active:scale-90 transition-transform">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+        </svg>
+      </a>
+    </div>
+
+    <!-- Fila 2: Indicador de Cobro en Efectivo (Solo visible si aplica) -->
+    <div id="cashBanner" class="p-3.5 bg-brand-surfaceLight rounded-2xl border border-brand-warning/30 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-brand-warning"></span>
+        <span class="text-xs font-bold text-brand-textMuted uppercase tracking-wide">Cobro en Destino:</span>
+      </div>
+      <span class="text-sm font-black text-brand-warning tracking-tight">$8.500 EFECTIVO</span>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- 4. BOTÓN "DESLIZAR PARA CONFIRMAR" (ESTILO UBER)         -->
+    <!-- ======================================================== -->
+    <div class="relative w-full h-16 bg-brand-surfaceLight border border-brand-border rounded-2xl overflow-hidden flex items-center p-1.5 select-none" id="swipeTrack">
+      
+      <!-- Texto central del botón -->
+      <span id="swipeLabel" class="absolute inset-0 flex items-center justify-center text-xs font-black tracking-widest text-white uppercase pointer-events-none pl-10">
+        Deslizar al llegar al local &gt;&gt;
+      </span>
+
+      <!-- Handle / Tirador deslizable táctil -->
+      <div id="swipeHandle" class="w-14 h-full bg-brand-accent rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all">
+        <svg id="swipeHandleIcon" class="w-6 h-6 transform" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+        </svg>
+      </div>
+    </div>
+
+  </footer>
+
+  <!-- ======================================================== -->
+  <!-- LÓGICA DE CONTROL, DESLIZAMIENTO Y CAMBIO DE ESTADOS     -->
+  <!-- ======================================================== -->
+  <script>
+    let stage = 1; // 1: Al local, 2: Retirado/Al cliente, 3: Entregado
+    const handle = document.getElementById('swipeHandle');
+    const track = document.getElementById('swipeTrack');
+    let isDragging = false;
+    let startX = 0;
+    let maxTranslate = 0;
+
+    // Recalcular dimensiones
+    function updateBounds() {
+      maxTranslate = track.clientWidth - handle.clientWidth - 12;
+    }
+    window.addEventListener('resize', updateBounds);
+    updateBounds();
+
+    // Eventos Táctiles (Mobile First)
+    handle.addEventListener('touchstart', (e) => {
+      isDragging = true;
+      startX = e.touches[0].clientX - handle.offsetLeft;
+      handle.style.transition = 'none';
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      let currentX = e.touches[0].clientX - startX;
+      if (currentX < 0) currentX = 0;
+      if (currentX > maxTranslate) currentX = maxTranslate;
+      handle.style.transform = `translateX(${currentX}px)`;
+
+      // Si llega al 90% del recorrido, confirma automáticamente
+      if (currentX >= maxTranslate * 0.9) {
+        isDragging = false;
+        triggerStageAdvance();
+      }
+    });
+
+    window.addEventListener('touchend', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      // Regresar al origen con resorte si no completó
+      handle.style.transition = 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      handle.style.transform = 'translateX(0px)';
+    });
+
+    // Avance de Etapas del Reparto
+    function triggerStageAdvance() {
+      // Vibración de éxito en el teléfono del cadete
+      if ("vibrate" in navigator) {
+        navigator.vibrate([100, 50, 100]);
+      }
+
+      handle.style.transition = 'transform 0.2s ease';
+      handle.style.transform = 'translateX(0px)';
+
+      if (stage === 1) {
+        // Pasa a: Pedido retirado -> En camino a casa del cliente
+        stage = 2;
+        document.getElementById('navDistance').innerText = '1.8 km';
+        document.getElementById('navStreet').innerText = 'Continúe derecho por Calle San Martín';
+        document.getElementById('phaseTag').innerText = 'PASO 2 DE 2 • ENTREGA';
+        document.getElementById('phaseTag').className = 'text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-brand-warning/15 text-brand-warning border border-brand-warning/30';
+        document.getElementById('destinationTitle').innerText = 'Lucas Benítez (Cliente)';
+        document.getElementById('orderIdText').innerText = 'Calle San Martín 1234, Dpto 4B';
+        document.getElementById('swipeLabel').innerText = 'Deslizar para confirmar entrega >>';
+        document.getElementById('swipeHandle').className = 'w-14 h-full bg-brand-warning rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all';
+      } 
+      else if (stage === 2) {
+        // Pedido Entregado -> Vuelve al Panel de Disponibilidad
+        alert("¡Entrega completada! +$2.450 acreditados a tu cuenta.");
+        window.location.href = 'dashboard.html';
+      }
+    }
+
+    function recenterMap() {
+      if ("vibrate" in navigator) navigator.vibrate(40);
+      alert("GPS Centrado en tu ubicación actual.");
+    }
+  </script>
+</body>
+</html>
