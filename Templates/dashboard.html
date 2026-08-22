@@ -105,7 +105,7 @@
     <!-- Perfil del Cadete -->
     <div class="flex items-center gap-3">
       <div class="relative">
-        <div class="w-11 h-11 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-white font-bold text-base">
+        <div id="cadetAvatar" class="w-11 h-11 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-white font-bold text-base">
           RC
         </div>
         <!-- Indicador GPS en Vivo -->
@@ -115,10 +115,10 @@
       </div>
       <div>
         <div class="flex items-center gap-1.5">
-          <h1 class="text-sm font-bold text-white">Ramiro Córdoba</h1>
-          <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-surfaceLight text-brand-textMuted border border-brand-border">CADETE</span>
+          <h1 id="cadetName" class="text-sm font-bold text-white">Ramiro Córdoba</h1>
+          <span id="cadetBadge" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-surfaceLight text-brand-textMuted border border-brand-border">CADETE</span>
         </div>
-        <p class="text-xs text-brand-textMuted flex items-center gap-1 mt-0.5">
+        <p id="cadetVehicleInfo" class="text-xs text-brand-textMuted flex items-center gap-1 mt-0.5">
           <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -304,13 +304,13 @@
           <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-[11px] font-extrabold uppercase">
             ¡NUEVO PEDIDO DISPONIBLE!
           </span>
-          <h3 class="text-xl font-extrabold text-white mt-2">Empanadas Don Luis</h3>
-          <p class="text-xs text-brand-textMuted mt-0.5">Orden #4820 &bull; 2 artículos</p>
+          <h3 id="modalStoreName" class="text-xl font-extrabold text-white mt-2">Empanadas Don Luis</h3>
+          <p id="modalOrderSummary" class="text-xs text-brand-textMuted mt-0.5">Orden #4820 &bull; 2 artículos</p>
         </div>
 
         <!-- Pago Estimado Cadete -->
         <div class="text-right">
-          <span class="text-2xl font-black text-brand-accent">$2.450</span>
+          <span id="modalEarnings" class="text-2xl font-black text-brand-accent">$2.450</span>
           <span class="text-[10px] text-brand-textMuted block font-bold uppercase">Tu Ganancia</span>
         </div>
       </div>
@@ -319,11 +319,11 @@
       <div class="grid grid-cols-2 gap-2 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-2xl p-3 text-center">
         <div>
           <span class="text-[10px] uppercase font-bold text-brand-textMuted block">Distancia Total</span>
-          <span class="text-sm font-extrabold text-white mt-0.5 block">2.3 km</span>
+          <span id="modalDistance" class="text-sm font-extrabold text-white mt-0.5 block">2.3 km</span>
         </div>
         <div class="border-l border-brand-border/60">
           <span class="text-[10px] uppercase font-bold text-brand-textMuted block">Tiempo Estimado</span>
-          <span class="text-sm font-extrabold text-white mt-0.5 block">14 mins</span>
+          <span id="modalEstTime" class="text-sm font-extrabold text-white mt-0.5 block">14 mins</span>
         </div>
       </div>
 
@@ -337,7 +337,7 @@
           </div>
           <div>
             <span class="text-[10px] font-bold text-brand-accent uppercase tracking-wider">Retiro en Local</span>
-            <p class="text-xs font-bold text-white">Av. Libertador 450 (Centro)</p>
+            <p id="modalOrigin" class="text-xs font-bold text-white">Av. Libertador 450 (Centro)</p>
           </div>
         </div>
 
@@ -348,7 +348,7 @@
           </div>
           <div>
             <span class="text-[10px] font-bold text-brand-warning uppercase tracking-wider">Entrega al Cliente</span>
-            <p class="text-xs font-bold text-white">Calle San Martín 1234, 4° B</p>
+            <p id="modalDestination" class="text-xs font-bold text-white">Calle San Martín 1234, 4° B</p>
           </div>
         </div>
       </div>
@@ -356,7 +356,7 @@
       <!-- Modalidad de Pago del Cliente -->
       <div class="p-3 bg-brand-bg rounded-xl border border-brand-border flex items-center justify-between text-xs">
         <span class="text-brand-textMuted font-medium">Forma de pago cliente:</span>
-        <span class="font-extrabold text-brand-warning bg-brand-warning/10 px-2.5 py-1 rounded-lg border border-brand-warning/20">
+        <span id="modalPaymentInfo" class="font-extrabold text-brand-warning bg-brand-warning/10 px-2.5 py-1 rounded-lg border border-brand-warning/20">
           Efectivo: Cobrar $8.500
         </span>
       </div>
@@ -384,13 +384,84 @@
     </div>
   </div>
 
-  <!-- LÓGICA DE INTERACCIÓN -->
-  <script>
+  <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
+  <script type="module">
+    import { iniciarSuscripcionesDashboard, desconectarSuscripcionesDashboard } from '../Scripts/conexion_rt_pedidos_entrantes.js';
+
     let isOnline = true;
     let timerTimeout;
+    let currentActiveOrder = null;
+
+    // Obtener cadete actual desde localStorage o usar fallback si no hay sesión
+    let cadeteActual = {
+      id_cad: 1,
+      nombre_cad: 'Ramiro Córdoba',
+      alias_cad: 'Rama',
+      vehiculo_cad: 'Moto 150cc'
+    };
+
+    try {
+      const sessionData = localStorage.getItem('cadet_session');
+      if (sessionData) {
+        const parsed = JSON.parse(sessionData);
+        if (parsed && parsed.id_cad) {
+          cadeteActual = parsed;
+        }
+      }
+    } catch (err) {
+      console.warn('Error al leer datos de sesión del cadete:', err);
+    }
+
+    // Renderizar datos del cadete en el Header del Dashboard
+    function renderizarPerfilCadete() {
+      const nameEl = document.getElementById('cadetName');
+      const avatarEl = document.getElementById('cadetAvatar');
+      const badgeEl = document.getElementById('cadetBadge');
+      const vehicleEl = document.getElementById('cadetVehicleInfo');
+
+      const nombre = cadeteActual.nombre_cad || cadeteActual.alias_cad || `Cadete #${cadeteActual.id_cad}`;
+      if (nameEl) nameEl.innerText = nombre;
+
+      if (avatarEl) {
+        const initials = nombre
+          .split(' ')
+          .filter(Boolean)
+          .map(w => w[0])
+          .join('')
+          .substring(0, 2)
+          .toUpperCase() || 'C';
+        avatarEl.innerText = initials;
+      }
+
+      if (badgeEl) {
+        badgeEl.innerText = `CADETE #${cadeteActual.id_cad}`;
+      }
+
+      if (vehicleEl) {
+        const detalleVehiculo = cadeteActual.vehiculo_cad ? ` &bull; ${cadeteActual.vehiculo_cad}` : ' &bull; San Juan';
+        vehicleEl.innerHTML = `
+          <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          GPS Preciso${detalleVehiculo}
+        `;
+      }
+    }
+
+    // Conectar suscripciones Realtime al cargar la vista si está online
+    window.addEventListener('DOMContentLoaded', () => {
+      renderizarPerfilCadete();
+
+      if (isOnline) {
+        iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
+          triggerIncomingOrderModal(pedido);
+        });
+      }
+    });
 
     // Toggle Conectado / Desconectado
-    function toggleServiceStatus() {
+    window.toggleServiceStatus = function() {
       isOnline = !isOnline;
 
       const card = document.getElementById('statusCard');
@@ -411,6 +482,11 @@
         btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20";
         btnText.innerText = "Finalizar Turno";
         radar.style.opacity = "1";
+
+        // Iniciar presencia y escucha Realtime
+        iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
+          triggerIncomingOrderModal(pedido);
+        });
       } else {
         // Estado Desconectado
         card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-offline";
@@ -421,19 +497,65 @@
         btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-surfaceLight border border-brand-border text-white font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2";
         btnText.innerText = "Iniciar Turno / Conectar";
         radar.style.opacity = "0";
-      }
-    }
 
-    // Modal de Pedido Entrante
-    function triggerIncomingOrderModal() {
+        // Desconectar presencia y canales Realtime
+        desconectarSuscripcionesDashboard();
+      }
+    };
+
+    // Modal de Pedido Entrante (Soporta pedido real de Realtime o simulación de prueba)
+    window.triggerIncomingOrderModal = function(pedido = null) {
       if (!isOnline) {
         alert("Debes estar en estado CONECTADO para recibir pedidos.");
         return;
       }
 
+      currentActiveOrder = pedido;
+
+      // Elementos del Modal
       const modal = document.getElementById('orderModal');
       const content = document.getElementById('orderModalContent');
       const timerBar = document.getElementById('timerBar');
+
+      const storeEl = document.getElementById('modalStoreName');
+      const summaryEl = document.getElementById('modalOrderSummary');
+      const earningsEl = document.getElementById('modalEarnings');
+      const distanceEl = document.getElementById('modalDistance');
+      const timeEl = document.getElementById('modalEstTime');
+      const originEl = document.getElementById('modalOrigin');
+      const destEl = document.getElementById('modalDestination');
+      const payEl = document.getElementById('modalPaymentInfo');
+
+      // Si viene un pedido real de Supabase Realtime
+      if (pedido) {
+        const orderId = pedido.id_pedido || 'N/A';
+        const info = pedido.inform_pedido || 'Pedido de Comida';
+        const tipo = pedido.tipo_paquete || 'Bolsa';
+        const total = pedido.coste_pedido ? Number(pedido.coste_pedido) : 8500;
+        const gananciaEstimada = Math.round(total * 0.6); // 60% para el cadete
+        const distMetros = pedido.distancia_m || 2300;
+        const distKm = (distMetros / 1000).toFixed(1);
+        const minsEst = Math.max(5, Math.round(distMetros / 200));
+
+        storeEl.innerText = info.split('-')[0] || 'Pedido Asignado';
+        summaryEl.innerHTML = `Orden #${orderId} &bull; ${tipo}`;
+        earningsEl.innerText = `$${gananciaEstimada.toLocaleString('es-AR')}`;
+        distanceEl.innerText = `${distKm} km`;
+        timeEl.innerText = `${minsEst} mins`;
+        originEl.innerText = pedido.latitud_org && pedido.longitud_org ? `Origen (${pedido.latitud_org}, ${pedido.longitud_org})` : 'Av. Libertador 450 (Centro)';
+        destEl.innerText = pedido.latitud_dest && pedido.longitud_dest ? `Destino (${pedido.latitud_dest}, ${pedido.longitud_dest})` : 'Calle San Martín 1234, 4° B';
+        payEl.innerText = `Efectivo: Cobrar $${total.toLocaleString('es-AR')}`;
+      } else {
+        // Datos por defecto para botón de prueba
+        storeEl.innerText = 'Empanadas Don Luis';
+        summaryEl.innerHTML = 'Orden #4820 &bull; 2 artículos';
+        earningsEl.innerText = '$2.450';
+        distanceEl.innerText = '2.3 km';
+        timeEl.innerText = '14 mins';
+        originEl.innerText = 'Av. Libertador 450 (Centro)';
+        destEl.innerText = 'Calle San Martín 1234, 4° B';
+        payEl.innerText = 'Efectivo: Cobrar $8.500';
+      }
 
       // Resetear animación del timer
       timerBar.classList.remove('timer-bar');
@@ -443,35 +565,36 @@
       modal.classList.remove('opacity-0', 'pointer-events-none');
       content.classList.remove('translate-y-full');
 
-      // Notificación táctil / vibración si el dispositivo lo soporta
+      // Notificación táctil / vibración
       if ("vibrate" in navigator) {
         navigator.vibrate([200, 100, 200, 100, 400]);
       }
 
       // Auto-rechazo al terminar 15s
+      clearTimeout(timerTimeout);
       timerTimeout = setTimeout(() => {
         rejectOrder();
       }, 15000);
-    }
+    };
 
-    function rejectOrder() {
+    window.rejectOrder = function() {
       clearTimeout(timerTimeout);
       closeModal();
-    }
+    };
 
-    function acceptOrder() {
+    window.acceptOrder = function() {
       clearTimeout(timerTimeout);
       closeModal();
       window.location.href = 'pedido_activo.html';
-    }
+    };
 
-    function closeModal() {
+    window.closeModal = function() {
       const modal = document.getElementById('orderModal');
       const content = document.getElementById('orderModalContent');
 
       content.classList.add('translate-y-full');
       modal.classList.add('opacity-0', 'pointer-events-none');
-    }
+    };
   </script>
 </body>
 </html>

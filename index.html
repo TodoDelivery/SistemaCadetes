@@ -249,8 +249,19 @@
     </footer>
   </main>
 
-  <!-- LÓGICA DE CONTROL Y TRANSICIÓN -->
-  <script>
+  <!-- LÓGICA DE CONTROL Y AUTENTICACIÓN SUPABASE -->
+  <script type="module">
+    import { supabase } from './Scripts/conexion_supabase.js';
+
+    // Función para calcular Hash SHA-256 en formato Hexadecimal
+    async function hashSHA256(text) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     // Simulación de carga y redirección fluida al Login
     window.addEventListener('DOMContentLoaded', () => {
       const splash = document.getElementById('splashScreen');
@@ -275,16 +286,28 @@
     });
 
     // Alternar visibilidad de PIN / Clave
-    function togglePinVisibility() {
+    window.togglePinVisibility = function() {
       const pinInput = document.getElementById('cadetPin');
       const isPassword = pinInput.type === 'password';
       pinInput.type = isPassword ? 'text' : 'password';
-    }
+    };
 
-    // Manejo de Login
-    function handleLogin(e) {
+    // Manejo de Login con Verificación en Supabase
+    window.handleLogin = async function(e) {
       e.preventDefault();
+      const cadetIdInput = document.getElementById('cadetId');
+      const cadetPinInput = document.getElementById('cadetPin');
       const btn = document.getElementById('btnLogin');
+
+      const idCad = cadetIdInput.value.trim();
+      const rawPin = cadetPinInput.value;
+
+      if (!idCad || !rawPin) {
+        alert('Por favor, completa todos los campos.');
+        return;
+      }
+
+      // Estado de carga en el botón
       btn.innerHTML = `
         <svg class="animate-spin h-5 w-5 text-brand-bg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -294,12 +317,69 @@
       `;
       btn.disabled = true;
 
-      // Simulación de respuesta del backend
-      setTimeout(() => {
-        window.location.href = 'dashboard.html';
+      const resetBtn = () => {
+        btn.innerHTML = `
+          <span>Iniciar Turno / Conectar</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+          </svg>
+        `;
         btn.disabled = false;
-      }, 1500);
-    }
+      };
+
+      try {
+        // 1. Hashear contraseña ingresada con SHA-256
+        const hashedInputPin = await hashSHA256(rawPin);
+
+        // 2. Consultar en Supabase la tabla 'Cadetes' con todos los campos (*) filtrando por 'id_cad'
+        const { data: cadet, error } = await supabase
+          .from('Cadetes')
+          .select('*')
+          .eq('id_cad', idCad)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error al consultar Supabase:', error);
+          alert(`Error al conectar con el servidor: ${error.message || 'Intente nuevamente'}`);
+          resetBtn();
+          return;
+        }
+
+        // 3. Verificar si el usuario existe
+        if (!cadet) {
+          alert('El ID o DNI de cadete no está registrado en el sistema.');
+          resetBtn();
+          return;
+        }
+
+        // 4. Comparar el hash de la contraseña (ignorando mayúsculas/minúsculas)
+        const storedHash = (cadet.contra_cad || '').toLowerCase().trim();
+        if (storedHash !== hashedInputPin.toLowerCase()) {
+          alert('La clave o PIN ingresado es incorrecto.');
+          resetBtn();
+          return;
+        }
+
+        // 5. Autenticación exitosa: guardar datos del cadete en localStorage y redirigir
+        localStorage.setItem('cadet_session', JSON.stringify(cadet));
+
+        btn.innerHTML = `
+          <svg class="w-5 h-5 text-brand-bg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span>¡Acceso Concedido!</span>
+        `;
+
+        setTimeout(() => {
+          window.location.href = 'Templates/dashboard.html';
+        }, 600);
+
+      } catch (err) {
+        console.error('Error inesperado durante el login:', err);
+        alert('Ocurrió un error inesperado al procesar el inicio de sesión.');
+        resetBtn();
+      }
+    };
   </script>
 </body>
 </html>
