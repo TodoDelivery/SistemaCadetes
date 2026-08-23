@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090B10" />
+  <title>Todo Delivery - App Cliente (Pruebas & Realtime)</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              bg: '#090B10',
+              surface: '#121620',
+              surfaceLight: '#1A202E',
+              accent: '#00E58F',
+              accentHover: '#00C77B',
+              warning: '#FFB800',
+              danger: '#FF4D4D',
+              info: '#3B82F6',
+              textMuted: '#8E9AA8',
+              border: '#1F2636'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    body {
+      background-color: #090B10;
+      color: #FFFFFF;
+      min-height: 100dvh;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.08); }
+    }
+    .pulse-radar {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="p-3 sm:p-6 flex justify-center items-start antialiased">
+
+  <div class="w-full max-w-2xl space-y-6">
+
+    <!-- ======================================================== -->
+    <!-- 1. HEADER & AUTENTICACIÓN CLIENTE                        -->
+    <!-- ======================================================== -->
+    <header class="bg-brand-surface border border-brand-border rounded-3xl p-5 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent font-black">
+            TD
+          </div>
+          <div>
+            <h1 class="text-base font-extrabold text-white">Todo <span class="text-brand-accent">Delivery</span></h1>
+            <p class="text-[11px] text-brand-textMuted uppercase font-bold tracking-wider">Módulo Cliente &bull; Simulador de Pedidos</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado de Autenticación / Perfil -->
+      <div id="authContainer" class="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
+        <!-- Cargando sesión -->
+        <span id="authLoading" class="text-xs font-semibold text-brand-textMuted flex items-center gap-2">
+          <svg class="animate-spin h-4 w-4 text-brand-accent" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          Comprobando sesión...
+        </span>
+
+        <!-- Botones de Login (Ocultos si está autenticado) -->
+        <div id="authButtons" class="hidden flex flex-wrap items-center gap-2">
+          <!-- 1. Google Login Oficial -->
+          <button 
+            type="button"
+            onclick="loginWithGoogle()" 
+            class="px-3.5 py-2 rounded-xl bg-white text-black font-extrabold text-xs flex items-center gap-1.5 hover:bg-gray-100 active:scale-95 transition-all shadow-md"
+            title="Iniciar sesión con cuenta de Google"
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+            </svg>
+            <span>Google</span>
+          </button>
+
+          <!-- 2. Login Rápido 1-Click con Usuario Real de Supabase Auth (Sin configuración extra) -->
+          <button 
+            type="button"
+            onclick="loginWithDemoAuth()" 
+            class="px-3.5 py-2 rounded-xl bg-brand-accent text-brand-bg font-extrabold text-xs active:scale-95 transition-all shadow-md shadow-brand-accent/20 flex items-center gap-1.5"
+            title="Crea o inicia sesión con un usuario real en Supabase Auth al instante"
+          >
+            <span>⚡ Login Rápido (1-Click)</span>
+          </button>
+        </div>
+
+        <!-- Usuario Autenticado -->
+        <div id="authProfile" class="hidden flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto bg-brand-surfaceLight sm:bg-transparent p-3 sm:p-0 rounded-2xl border sm:border-0 border-brand-border">
+          <div class="text-left sm:text-right">
+            <h2 id="userDisplayName" class="text-xs font-bold text-white">Cliente</h2>
+            <span id="userDisplayId" class="text-[10px] font-mono text-brand-accent block truncate max-w-[200px]">UUID</span>
+          </div>
+          <button onclick="handleLogout()" class="p-2 rounded-xl bg-brand-surfaceLight hover:bg-brand-danger/20 hover:text-brand-danger border border-brand-border text-brand-textMuted text-xs transition-colors" title="Cerrar Sesión">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ======================================================== -->
+    <!-- 2. FORMULARIO DE CREACIÓN DE PEDIDO                      -->
+    <!-- ======================================================== -->
+    <section class="bg-brand-surface border border-brand-border rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+      <div class="flex items-center justify-between border-b border-brand-border/60 pb-3">
+        <div>
+          <h2 class="text-base font-extrabold text-white">Nuevo Pedido de Prueba</h2>
+          <p class="text-xs text-brand-textMuted">Inserta en la tabla <code class="text-brand-accent font-mono">Pedidos</code> y dispara la función de asignación</p>
+        </div>
+        <span class="px-2.5 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-[11px] font-black uppercase">
+          Enlace Realtime
+        </span>
+      </div>
+
+      <form id="formCrearPedido" onsubmit="handleCrearPedido(event)" class="space-y-4">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Detalle / Negocio -->
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-brand-textMuted mb-1.5">Información / Local (inform_pedido)</label>
+            <input 
+              id="inpInformPedido" 
+              type="text" 
+              required
+              value="Empanadas Don Luis - 1x Docena Criolla" 
+              class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs font-medium focus:outline-none focus:border-brand-accent"
+            />
+          </div>
+
+          <!-- Tipo de Paquete -->
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-brand-textMuted mb-1.5">Tipo de Paquete (tipo_paquete)</label>
+            <select id="inpTipoPaquete" class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs font-medium focus:outline-none focus:border-brand-accent">
+              <option value="Bolsa de Comida">Bolsa de Comida</option>
+              <option value="Caja de Pizza">Caja de Pizza</option>
+              <option value="Bebidas">Bebidas</option>
+              <option value="Paquete Chico">Paquete Chico</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- Coste del Pedido -->
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-brand-textMuted mb-1.5">Costo Total $ (coste_pedido)</label>
+            <input 
+              id="inpCostePedido" 
+              type="number" 
+              required
+              value="8500" 
+              class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-brand-warning font-black text-sm focus:outline-none focus:border-brand-accent"
+            />
+          </div>
+
+          <!-- Coordenadas Origen (Local) -->
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-brand-textMuted mb-1.5">Origen (latitud_org, longitud_org)</label>
+            <input 
+              id="inpCoordsOrigen" 
+              type="text" 
+              required
+              value="-31.5375, -68.5364" 
+              class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-white font-mono text-xs focus:outline-none focus:border-brand-accent"
+            />
+          </div>
+
+          <!-- Coordenadas Destino (Cliente) -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-[11px] font-bold uppercase text-brand-textMuted">Destino (lat_dest, lng_dest)</label>
+              <button type="button" onclick="usarMiGps()" class="text-[10px] text-brand-accent font-bold hover:underline">📍 Usar mi GPS</button>
+            </div>
+            <input 
+              id="inpCoordsDestino" 
+              type="text" 
+              required
+              value="-31.5390, -68.5320" 
+              class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-white font-mono text-xs focus:outline-none focus:border-brand-accent"
+            />
+          </div>
+        </div>
+
+        <!-- Botón de Envío -->
+        <button 
+          id="btnCrearPedido" 
+          type="submit" 
+          class="w-full py-4 rounded-2xl bg-brand-accent text-brand-bg font-black text-xs uppercase tracking-wider hover:bg-brand-accentHover active:scale-[0.98] transition-all shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-2"
+        >
+          <span>Crear Pedido y Asignar a Cadete</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        </button>
+      </form>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- 3. PANEL DE SEGUIMIENTO EN VIVO & REALTIME               -->
+    <!-- ======================================================== -->
+    <section id="trackingPanel" class="hidden bg-brand-surface border border-brand-border rounded-3xl p-5 sm:p-6 space-y-5 shadow-2xl">
+      
+      <!-- Encabezado del Pedido Activo -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-brand-border/60 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="badgeEstadoPedido" class="px-3 py-1 rounded-full bg-brand-warning/15 border border-brand-warning/30 text-brand-warning text-xs font-black uppercase">
+              Buscando Cadete...
+            </span>
+            <span id="labelIdPedido" class="text-xs font-mono text-brand-textMuted font-bold">#---</span>
+          </div>
+          <h2 id="labelInformPedido" class="text-lg font-black text-white mt-1.5">Empanadas Don Luis</h2>
+        </div>
+
+        <!-- Información del Cadete Asignado -->
+        <div id="cadeteInfoBox" class="p-3 bg-brand-surfaceLight rounded-2xl border border-brand-border flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-brand-accent/20 text-brand-accent font-black flex items-center justify-center text-sm">
+            <span id="cadeteAvatarInitials">--</span>
+          </div>
+          <div>
+            <h3 id="cadeteNombreText" class="text-xs font-extrabold text-white">Buscando cadete cercano...</h3>
+            <p id="cadeteGpsStatus" class="text-[10px] text-brand-textMuted flex items-center gap-1 font-bold">
+              <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+              Sin señal GPS
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Radar de Telemetría GPS en Vivo -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+        <div class="bg-brand-surfaceLight/60 border border-brand-border rounded-2xl p-3">
+          <span class="text-[10px] font-bold text-brand-textMuted uppercase block">Distancia al Cadete</span>
+          <span id="telemetriaDistancia" class="text-base font-black text-white mt-0.5 block">--</span>
+        </div>
+        <div class="bg-brand-surfaceLight/60 border border-brand-border rounded-2xl p-3">
+          <span class="text-[10px] font-bold text-brand-textMuted uppercase block">Velocidad / Rumbo</span>
+          <span id="telemetriaVelocidad" class="text-base font-black text-brand-accent mt-0.5 block">-- km/h</span>
+        </div>
+        <div class="bg-brand-surfaceLight/60 border border-brand-border rounded-2xl p-3">
+          <span class="text-[10px] font-bold text-brand-textMuted uppercase block">Última Coordenada GPS</span>
+          <span id="telemetriaCoords" class="text-[11px] font-mono text-brand-textMuted mt-1 block truncate">Esperando transmisión...</span>
+        </div>
+      </div>
+
+      <!-- CHAT PRIVADO EN VIVO CON EL CADETE -->
+      <div class="bg-brand-surfaceLight/40 border border-brand-border rounded-2xl overflow-hidden flex flex-col h-80">
+        <div class="p-3 bg-brand-surface border-b border-brand-border/60 flex items-center justify-between">
+          <span class="text-xs font-bold text-white flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+            Chat en Tiempo Real con el Cadete
+          </span>
+          <span class="text-[10px] font-mono text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded">Canal Privado</span>
+        </div>
+
+        <div id="clienteChatMessages" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs">
+          <p class="text-center text-[11px] text-brand-textMuted my-2">Inicia una conversación cuando el cadete sea asignado...</p>
+        </div>
+
+        <form onsubmit="handleSendClienteChat(event)" class="p-2.5 bg-brand-surface border-t border-brand-border/60 flex gap-2">
+          <input 
+            id="clienteChatInput" 
+            type="text" 
+            placeholder="Escribe un mensaje al cadete..." 
+            class="flex-1 px-3 py-2 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs focus:outline-none focus:border-brand-accent"
+          />
+          <button type="submit" class="px-4 py-2 bg-brand-accent text-brand-bg rounded-xl font-bold text-xs active:scale-95 transition-transform">
+            Enviar
+          </button>
+        </form>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- LÓGICA DE CONTROL & REALTIME CLIENTE -->
+  <script type="module">
+    import { supabase } from '../Scripts/conexion_supabase.js';
+
+    let clienteActual = null;
+    let pedidoActivo = null;
+    let channelPedidoPrivado = null;
+
+    // -------------------------------------------------------------------------
+    // 1. GESTIÓN DE AUTENTICACIÓN (GOOGLE & DEMO AUTH)
+    // -------------------------------------------------------------------------
+    
+    // Escuchar cambios de estado de autenticación (captura login de Google y tokens automáticamente)
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Supabase Auth Event]:', event, session);
+      if (session && session.user) {
+        await procesarUsuarioAutenticado(session.user);
+      } else {
+        mostrarBotonesLogin();
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          await procesarUsuarioAutenticado(session.user);
+        } else {
+          mostrarBotonesLogin();
+        }
+      } catch (err) {
+        console.warn('Error al verificar sesión inicial:', err);
+        mostrarBotonesLogin();
+      }
+    });
+
+    async function procesarUsuarioAutenticado(user) {
+      const nombre = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Cliente Demo';
+      
+      clienteActual = {
+        id_cliente: user.id,
+        nombre_cliente: nombre,
+        telefono_cliente: user.phone || '549264123456',
+        f_loggueo_cliente: new Date().toISOString()
+      };
+
+      try {
+        await syncClienteEnDB(clienteActual);
+      } catch (e) {
+        console.warn('Nota: Asegúrate de habilitar permisos en tabla Clientes en Supabase:', e);
+      }
+
+      renderPerfilCliente(clienteActual);
+    }
+
+    function mostrarBotonesLogin() {
+      const loadingEl = document.getElementById('authLoading');
+      const buttonsEl = document.getElementById('authButtons');
+      const profileEl = document.getElementById('authProfile');
+
+      if (loadingEl) loadingEl.classList.add('hidden');
+      if (buttonsEl) buttonsEl.classList.remove('hidden');
+      if (profileEl) profileEl.classList.add('hidden');
+    }
+
+    async function syncClienteEnDB(cliente) {
+      try {
+        // 1. Comprobar si el cliente ya existe en la tabla
+        const { data: existente, error: selectErr } = await supabase
+          .from('Clientes')
+          .select('id_cliente')
+          .eq('id_cliente', cliente.id_cliente)
+          .maybeSingle();
+
+        if (selectErr) {
+          console.warn('[Clientes DB] Error al verificar cliente existente:', selectErr);
+        }
+
+        // 2. Si no existe, insertarlo
+        if (!existente) {
+          const { data: nuevo, error: insertErr } = await supabase
+            .from('Clientes')
+            .insert({
+              id_cliente: cliente.id_cliente,
+              nombre_cliente: cliente.nombre_cliente,
+              telefono_cliente: cliente.telefono_cliente || '549264000000',
+              f_loggueo_cliente: new Date().toISOString()
+            })
+            .select()
+            .maybeSingle();
+
+          if (insertErr) {
+            console.error('[Clientes DB] Error al insertar nuevo cliente:', insertErr);
+            throw insertErr;
+          }
+          console.log('[Clientes DB] Nuevo cliente creado en tabla Clientes:', nuevo);
+          return nuevo;
+        } else {
+          console.log('[Clientes DB] Cliente ya existente en tabla Clientes:', existente);
+          return existente;
+        }
+      } catch (e) {
+        console.error('[Clientes DB] Excepción en syncClienteEnDB:', e);
+        throw e;
+      }
+    }
+
+    function renderPerfilCliente(cliente) {
+      const loadingEl = document.getElementById('authLoading');
+      const buttonsEl = document.getElementById('authButtons');
+      const profileEl = document.getElementById('authProfile');
+
+      if (loadingEl) loadingEl.classList.add('hidden');
+      if (buttonsEl) buttonsEl.classList.add('hidden');
+      if (profileEl) profileEl.classList.remove('hidden');
+
+      document.getElementById('userDisplayName').innerText = cliente.nombre_cliente;
+      document.getElementById('userDisplayId').innerText = cliente.id_cliente;
+    }
+
+    // A) Login Oficial con Google
+    window.loginWithGoogle = async function() {
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.href.split('#')[0].split('?')[0]
+          }
+        });
+        if (error) throw error;
+      } catch (err) {
+        console.error('Error Google OAuth:', err);
+        alert(`No se pudo iniciar con Google: ${err.message}\n\nNota: Si no configuraste las credenciales de Google Cloud en el panel de Supabase (Authentication -> Providers -> Google), puedes usar el botón "⚡ Login Rápido (1-Click)" que no requiere configuración.`);
+      }
+    };
+
+    // B) Login Rápido 1-Click con Usuario Real de Supabase Auth (Garantizado)
+    window.loginWithDemoAuth = async function() {
+      const demoEmail = 'cliente.demo@tododelivery.com';
+      const demoPass = 'password123456';
+
+      try {
+        const loadingEl = document.getElementById('authLoading');
+        if (loadingEl) {
+          loadingEl.classList.remove('hidden');
+          loadingEl.innerText = 'Autenticando en Supabase...';
+        }
+
+        // 1. Intentar iniciar sesión
+        const { data: signData, error: signError } = await supabase.auth.signInWithPassword({
+          email: demoEmail,
+          password: demoPass
+        });
+
+        if (signError) {
+          // 2. Si no existe, registrar automáticamente el usuario demo
+          const { data: upData, error: upError } = await supabase.auth.signUp({
+            email: demoEmail,
+            password: demoPass,
+            options: {
+              data: {
+                full_name: 'Lucas Benítez (Cliente Demo)'
+              }
+            }
+          });
+
+          if (upError) {
+            throw upError;
+          }
+
+          if (upData && upData.user) {
+            await procesarUsuarioAutenticado(upData.user);
+          }
+        } else if (signData && signData.user) {
+          await procesarUsuarioAutenticado(signData.user);
+        }
+      } catch (err) {
+        console.error('Error en Login Demo:', err);
+        alert('Error al autenticar usuario demo: ' + (err.message || 'Verifica la consola'));
+        mostrarBotonesLogin();
+      }
+    };
+
+    window.handleLogout = async function() {
+      await supabase.auth.signOut();
+      clienteActual = null;
+      window.location.reload();
+    };
+
+    // -------------------------------------------------------------------------
+    // 2. CREACIÓN DE PEDIDO & DISPARO DE ASIGNACIÓN
+    // -------------------------------------------------------------------------
+    window.usarMiGps = function() {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            document.getElementById('inpCoordsDestino').value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+          },
+          (err) => alert('No se pudo obtener GPS: ' + err.message)
+        );
+      }
+    };
+
+    window.handleCrearPedido = async function(e) {
+      e.preventDefault();
+      if (!clienteActual) {
+        alert('Debes iniciar sesión con Google o Modo Invitado antes de crear un pedido.');
+        return;
+      }
+
+      const btn = document.getElementById('btnCrearPedido');
+      btn.disabled = true;
+      btn.innerText = 'Insertando pedido en Supabase...';
+
+      const inform = document.getElementById('inpInformPedido').value.trim();
+      const tipo = document.getElementById('inpTipoPaquete').value;
+      const coste = Number(document.getElementById('inpCostePedido').value) || 8500;
+
+      const [latOrg, lngOrg] = document.getElementById('inpCoordsOrigen').value.split(',').map(n => Number(n.trim()));
+      const [latDest, lngDest] = document.getElementById('inpCoordsDestino').value.split(',').map(n => Number(n.trim()));
+
+      try {
+        // 0. Asegurar que el registro del cliente existe en la tabla 'Clientes' (evita violación de FK)
+        await syncClienteEnDB(clienteActual);
+
+        // 1. Insertar en tabla Pedidos
+        const nuevoPedidoData = {
+          id_cliente: clienteActual.id_cliente,
+          coste_pedido: coste,
+          inform_pedido: inform,
+          tipo_paquete: tipo,
+          estado_pedido: 'pendiente',
+          latitud_org: latOrg,
+          longitud_org: lngOrg,
+          latitud_dest: latDest,
+          longitud_dest: lngDest,
+          fecha_pedido: new Date().toISOString()
+        };
+
+        const { data: pedidoInsertado, error } = await supabase
+          .from('Pedidos')
+          .insert(nuevoPedidoData)
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        console.log('Pedido insertado exitosamente:', pedidoInsertado);
+        pedidoActivo = pedidoInsertado;
+
+        btn.innerText = 'Asignando cadete cercano...';
+
+        // 2. Invocar Edge Function de Deno (asignar-pedido) si está desplegada
+        try {
+          const { data: resAsignacion, error: funcError } = await supabase.functions.invoke('asignar-pedido', {
+            body: { record: pedidoInsertado }
+          });
+          console.log('Respuesta de Edge Function:', resAsignacion, funcError);
+        } catch (fErr) {
+          console.warn('Nota: Edge function local/remota pendiente:', fErr);
+        }
+
+        // 3. Activar el Panel de Seguimiento en Vivo
+        mostrarPanelSeguimiento(pedidoInsertado);
+
+        btn.disabled = false;
+        btn.innerText = 'Crear Pedido y Asignar a Cadete';
+
+      } catch (err) {
+        console.error('Error al crear pedido:', err);
+        alert('Error al insertar pedido: ' + (err.message || 'Verifica la consola'));
+        btn.disabled = false;
+        btn.innerText = 'Crear Pedido y Asignar a Cadete';
+      }
+    };
+
+    // -------------------------------------------------------------------------
+    // 3. SEGUIMIENTO REALTIME & CHAT PRIVADO
+    // -------------------------------------------------------------------------
+    function mostrarPanelSeguimiento(pedido) {
+      document.getElementById('trackingPanel').classList.remove('hidden');
+      document.getElementById('labelIdPedido').innerText = `#${pedido.id_pedido}`;
+      document.getElementById('labelInformPedido').innerText = pedido.inform_pedido;
+
+      conectarCanalPrivadoPedido(pedido.id_pedido);
+    }
+
+    function conectarCanalPrivadoPedido(idPedido) {
+      if (channelPedidoPrivado) {
+        supabase.removeChannel(channelPedidoPrivado);
+      }
+
+      console.log(`[Cliente RT] Conectando a canal pedido-en-curso-${idPedido}`);
+      channelPedidoPrivado = supabase.channel(`pedido-en-curso-${idPedido}`);
+
+      channelPedidoPrivado
+        // A) Escuchar ubicación GPS en vivo del cadete
+        .on('broadcast', { event: 'ubicacion_cadete' }, ({ payload }) => {
+          console.log('[Cliente RT] Ubicación cadete recibida:', payload);
+          if (payload && payload.coords) {
+            const { lat, lng, speed } = payload.coords;
+            document.getElementById('telemetriaCoords').innerText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            document.getElementById('telemetriaVelocidad').innerText = speed ? `${Math.round(speed * 3.6)} km/h` : 'En movimiento';
+            document.getElementById('cadeteGpsStatus').innerHTML = `
+              <span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span>
+              GPS en Vivo Conectado
+            `;
+          }
+        })
+        // B) Escuchar mensajes de chat del cadete
+        .on('broadcast', { event: 'mensaje_chat' }, ({ payload }) => {
+          console.log('[Cliente RT] Mensaje chat recibido:', payload);
+          if (payload && payload.remitente === 'cadete') {
+            appendChatBubble(payload.texto, false, payload.hora);
+          }
+        })
+        // C) Escuchar cambios de estado del pedido por broadcast
+        .on('broadcast', { event: 'cambio_estado_pedido' }, ({ payload }) => {
+          if (payload && payload.estado_pedido) {
+            actualizarUIEstado(payload.estado_pedido);
+          }
+        })
+        // D) Escuchar cambios directos en la Base de Datos (Postgres Changes)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'Pedidos',
+            filter: `id_pedido=eq.${idPedido}`
+          },
+          async (payload) => {
+            console.log('[Cliente RT] Pedido actualizado en DB:', payload.new);
+            actualizarUIEstado(payload.new.estado_pedido);
+
+            // Si se asignó un cadete, cargar sus datos
+            if (payload.new.id_cadete) {
+              cargarDatosCadeteAsignado(payload.new.id_cadete);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[Cliente RT] Suscrito exitosamente al canal del pedido.');
+          }
+        });
+    }
+
+    async function cargarDatosCadeteAsignado(idCadete) {
+      try {
+        const { data: cadete } = await supabase
+          .from('Cadetes')
+          .select('id_cad, nombre_cad, alias_cad, telef_cad, vehiculo_cad')
+          .eq('id_cad', idCadete)
+          .maybeSingle();
+
+        if (cadete) {
+          const nombre = cadete.nombre_cad || cadete.alias_cad || `Cadete #${cadete.id_cad}`;
+          document.getElementById('cadeteNombreText').innerText = nombre;
+          document.getElementById('cadeteAvatarInitials').innerText = nombre.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'CD';
+          document.getElementById('cadeteGpsStatus').innerText = cadete.vehiculo_cad ? `Vehículo: ${cadete.vehiculo_cad}` : 'En camino al local';
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar datos del cadete:', e);
+      }
+    }
+
+    function actualizarUIEstado(estado) {
+      const badge = document.getElementById('badgeEstadoPedido');
+      if (!badge) return;
+
+      if (estado === 'asignado') {
+        badge.className = "px-3 py-1 rounded-full bg-brand-info/15 border border-brand-info/30 text-brand-info text-xs font-black uppercase";
+        badge.innerText = "Cadete Asignado • En camino al local";
+      } else if (estado === 'en_camino_entrega') {
+        badge.className = "px-3 py-1 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-black uppercase";
+        badge.innerText = "Pedido Retirado • En camino a tu puerta";
+      } else if (estado === 'entregado') {
+        badge.className = "px-3 py-1 rounded-full bg-brand-accent text-brand-bg text-xs font-black uppercase";
+        badge.innerText = "¡Pedido Entregado con Éxito!";
+      }
+    }
+
+    window.handleSendClienteChat = async function(e) {
+      e.preventDefault();
+      const input = document.getElementById('clienteChatInput');
+      const text = input.value.trim();
+      if (!text || !channelPedidoPrivado || !pedidoActivo) return;
+
+      input.value = '';
+      const hora = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      // Renderizar mensaje propio
+      appendChatBubble(text, true, hora);
+
+      // Enviar por broadcast Realtime
+      await channelPedidoPrivado.send({
+        type: 'broadcast',
+        event: 'mensaje_chat',
+        payload: {
+          id_pedido: pedidoActivo.id_pedido,
+          id_emisor: clienteActual.id_cliente,
+          id_receptor: pedidoActivo.id_cadete,
+          remitente: 'cliente',
+          texto: text,
+          hora: hora,
+          timestamp: new Date().toISOString()
+        }
+      });
+    };
+
+    function appendChatBubble(texto, isMine, hora) {
+      const list = document.getElementById('clienteChatMessages');
+      const bubble = document.createElement('div');
+      bubble.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} space-y-0.5`;
+
+      bubble.innerHTML = `
+        <div class="max-w-[80%] p-2.5 rounded-2xl ${
+          isMine
+            ? 'bg-brand-info text-white rounded-tr-sm font-semibold'
+            : 'bg-brand-surfaceLight border border-brand-border text-brand-accent rounded-tl-sm font-bold'
+        }">
+          <p>${texto}</p>
+        </div>
+        <span class="text-[9px] text-brand-textMuted px-1">${hora || 'Ahora'}</span>
+      `;
+
+      list.appendChild(bubble);
+      list.scrollTop = list.scrollHeight;
+    }
+  </script>
+</body>
+</html>

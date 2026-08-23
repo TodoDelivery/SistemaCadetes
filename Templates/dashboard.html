@@ -138,6 +138,42 @@
   <main class="flex-1 p-5 space-y-6">
 
     <!-- ============================================== -->
+    <!-- 1.5. BANNER DE VIAJE ACTIVO EN CURSO (REANUDAR)-->
+    <!-- ============================================== -->
+    <section id="activeTripBanner" class="hidden mb-1">
+      <div class="relative overflow-hidden bg-gradient-to-br from-brand-surfaceLight via-brand-surface to-brand-surface border-2 border-brand-accent rounded-3xl p-4 shadow-2xl shadow-brand-accent/20">
+        <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-brand-accent/10 rounded-full blur-2xl pointer-events-none"></div>
+        
+        <div class="flex items-center justify-between gap-3 relative z-10">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-12 h-12 rounded-2xl bg-brand-accent text-brand-black flex items-center justify-center text-xl shrink-0 shadow-lg shadow-brand-accent/30">
+              🛵
+            </div>
+            <div class="min-w-0">
+              <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-accent bg-brand-accent/15 px-2.5 py-0.5 rounded-full border border-brand-accent/30">
+                <span class="w-1.5 h-1.5 rounded-full bg-brand-accent animate-ping"></span>
+                Pedido en Curso
+              </span>
+              <h3 id="activeTripTitle" class="text-sm font-black text-white mt-1 truncate">Pedido Activo</h3>
+              <p id="activeTripStatus" class="text-[11px] text-brand-textMuted font-medium truncate mt-0.5">Toca para reanudar la navegación</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onclick="reanudarViajeActivo()"
+            class="shrink-0 px-4 py-3 bg-brand-accent hover:bg-brand-accentDark text-brand-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-brand-accent/20 active:scale-95 transition-transform flex items-center gap-1.5"
+          >
+            <span>Reanudar</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
     <!-- 2. CARD PRINCIPAL: TOGGLE DE ESTADO            -->
     <!-- ============================================== -->
     <section id="statusCard" class="relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-online">
@@ -386,6 +422,7 @@
 
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
   <script type="module">
+    import { supabase } from '../Scripts/conexion_supabase.js';
     import { iniciarSuscripcionesDashboard, desconectarSuscripcionesDashboard } from '../Scripts/conexion_rt_pedidos_entrantes.js';
 
     let isOnline = true;
@@ -449,14 +486,109 @@
       }
     }
 
-    // Conectar suscripciones Realtime al cargar la vista si está online
+    // -------------------------------------------------------------------------
+    // DETECTOR DE PEDIDO ACTIVO PENDIENTE (REANUDACIÓN AUTOMÁTICA)
+    // -------------------------------------------------------------------------
+    async function verificarPedidoActivoPendiente() {
+      const banner = document.getElementById('activeTripBanner');
+      const titleEl = document.getElementById('activeTripTitle');
+      const statusEl = document.getElementById('activeTripStatus');
+
+      let activeOrder = null;
+
+      // 1. Revisar si existe en almacenamiento local
+      try {
+        const localStr = localStorage.getItem('active_order') || sessionStorage.getItem('active_order');
+        if (localStr) {
+          activeOrder = JSON.parse(localStr);
+        }
+      } catch (e) {}
+
+      // 2. Verificar en la base de datos de Supabase si hay pedidos en curso para este cadete
+      try {
+        if (cadeteActual && cadeteActual.id_cad) {
+          const { data: dbOrder } = await supabase
+            .from('Pedidos')
+            .select('*')
+            .eq('id_cadete', cadeteActual.id_cad)
+            .in('estado_pedido', ['asignado', 'en_camino_entrega'])
+            .order('fecha_pedido', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (dbOrder) {
+            activeOrder = dbOrder;
+            localStorage.setItem('active_order', JSON.stringify(dbOrder));
+            sessionStorage.setItem('active_order', JSON.stringify(dbOrder));
+          } else if (activeOrder && activeOrder.id_pedido) {
+            // Comprobar si el pedido local ya fue completado/entregado
+            const { data: checkFinished } = await supabase
+              .from('Pedidos')
+              .select('estado_pedido')
+              .eq('id_pedido', activeOrder.id_pedido)
+              .maybeSingle();
+
+            if (checkFinished && (checkFinished.estado_pedido === 'entregado' || checkFinished.estado_pedido === 'cancelado')) {
+              activeOrder = null;
+              localStorage.removeItem('active_order');
+              sessionStorage.removeItem('active_order');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Verificación Pedido Activo] Error consultando Supabase:', err);
+      }
+
+      // 3. Renderizar banner si hay pedido en curso
+      if (activeOrder && activeOrder.id_pedido) {
+        currentActiveOrder = activeOrder;
+        const storeName = activeOrder.inform_pedido ? activeOrder.inform_pedido.split('-')[0].trim() : 'Local Comercial';
+        const estadoTxt = activeOrder.estado_pedido === 'en_camino_entrega' 
+          ? 'En camino a entregar al cliente' 
+          : 'En camino a retirar del local';
+
+        if (titleEl) titleEl.innerText = `Orden #${activeOrder.id_pedido} • ${storeName}`;
+        if (statusEl) statusEl.innerText = `Estado: ${estadoTxt}`;
+        if (banner) banner.classList.remove('hidden');
+      } else {
+        if (banner) banner.classList.add('hidden');
+      }
+    }
+
+    window.reanudarViajeActivo = function() {
+      if (currentActiveOrder) {
+        localStorage.setItem('active_order', JSON.stringify(currentActiveOrder));
+        sessionStorage.setItem('active_order', JSON.stringify(currentActiveOrder));
+      }
+      window.location.href = 'pedido_activo.html';
+    };
+
+    // Conectar suscripciones y verificar viajes activos al cargar la vista
     window.addEventListener('DOMContentLoaded', () => {
       renderizarPerfilCadete();
+      verificarPedidoActivoPendiente();
 
       if (isOnline) {
         iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
           triggerIncomingOrderModal(pedido);
         });
+      }
+    });
+
+    // Detectar cuando el usuario vuelve a la pestaña o app
+    window.addEventListener('pageshow', () => {
+      verificarPedidoActivoPendiente();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        verificarPedidoActivoPendiente();
+      }
+    });
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'active_order' || e.key === 'cadet_session') {
+        verificarPedidoActivoPendiente();
       }
     });
 
@@ -585,6 +717,20 @@
     window.acceptOrder = function() {
       clearTimeout(timerTimeout);
       closeModal();
+      const orderToSave = currentActiveOrder || {
+        id_pedido: 4820,
+        id_cadete: cadeteActual.id_cad,
+        id_cliente: 'cli_test_123',
+        inform_pedido: 'Empanadas Don Luis',
+        coste_pedido: 8500,
+        tipo_paquete: '2 artículos',
+        latitud_org: -31.5375,
+        longitud_org: -68.5364,
+        latitud_dest: -31.5390,
+        longitud_dest: -68.5320
+      };
+      localStorage.setItem('active_order', JSON.stringify(orderToSave));
+      sessionStorage.setItem('active_order', JSON.stringify(orderToSave));
       window.location.href = 'pedido_activo.html';
     };
 
