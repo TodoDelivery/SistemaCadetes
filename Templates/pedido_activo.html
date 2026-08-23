@@ -529,6 +529,10 @@
       localStorage.setItem('active_order', JSON.stringify(pedidoActivo));
       sessionStorage.setItem('active_order', JSON.stringify(pedidoActivo));
 
+      if (pedidoActivo && pedidoActivo.id_pedido && !localStorage.getItem(`order_start_time_${pedidoActivo.id_pedido}`)) {
+        localStorage.setItem(`order_start_time_${pedidoActivo.id_pedido}`, new Date().toISOString());
+      }
+
       // 3. Renderizar textos e interfaz
       renderizarDatosPedido();
 
@@ -1229,8 +1233,30 @@
     window.completeOrderAndExit = async function() {
       if ("vibrate" in navigator) navigator.vibrate(80);
 
-      // 1. Actualizar a entregado en Supabase
-      await actualizarEstadoPedidoEnCurso('entregado');
+      // Calcular tiempo transcurrido en minutos
+      let tiempoPedidoMinutos = 15;
+      const startIso = localStorage.getItem(`order_start_time_${pedidoActivo.id_pedido}`) || pedidoActivo.fecha_pedido;
+      if (startIso) {
+        const diffMs = Date.now() - new Date(startIso).getTime();
+        tiempoPedidoMinutos = Math.max(1, Math.round(diffMs / (1000 * 60)));
+      }
+
+      // 1. Actualizar a entregado con tiempo_pedido en Supabase (Postgres & Realtime)
+      await actualizarEstadoPedidoEnCurso('entregado', { tiempo_pedido: tiempoPedidoMinutos });
+
+      if (pedidoActivo && pedidoActivo.id_pedido) {
+        try {
+          await supabase
+            .from('Pedidos')
+            .update({ 
+              estado_pedido: 'entregado',
+              tiempo_pedido: tiempoPedidoMinutos
+            })
+            .eq('id_pedido', pedidoActivo.id_pedido);
+        } catch (err) {
+          console.warn('[DB Error al marcar entregado y tiempo_pedido]:', err);
+        }
+      }
 
       // 2. Desconectar canal Realtime y GPS
       if (geoWatchId !== null && 'geolocation' in navigator) {
@@ -1240,10 +1266,11 @@
       await desconectarPedidoActivo();
 
       // 3. Limpiar pedido de la memoria local y de sesión
+      localStorage.removeItem(`order_start_time_${pedidoActivo.id_pedido}`);
       localStorage.removeItem('active_order');
       sessionStorage.removeItem('active_order');
 
-      alert(`¡Cobro confirmado! Pedido #${pedidoActivo.id_pedido} finalizado con éxito.`);
+      alert(`¡Cobro confirmado! Pedido #${pedidoActivo.id_pedido} finalizado en ${tiempoPedidoMinutos} min.`);
       window.location.href = 'dashboard.html';
     };
   </script>

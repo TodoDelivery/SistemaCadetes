@@ -106,19 +106,19 @@
       <div class="absolute -top-10 -right-10 w-32 h-32 bg-brand-accent/10 rounded-full blur-2xl pointer-events-none"></div>
 
       <div class="flex items-center justify-between">
-        <span id="periodLabel" class="text-[11px] font-extrabold uppercase tracking-widest text-brand-accent bg-brand-accent/10 px-3 py-1 rounded-full border border-brand-accent/20">
-          Turno Hoy &bull; Jueves
+        <span id="periodLabel" class="text-xs font-black uppercase tracking-wider text-brand-accent">
+          Cargando período...
         </span>
         <span class="text-xs font-bold text-brand-textMuted flex items-center gap-1">
           <span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span>
-          Actualizado
+          En Vivo
         </span>
       </div>
 
       <div class="mt-4">
         <span class="text-xs font-bold text-brand-textMuted block">Ganancia Neta Acumulada</span>
         <div id="statTotalEarnings" class="text-4xl font-black text-white tracking-tight mt-1">
-          $18.450
+          $0
         </div>
       </div>
 
@@ -126,15 +126,15 @@
       <div class="grid grid-cols-3 gap-2 pt-5 mt-5 border-t border-brand-border/60">
         <div>
           <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">Viajes</span>
-          <span id="statTripCount" class="text-base font-black text-white mt-0.5 block">9</span>
+          <span id="statTripCount" class="text-base font-black text-white mt-0.5 block">0</span>
         </div>
         <div class="border-l border-brand-border/60 pl-3">
           <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">Horas</span>
-          <span id="statHours" class="text-base font-black text-white mt-0.5 block">4.2 hs</span>
+          <span id="statHours" class="text-base font-black text-white mt-0.5 block">0.0 hs</span>
         </div>
         <div class="border-l border-brand-border/60 pl-3">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">Propinas</span>
-          <span id="statTips" class="text-base font-black text-brand-accent mt-0.5 block">$1.800</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">A Rendir (40%)</span>
+          <span id="statTips" class="text-base font-black text-brand-warning mt-0.5 block">$0</span>
         </div>
       </div>
     </section>
@@ -145,103 +145,15 @@
     <section class="space-y-3">
       <div class="flex items-center justify-between px-1">
         <h2 class="text-xs font-black uppercase tracking-wider text-brand-textMuted">Detalle de Envíos</h2>
-        <span id="listCountLabel" class="text-xs font-bold text-white">9 entregas registradas</span>
+        <span id="listCountLabel" class="text-xs font-bold text-white">0 entregas registradas</span>
       </div>
 
       <div id="tripsContainer" class="space-y-2.5">
-
-        <!-- Viaje 1 -->
-        <article onclick="openDetailModal('4820', 'Empanadas Don Luis', 'Calle San Martín 1234, 4° B', '$2.450', '22:40', 'Efectivo', '$8.500', '2.3 km')" 
-          class="bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all">
-          <div class="flex items-center gap-3.5">
-            <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-sm font-extrabold text-white">Empanadas Don Luis</h3>
-                <span class="text-[10px] font-black text-brand-textMuted">#4820</span>
-              </div>
-              <p class="text-xs text-brand-textMuted mt-0.5">22:40 &bull; 2.3 km &bull; <strong class="text-brand-warning">Efectivo ($8.500)</strong></p>
-            </div>
-          </div>
-          <div class="text-right">
-            <span class="text-sm font-black text-brand-accent block">+$2.450</span>
-            <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
-          </div>
-        </article>
-
-        <!-- Viaje 2 -->
-        <article onclick="openDetailModal('4818', 'Pizzería Napolitana', 'Av. Córdoba 890', '$2.100', '21:55', 'Digital', '$0 (Pagado)', '1.8 km')" 
-          class="bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all">
-          <div class="flex items-center gap-3.5">
-            <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-sm font-extrabold text-white">Pizzería Napolitana</h3>
-                <span class="text-[10px] font-black text-brand-textMuted">#4818</span>
-              </div>
-              <p class="text-xs text-brand-textMuted mt-0.5">21:55 &bull; 1.8 km &bull; <span class="text-brand-textMuted">Pago Digital</span></p>
-            </div>
-          </div>
-          <div class="text-right">
-            <span class="text-sm font-black text-brand-accent block">+$2.100</span>
-            <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
-          </div>
-        </article>
-
-        <!-- Viaje 3 -->
-        <article onclick="openDetailModal('4815', 'Burger House', 'Calle Mendoza 450 Sur', '$2.800', '21:10', 'Digital', '$0 (Pagado)', '3.4 km')" 
-          class="bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all">
-          <div class="flex items-center gap-3.5">
-            <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-sm font-extrabold text-white">Burger House</h3>
-                <span class="text-[10px] font-black text-brand-textMuted">#4815</span>
-              </div>
-              <p class="text-xs text-brand-textMuted mt-0.5">21:10 &bull; 3.4 km &bull; <span class="text-brand-textMuted">Pago Digital</span></p>
-            </div>
-          </div>
-          <div class="text-right">
-            <span class="text-sm font-black text-brand-accent block">+$2.800</span>
-            <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
-          </div>
-        </article>
-
-        <!-- Viaje 4 -->
-        <article onclick="openDetailModal('4811', 'Heladería Polar', 'Rivadavia 120 Este', '$1.900', '20:30', 'Efectivo', '$4.200', '1.2 km')" 
-          class="bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all">
-          <div class="flex items-center gap-3.5">
-            <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-sm font-extrabold text-white">Heladería Polar</h3>
-                <span class="text-[10px] font-black text-brand-textMuted">#4811</span>
-              </div>
-              <p class="text-xs text-brand-textMuted mt-0.5">20:30 &bull; 1.2 km &bull; <strong class="text-brand-warning">Efectivo ($4.200)</strong></p>
-            </div>
-          </div>
-          <div class="text-right">
-            <span class="text-sm font-black text-brand-accent block">+$1.900</span>
-            <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
-          </div>
-        </article>
-
+        <!-- Renderizado dinámico desde Supabase -->
+        <div class="bg-brand-surface border border-brand-border rounded-2xl p-8 text-center">
+          <div class="w-8 h-8 rounded-full border-2 border-brand-accent border-t-transparent animate-spin mx-auto mb-3"></div>
+          <p class="text-xs text-brand-textMuted font-bold">Cargando historial desde la base de datos...</p>
+        </div>
       </div>
     </section>
 
@@ -256,10 +168,10 @@
       <div class="flex items-start justify-between border-b border-brand-border/60 pb-3">
         <div>
           <span id="modalOrderTag" class="text-[10px] font-black uppercase text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded border border-brand-accent/20">
-            ORDEN #4820
+            ORDEN #---
           </span>
-          <h3 id="modalStoreName" class="text-lg font-black text-white mt-1">Empanadas Don Luis</h3>
-          <p id="modalAddress" class="text-xs text-brand-textMuted mt-0.5">Calle San Martín 1234, 4° B</p>
+          <h3 id="modalStoreName" class="text-lg font-black text-white mt-1">Local Comercial</h3>
+          <p id="modalAddress" class="text-xs text-brand-textMuted mt-0.5">Dirección de Entrega</p>
         </div>
         <button onclick="closeDetailModal()" class="w-8 h-8 rounded-full bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-textMuted hover:text-white">
           &times;
@@ -268,20 +180,20 @@
 
       <div class="space-y-2.5 text-xs">
         <div class="flex justify-between">
-          <span class="text-brand-textMuted font-medium">Hora de finalización:</span>
-          <span id="modalTime" class="font-bold text-white">22:40</span>
+          <span class="text-brand-textMuted font-medium">Hora de registro:</span>
+          <span id="modalTime" class="font-bold text-white">--:--</span>
         </div>
         <div class="flex justify-between">
-          <span class="text-brand-textMuted font-medium">Distancia recorrida:</span>
-          <span id="modalDistance" class="font-bold text-white">2.3 km</span>
+          <span class="text-brand-textMuted font-medium">Paquete / Detalle:</span>
+          <span id="modalDistance" class="font-bold text-white">--</span>
         </div>
         <div class="flex justify-between">
-          <span class="text-brand-textMuted font-medium">Método de cobro cliente:</span>
-          <span id="modalPaymentType" class="font-bold text-brand-warning">Efectivo: $8.500</span>
+          <span class="text-brand-textMuted font-medium">Cobrado al cliente:</span>
+          <span id="modalPaymentType" class="font-bold text-brand-warning">Efectivo: $0</span>
         </div>
         <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
-          <span class="font-bold text-white">Tu Ganancia acreditada:</span>
-          <span id="modalEarnings" class="text-lg font-black text-brand-accent">+$2.450</span>
+          <span class="font-bold text-white">Tu Ganancia acreditada (60%):</span>
+          <span id="modalEarnings" class="text-lg font-black text-brand-accent">+$0</span>
         </div>
       </div>
 
@@ -293,38 +205,37 @@
   </div>
 
   <!-- ============================================== -->
-  <!-- LÓGICA DE CONTROL DE HISTORIAL Y MODALES       -->
+  <!-- LÓGICA DE CONTROL DE HISTORIAL CON SUPABASE    -->
   <!-- ============================================== -->
-  <script>
-    // Datos simulados por período
-    const dataPeriods = {
-      today: {
-        label: 'Turno Hoy • Jueves',
-        earnings: '$18.450',
-        trips: '9',
-        hours: '4.2 hs',
-        tips: '$1.800',
-        countText: '9 entregas registradas'
-      },
-      week: {
-        label: 'Esta Semana (17 - 23 Ago)',
-        earnings: '$94.200',
-        trips: '46',
-        hours: '22.5 hs',
-        tips: '$8.400',
-        countText: '46 entregas registradas'
-      },
-      month: {
-        label: 'Mes de Agosto 2026',
-        earnings: '$312.000',
-        trips: '154',
-        hours: '78.0 hs',
-        tips: '$26.500',
-        countText: '154 entregas registradas'
-      }
+  <script type="module">
+    import { supabase } from '../Scripts/conexion_supabase.js';
+
+    let currentPeriod = 'today';
+    let pedidosCache = [];
+
+    // Sesión del Cadete
+    let cadeteActual = {
+      id_cad: 1,
+      nombre_cad: 'Ramiro Córdoba'
     };
 
-    function setPeriod(period) {
+    try {
+      const session = localStorage.getItem('cadet_session');
+      if (session) {
+        const parsed = JSON.parse(session);
+        if (parsed && parsed.id_cad) cadeteActual = parsed;
+      }
+    } catch (e) {
+      console.warn('No se pudo leer cadet_session:', e);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      cargarHistorial('today');
+    });
+
+    window.setPeriod = function(period) {
+      currentPeriod = period;
+
       // Alternar clases activas en botones
       ['today', 'week', 'month'].forEach(p => {
         const btn = document.getElementById(`tab-${p}`);
@@ -335,25 +246,175 @@
         }
       });
 
-      // Actualizar datos de la tarjeta resumen
-      const d = dataPeriods[period];
-      document.getElementById('periodLabel').innerText = d.label;
-      document.getElementById('statTotalEarnings').innerText = d.earnings;
-      document.getElementById('statTripCount').innerText = d.trips;
-      document.getElementById('statHours').innerText = d.hours;
-      document.getElementById('statTips').innerText = d.tips;
-      document.getElementById('listCountLabel').innerText = d.countText;
+      cargarHistorial(period);
+    };
+
+    async function cargarHistorial(period) {
+      const tripsContainer = document.getElementById('tripsContainer');
+      const periodLabel = document.getElementById('periodLabel');
+
+      // 1. Calcular fecha de inicio según período
+      const now = new Date();
+      let startDate = new Date();
+
+      if (period === 'today') {
+        startDate.setHours(0, 0, 0, 0);
+        const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        periodLabel.innerText = `Turno Hoy • ${dias[now.getDay()]}`;
+      } else if (period === 'week') {
+        startDate.setDate(now.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        periodLabel.innerText = `Últimos 7 Días`;
+      } else if (period === 'month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+        const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        periodLabel.innerText = `Mes de ${meses[now.getMonth()]} ${now.getFullYear()}`;
+      }
+
+      tripsContainer.innerHTML = `
+        <div class="bg-brand-surface border border-brand-border rounded-2xl p-8 text-center">
+          <div class="w-8 h-8 rounded-full border-2 border-brand-accent border-t-transparent animate-spin mx-auto mb-3"></div>
+          <p class="text-xs text-brand-textMuted font-bold">Consultando registros en base de datos...</p>
+        </div>
+      `;
+
+      try {
+        // 2. Consulta a PostgreSQL en Supabase (entregados y rendidos)
+        const { data: pedidos, error } = await supabase
+          .from('Pedidos')
+          .select('*')
+          .eq('id_cadete', cadeteActual.id_cad)
+          .in('estado_pedido', ['entregado', 'rendido'])
+          .gte('fecha_pedido', startDate.toISOString())
+          .order('fecha_pedido', { ascending: false });
+
+        if (error) throw error;
+
+        pedidosCache = pedidos || [];
+
+        // 3. Calcular Métricas Reales
+        let totalFacturado = 0;
+        let totalGanancias = 0;
+        let totalPendienteRendir = 0;
+        let totalMinutos = 0;
+
+        pedidosCache.forEach(p => {
+          const costo = Number(p.coste_pedido) || 0;
+          totalFacturado += costo;
+          totalGanancias += Math.round(costo * 0.6);
+          totalMinutos += Number(p.tiempo_pedido) || 0;
+          if (p.estado_pedido === 'entregado') {
+            totalPendienteRendir += Math.round(costo * 0.4);
+          }
+        });
+
+        const totalViajes = pedidosCache.length;
+        const horasReales = totalMinutos > 0 ? (totalMinutos / 60).toFixed(1) : (totalViajes * 0.35).toFixed(1);
+
+        document.getElementById('statTotalEarnings').innerText = `$${totalGanancias.toLocaleString('es-AR')}`;
+        document.getElementById('statTripCount').innerText = `${totalViajes}`;
+        document.getElementById('statHours').innerText = `${horasReales} hs`;
+        document.getElementById('statTips').innerText = `$${totalPendienteRendir.toLocaleString('es-AR')}`;
+        document.getElementById('statTips').previousElementSibling.innerText = 'PENDIENTE A RENDIR';
+        document.getElementById('listCountLabel').innerText = `${totalViajes} entregas registradas`;
+
+        // 4. Renderizar Tarjetas de Viajes Reales
+        if (pedidosCache.length === 0) {
+          tripsContainer.innerHTML = `
+            <div class="bg-brand-surface border border-brand-border rounded-2xl p-8 text-center">
+              <div class="w-12 h-12 rounded-full bg-brand-surfaceLight border border-brand-border mx-auto flex items-center justify-center text-xl mb-3">
+                🛵
+              </div>
+              <h4 class="text-sm font-extrabold text-white">Sin entregas en este período</h4>
+              <p class="text-xs text-brand-textMuted mt-1">Los pedidos que completes como cadete se registrarán automáticamente aquí.</p>
+            </div>
+          `;
+          return;
+        }
+
+        tripsContainer.innerHTML = '';
+
+        pedidosCache.forEach(p => {
+          const costo = Number(p.coste_pedido) || 0;
+          const ganancia = Math.round(costo * 0.6);
+          const storeName = p.inform_pedido ? p.inform_pedido.split('-')[0].trim() : 'Local Comercial';
+          const fecha = new Date(p.fecha_pedido);
+          const horaStr = fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const fechaStr = fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+          const duracionStr = p.tiempo_pedido ? `${p.tiempo_pedido} min` : '15 min';
+
+          const statusBadge = p.estado_pedido === 'rendido'
+            ? `<span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-brand-surfaceLight border border-brand-border text-brand-textMuted shrink-0">Rendido</span>`
+            : `<span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-brand-warning/15 border border-brand-warning/30 text-brand-warning shrink-0">A Rendir</span>`;
+
+          const card = document.createElement('article');
+          card.className = "bg-brand-surface border border-brand-border hover:border-brand-accent/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all";
+          card.onclick = () => window.openDetailModal(p.id_pedido);
+
+          card.innerHTML = `
+            <div class="flex items-center gap-3.5 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 class="text-sm font-extrabold text-white truncate max-w-[140px]">${storeName}</h3>
+                  <span class="text-[10px] font-black text-brand-textMuted shrink-0">#${p.id_pedido}</span>
+                  ${statusBadge}
+                </div>
+                <p class="text-xs text-brand-textMuted mt-0.5 truncate">
+                  ${fechaStr} ${horaStr} &bull; <span class="text-white font-medium">⏱️ ${duracionStr}</span> &bull; <strong class="text-brand-warning">Cobrado $${costo.toLocaleString('es-AR')}</strong>
+                </p>
+              </div>
+            </div>
+            <div class="text-right shrink-0 ml-2">
+              <span class="text-sm font-black text-brand-accent block">+$${ganancia.toLocaleString('es-AR')}</span>
+              <span class="text-[10px] text-brand-textMuted uppercase font-bold">Ganado</span>
+            </div>
+          `;
+
+          tripsContainer.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error('Error al cargar historial de Supabase:', err);
+        tripsContainer.innerHTML = `
+          <div class="bg-brand-surface border border-brand-danger/40 rounded-2xl p-6 text-center">
+            <p class="text-xs text-brand-danger font-bold">Error al consultar la base de datos.</p>
+            <button onclick="cargarHistorial('${period}')" class="mt-3 px-4 py-2 bg-brand-surfaceLight text-xs text-white rounded-xl border border-brand-border">
+              Reintentar
+            </button>
+          </div>
+        `;
+      }
     }
 
     // Modal de Detalle de Viaje
-    function openDetailModal(orderId, store, address, earnings, time, payType, payAmount, distance) {
-      document.getElementById('modalOrderTag').innerText = `ORDEN #${orderId}`;
-      document.getElementById('modalStoreName').innerText = store;
-      document.getElementById('modalAddress').innerText = address;
-      document.getElementById('modalEarnings').innerText = `+${earnings}`;
-      document.getElementById('modalTime').innerText = time;
-      document.getElementById('modalDistance').innerText = distance;
-      document.getElementById('modalPaymentType').innerText = `${payType} (${payAmount})`;
+    window.openDetailModal = function(orderId) {
+      const pedido = pedidosCache.find(p => p.id_pedido === orderId);
+      if (!pedido) return;
+
+      const costo = Number(pedido.coste_pedido) || 0;
+      const ganancia = Math.round(costo * 0.6);
+      const storeName = pedido.inform_pedido ? pedido.inform_pedido.split('-')[0].trim() : 'Local Comercial';
+      const fecha = new Date(pedido.fecha_pedido);
+      const duracionModal = pedido.tiempo_pedido ? `${pedido.tiempo_pedido} min` : '15 min';
+
+      const statusTxt = pedido.estado_pedido === 'rendido' ? ' • RENDIDO' : ' • PENDIENTE RENDIR';
+      document.getElementById('modalOrderTag').innerText = `ORDEN #${pedido.id_pedido}${statusTxt}`;
+      document.getElementById('modalStoreName').innerText = storeName;
+      
+      const dirDest = pedido.latitud_dest && pedido.longitud_dest
+        ? `Coordenadas Destino: ${Number(pedido.latitud_dest).toFixed(4)}, ${Number(pedido.longitud_dest).toFixed(4)}`
+        : 'San Juan Capital';
+      document.getElementById('modalAddress').innerText = dirDest;
+      
+      document.getElementById('modalEarnings').innerText = `+$${ganancia.toLocaleString('es-AR')}`;
+      document.getElementById('modalTime').innerText = fecha.toLocaleString('es-AR');
+      document.getElementById('modalDistance').innerText = `${pedido.tipo_paquete || 'Bolsa de Comida'} • Duración: ${duracionModal}`;
+      document.getElementById('modalPaymentType').innerText = `Efectivo: $${costo.toLocaleString('es-AR')}`;
 
       const modal = document.getElementById('tripDetailModal');
       const content = document.getElementById('tripDetailContent');
@@ -361,18 +422,16 @@
       modal.classList.remove('opacity-0', 'pointer-events-none');
       content.classList.remove('translate-y-full');
 
-      if ("vibrate" in navigator) {
-        navigator.vibrate(40);
-      }
-    }
+      if ("vibrate" in navigator) navigator.vibrate(30);
+    };
 
-    function closeDetailModal() {
+    window.closeDetailModal = function() {
       const modal = document.getElementById('tripDetailModal');
       const content = document.getElementById('tripDetailContent');
 
       content.classList.add('translate-y-full');
       modal.classList.add('opacity-0', 'pointer-events-none');
-    }
+    };
   </script>
 </body>
 </html>
