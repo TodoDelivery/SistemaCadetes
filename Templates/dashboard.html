@@ -116,7 +116,7 @@
       <div>
         <div class="flex items-center gap-1.5">
           <h1 id="cadetName" class="text-sm font-bold text-white">Ramiro Córdoba</h1>
-          <span id="cadetBadge" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-surfaceLight text-brand-textMuted border border-brand-border">CADETE</span>
+          <span id="cadetBadge" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-surfaceLight text-brand-accent border border-brand-border">CADETE #1</span>
         </div>
         <p id="cadetVehicleInfo" class="text-xs text-brand-textMuted flex items-center gap-1 mt-0.5">
           <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -422,31 +422,87 @@
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { iniciarSuscripcionesDashboard, desconectarSuscripcionesDashboard } from '../Scripts/conexion_rt_pedidos_entrantes.js';
+    import { 
+      iniciarSuscripcionesDashboard, 
+      actualizarEstadoPresencia, 
+      desconectarSuscripcionesDashboard 
+    } from '../Scripts/conexion_rt_pedidos_entrantes.js';
 
     let isOnline = true;
     let timerTimeout;
     let currentActiveOrder = null;
+    const pedidosRechazadosLocalmente = new Set(
+      JSON.parse(sessionStorage.getItem('rejected_orders') || '[]')
+    );
 
-    // Obtener cadete actual desde localStorage o usar fallback si no hay sesión
+    // 1. Obtener ID del cadete con prioridad: URL param -> sessionStorage -> localStorage -> fallback
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
+
     let cadeteActual = {
       id_cad: 1,
       nombre_cad: 'Ramiro Córdoba',
       alias_cad: 'Rama',
-      vehiculo_cad: 'Moto 150cc'
+      vehiculo_cad: 'Moto 150cc',
+      estado_cad: 'disponible'
     };
 
-    try {
-      const sessionData = localStorage.getItem('cadet_session');
-      if (sessionData) {
-        const parsed = JSON.parse(sessionData);
-        if (parsed && parsed.id_cad) {
-          cadeteActual = parsed;
+    if (urlCadId) {
+      cadeteActual.id_cad = Number(urlCadId);
+      sessionStorage.setItem('cadet_tab_id', String(urlCadId));
+    } else if (sessionStorage.getItem('cadet_tab_id')) {
+      cadeteActual.id_cad = Number(sessionStorage.getItem('cadet_tab_id'));
+    } else {
+      try {
+        const sessionData = localStorage.getItem('cadet_session');
+        if (sessionData) {
+          const parsed = JSON.parse(sessionData);
+          if (parsed && parsed.id_cad) {
+            cadeteActual = { ...cadeteActual, ...parsed };
+          }
         }
+      } catch (err) {
+        console.warn('Error al leer datos de sesión del cadete:', err);
       }
-    } catch (err) {
-      console.warn('Error al leer datos de sesión del cadete:', err);
     }
+
+    // Cambiar de cadete desde el selector interactivo
+    window.cambiarCadeteSesion = function(nuevoId) {
+      sessionStorage.setItem('cadet_tab_id', String(nuevoId));
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('id_cad', nuevoId);
+      window.location.href = newUrl.toString();
+    };
+
+    // Cargar datos reales del cadete desde Supabase y auto-crear si no existe
+    async function cargarPerfilDBSupabase() {
+      try {
+        const { data: dbCad, error } = await supabase
+          .from('Cadetes')
+          .select('*')
+          .eq('id_cad', cadeteActual.id_cad)
+          .maybeSingle();
+
+        if (dbCad) {
+          cadeteActual = { ...cadeteActual, ...dbCad };
+        } else {
+          // Si el cadete no existe en la BD (ej. Cadete #2 en pruebas), crearlo automáticamente
+          await supabase
+            .from('Cadetes')
+            .upsert({
+              id_cad: cadeteActual.id_cad,
+              nombre_cad: cadeteActual.nombre_cad || `Cadete #${cadeteActual.id_cad}`,
+              alias_cad: cadeteActual.alias_cad || `Cadete #${cadeteActual.id_cad}`,
+              vehiculo_cad: cadeteActual.vehiculo_cad || 'Moto 150cc',
+              estado_cad: 'disponible'
+            }, { onConflict: 'id_cad' });
+        }
+        renderizarPerfilCadete();
+      } catch (e) {
+        console.warn('Error al verificar perfil en BD:', e);
+      }
+    }
+    cargarPerfilDBSupabase();
 
     // Renderizar datos del cadete en el Header del Dashboard
     function renderizarPerfilCadete() {
@@ -511,18 +567,24 @@
             activeOrder = dbOrder;
             localStorage.setItem('active_order', JSON.stringify(dbOrder));
             sessionStorage.setItem('active_order', JSON.stringify(dbOrder));
+            // Si tiene pedido activo, su estado es 'ocupado'
+            actualizarEstadoPresencia('ocupado');
+            await supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad);
           } else {
             // NO hay pedidos activos en la BD para este cadete: limpiar memoria
             localStorage.removeItem('active_order');
             sessionStorage.removeItem('active_order');
             currentActiveOrder = null;
             if (banner) banner.classList.add('hidden');
+            if (isOnline) {
+              actualizarEstadoPresencia('disponible');
+              await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+            }
             return;
           }
         }
       } catch (err) {
         console.warn('[Verificación Pedido Activo] Error consultando Supabase:', err);
-        // Fallback local solo en caso de falla de red
         try {
           const localStr = localStorage.getItem('active_order');
           if (localStr) activeOrder = JSON.parse(localStr);
@@ -571,6 +633,10 @@
       currentActiveOrder = null;
       const banner = document.getElementById('activeTripBanner');
       if (banner) banner.classList.add('hidden');
+
+      // Liberar cadete
+      await actualizarEstadoPresencia('disponible');
+      await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
     };
 
     // -------------------------------------------------------------------------
@@ -654,14 +720,14 @@
     });
 
     window.addEventListener('storage', (e) => {
-      if (e.key === 'active_order' || e.key === 'cadet_session') {
+      if (e.key === 'active_order') {
         verificarPedidoActivoPendiente();
         actualizarMetricasDashboard();
       }
     });
 
     // Toggle Conectado / Desconectado
-    window.toggleServiceStatus = function() {
+    window.toggleServiceStatus = async function() {
       isOnline = !isOnline;
 
       const card = document.getElementById('statusCard');
@@ -683,7 +749,13 @@
         btnText.innerText = "Finalizar Turno";
         radar.style.opacity = "1";
 
-        // Iniciar presencia y escucha Realtime
+        // Actualizar o registrar en DB y Presence
+        await supabase.from('Cadetes').upsert({
+          id_cad: cadeteActual.id_cad,
+          nombre_cad: cadeteActual.nombre_cad || `Cadete #${cadeteActual.id_cad}`,
+          estado_cad: 'disponible'
+        }, { onConflict: 'id_cad' });
+
         iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
           triggerIncomingOrderModal(pedido);
         });
@@ -698,19 +770,36 @@
         btnText.innerText = "Iniciar Turno / Conectar";
         radar.style.opacity = "0";
 
-        // Desconectar presencia y canales Realtime
+        // Actualizar en DB y Presence
+        await supabase.from('Cadetes').update({ estado_cad: 'desconectado' }).eq('id_cad', cadeteActual.id_cad);
         desconectarSuscripcionesDashboard();
       }
     };
 
-    // Modal de Pedido Entrante (Soporta pedido real de Realtime o simulación de prueba)
-    window.triggerIncomingOrderModal = function(pedido = null) {
+    // Modal de Pedido Entrante
+    window.triggerIncomingOrderModal = async function(pedido = null) {
       if (!isOnline) {
-        alert("Debes estar en estado CONECTADO para recibir pedidos.");
+        console.warn("Se ignoró pedido entrante porque el cadete está desconectado.");
+        return;
+      }
+
+      if (!pedido || !pedido.id_pedido) {
+        console.warn("Se ignoró llamada a modal sin pedido válido.");
+        return;
+      }
+
+      const orderId = Number(pedido.id_pedido);
+      if (pedidosRechazadosLocalmente.has(orderId)) {
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ignorando orden #${orderId} porque ya fue rechazada en esta sesión.`);
         return;
       }
 
       currentActiveOrder = pedido;
+      console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Abriendo modal para pedido #${orderId}:`, pedido);
+
+      // Bloquear cadete en 'en_confirmacion'
+      await actualizarEstadoPresencia('en_confirmacion');
+      await supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad);
 
       // Elementos del Modal
       const modal = document.getElementById('orderModal');
@@ -726,7 +815,6 @@
       const destEl = document.getElementById('modalDestination');
       const payEl = document.getElementById('modalPaymentInfo');
 
-      // Si viene un pedido real de Supabase Realtime
       if (pedido) {
         const orderId = pedido.id_pedido || 'N/A';
         const info = pedido.inform_pedido || 'Pedido de Comida';
@@ -745,19 +833,9 @@
         originEl.innerText = pedido.latitud_org && pedido.longitud_org ? `Origen (${pedido.latitud_org}, ${pedido.longitud_org})` : 'Av. Libertador 450 (Centro)';
         destEl.innerText = pedido.latitud_dest && pedido.longitud_dest ? `Destino (${pedido.latitud_dest}, ${pedido.longitud_dest})` : 'Calle San Martín 1234, 4° B';
         payEl.innerText = `Efectivo: Cobrar $${total.toLocaleString('es-AR')}`;
-      } else {
-        // Datos por defecto para botón de prueba
-        storeEl.innerText = 'Empanadas Don Luis';
-        summaryEl.innerHTML = 'Orden #4820 &bull; 2 artículos';
-        earningsEl.innerText = '$2.450';
-        distanceEl.innerText = '2.3 km';
-        timeEl.innerText = '14 mins';
-        originEl.innerText = 'Av. Libertador 450 (Centro)';
-        destEl.innerText = 'Calle San Martín 1234, 4° B';
-        payEl.innerText = 'Efectivo: Cobrar $8.500';
       }
 
-      // Resetear animación del timer
+      // Resetear animación del timer (15s)
       timerBar.classList.remove('timer-bar');
       void timerBar.offsetWidth; // Trigger reflow
       timerBar.classList.add('timer-bar');
@@ -765,7 +843,6 @@
       modal.classList.remove('opacity-0', 'pointer-events-none');
       content.classList.remove('translate-y-full');
 
-      // Notificación táctil / vibración
       if ("vibrate" in navigator) {
         navigator.vibrate([200, 100, 200, 100, 400]);
       }
@@ -777,31 +854,103 @@
       }, 15000);
     };
 
-    window.rejectOrder = function() {
+    // Conectores globales para eventos de Realtime
+    window.recibirPedidoRealtime = function(pedido) {
+      console.log('[Dashboard] recibirPedidoRealtime recibido:', pedido);
+      triggerIncomingOrderModal(pedido);
+    };
+
+    window.addEventListener('nuevoPedidoEntrante', (e) => {
+      console.log('[Dashboard] Evento nuevoPedidoEntrante capturado:', e.detail);
+      triggerIncomingOrderModal(e.detail);
+    });
+
+    window.rejectOrder = async function() {
       clearTimeout(timerTimeout);
       closeModal();
+
+      const orderToReject = currentActiveOrder;
+      currentActiveOrder = null;
+
+      if (orderToReject && orderToReject.id_pedido) {
+        pedidosRechazadosLocalmente.add(Number(orderToReject.id_pedido));
+        sessionStorage.setItem('rejected_orders', JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
+      }
+
+      // Limpiar datos de orden local
+      localStorage.removeItem('active_order');
+      sessionStorage.removeItem('active_order');
+
+      // Actualizamos estado de presencia visual y en BD SIEMPRE para asegurar que vuelve a la pool
+      await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+      actualizarEstadoPresencia('disponible');
+
+      if (orderToReject && orderToReject.id_pedido) {
+        console.log('[Rechazo] Ejecutando rechazo 100% desde el frontend (sin Edge Function)');
+        try {
+          // 1. Actualizamos BD localmente (solo el pedido, porque el cadete ya se liberó arriba)
+          await supabase.from('Pedidos').update({ id_cadete: null, estado_pedido: 'pendiente' }).eq('id_pedido', orderToReject.id_pedido);
+
+          // 2. Emitimos el Broadcast al Cliente para que él busque a otro cadete
+          const chan = supabase.channel(`pedido-en-curso-${orderToReject.id_pedido}`, { config: { broadcast: { ack: true } } });
+          
+          chan.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              await chan.send({
+                type: 'broadcast',
+                event: 'pedido_rechazado',
+                payload: { id_cadete_rechazo: cadeteActual.id_cad }
+              });
+              supabase.removeChannel(chan);
+            }
+          });
+        } catch (err) {
+          console.error('[Rechazo] Error ejecutando lógica local:', err);
+        }
+      }
     };
 
     window.acceptOrder = function() {
+      console.log('[Dashboard] Botón Aceptar presionado. currentActiveOrder:', currentActiveOrder);
       clearTimeout(timerTimeout);
       closeModal();
-      const orderToSave = currentActiveOrder || {
+
+      const orderToSave = currentActiveOrder ? { ...currentActiveOrder } : {
         id_pedido: 4820,
         id_cadete: cadeteActual.id_cad,
-        id_cliente: 'cli_test_123',
-        inform_pedido: 'Empanadas Don Luis',
+        inform_pedido: 'Local Comercial',
         coste_pedido: 8500,
-        tipo_paquete: '2 artículos',
+        tipo_paquete: 'Paquete',
         latitud_org: -31.5375,
         longitud_org: -68.5364,
         latitud_dest: -31.5390,
         longitud_dest: -68.5320
       };
-      localStorage.setItem('active_order', JSON.stringify(orderToSave));
-      sessionStorage.setItem('active_order', JSON.stringify(orderToSave));
-      if (orderToSave && orderToSave.id_pedido) {
-        localStorage.setItem(`order_start_time_${orderToSave.id_pedido}`, new Date().toISOString());
+
+      orderToSave.estado_pedido = 'asignado';
+      orderToSave.id_cadete = cadeteActual.id_cad;
+
+      // 1. Guardar INMEDIATAMENTE en almacenamiento local
+      try {
+        localStorage.setItem('active_order', JSON.stringify(orderToSave));
+        sessionStorage.setItem('active_order', JSON.stringify(orderToSave));
+        if (orderToSave.id_pedido) {
+          localStorage.setItem(`order_start_time_${orderToSave.id_pedido}`, new Date().toISOString());
+        }
+      } catch (e) {
+        console.warn('Error guardando active_order en storage:', e);
       }
+
+      // 2. Disparar sincronizaciones en paralelo sin frenar la transición de pantalla
+      Promise.all([
+        orderToSave.id_pedido
+          ? supabase.from('Pedidos').update({ id_cadete: cadeteActual.id_cad, estado_pedido: 'asignado' }).eq('id_pedido', orderToSave.id_pedido)
+          : Promise.resolve(),
+        supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad),
+        actualizarEstadoPresencia('ocupado')
+      ]).catch(err => console.warn('[Dashboard] Error al actualizar en Supabase:', err));
+
+      // 3. Redirigir de forma instantánea a la vista de viaje
       window.location.href = 'pedido_activo.html';
     };
 

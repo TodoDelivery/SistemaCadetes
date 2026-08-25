@@ -522,7 +522,10 @@
 
       const btn = document.getElementById('btnCrearPedido');
       btn.disabled = true;
-      btn.innerText = 'Insertando pedido en Supabase...';
+      btn.innerText = 'Insertando...';
+        
+      // 1. Limpiar memoria de cadetes rechazados para que el nuevo pedido tenga a todos disponibles
+      cadetesRechazadosGlobal = [];
 
       const inform = document.getElementById('inpInformPedido').value.trim();
       const tipo = document.getElementById('inpTipoPaquete').value;
@@ -562,20 +565,54 @@
         console.log('Pedido insertado exitosamente:', pedidoInsertado);
         pedidoActivo = pedidoInsertado;
 
-        btn.innerText = 'Asignando cadete cercano...';
+        btn.innerText = 'Buscando cadetes disponibles...';
 
-        // 2. Invocar Edge Function de Deno (asignar-pedido) si está desplegada
+        // 2. ASIGNACIÓN 100% DESDE EL FRONTEND (Sin depender de Edge Function para evitar CORS)
         try {
-          const { data: resAsignacion, error: funcError } = await supabase.functions.invoke('asignar-pedido', {
-            body: { record: pedidoInsertado }
-          });
-          console.log('Respuesta de Edge Function:', resAsignacion, funcError);
+          const { data: cadetesCandidatos } = await supabase.from('Cadetes')
+            .select('id_cad, nombre_cad')
+            .eq('estado_cad', 'disponible')
+            .order('id_cad', { ascending: true })
+            .limit(1);
+
+          if (cadetesCandidatos && cadetesCandidatos.length > 0) {
+            const idCandidato = cadetesCandidatos[0].id_cad;
+            console.log(`[Cliente] Asignando pedido #${pedidoInsertado.id_pedido} al Cadete #${idCandidato}`);
+
+            // A) Actualizamos BD
+            await Promise.all([
+              supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idCandidato),
+              supabase.from('Pedidos').update({ id_cadete: idCandidato, estado_pedido: 'en_confirmacion' }).eq('id_pedido', pedidoInsertado.id_pedido)
+            ]);
+
+            const orderPayload = { ...pedidoInsertado, id_cadete: idCandidato };
+
+            // B) Emitimos WS al Cadete
+            const chan = supabase.channel(`pedidos-cadete-${idCandidato}`, { config: { broadcast: { ack: true } } });
+            chan.subscribe(async (status) => {
+              if (status === 'SUBSCRIBED') {
+                await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload: orderPayload });
+                supabase.removeChannel(chan);
+              }
+            });
+            console.log('[Cliente] Broadcast de nuevo pedido enviado con éxito.');
+          } else {
+            console.warn('[Cliente] No hay cadetes disponibles en este momento.');
+            await supabase.from('Pedidos').update({ estado_pedido: 'cancelado' }).eq('id_pedido', pedidoInsertado.id_pedido);
+            pedidoActivo.estado_pedido = 'cancelado';
+            actualizarUIEstado('cancelado', null);
+          }
         } catch (fErr) {
-          console.warn('Nota: Edge function local/remota pendiente:', fErr);
+          console.warn('[Cliente] Fallo en asignación directa:', fErr);
         }
 
         // 3. Activar el Panel de Seguimiento en Vivo
         mostrarPanelSeguimiento(pedidoInsertado);
+
+        // Actualizar UI del panel si ya fue cancelado inmediatamente
+        if (pedidoActivo.estado_pedido === 'cancelado') {
+          actualizarUIEstado('cancelado', null);
+        }
 
         btn.disabled = false;
         btn.innerText = 'Crear Pedido y Asignar a Cadete';
@@ -588,9 +625,8 @@
       }
     };
 
-    // -------------------------------------------------------------------------
-    // 3. SEGUIMIENTO REALTIME & CHAT PRIVADO
-    // -------------------------------------------------------------------------
+    let cadetesRechazadosGlobal = []; // Manejador de estado local del cliente para exclusiones
+
     function mostrarPanelSeguimiento(pedido) {
       document.getElementById('trackingPanel').classList.remove('hidden');
       document.getElementById('labelIdPedido').innerText = `#${pedido.id_pedido}`;
@@ -631,10 +667,65 @@
         // C) Escuchar cambios de estado del pedido por broadcast
         .on('broadcast', { event: 'cambio_estado_pedido' }, ({ payload }) => {
           if (payload && payload.estado_pedido) {
-            actualizarUIEstado(payload.estado_pedido);
+            actualizarUIEstado(payload.estado_pedido, payload.id_cadete);
+            if (payload.id_cadete && payload.estado_pedido === 'asignado') {
+              cargarDatosCadeteAsignado(payload.id_cadete);
+            }
           }
         })
-        // D) Escuchar cambios directos en la Base de Datos (Postgres Changes)
+        // D) Escuchar notificación de rechazo de un cadete
+        .on('broadcast', { event: 'pedido_rechazado' }, async ({ payload }) => {
+          if (payload && payload.id_cadete_rechazo) {
+            console.log(`[Cliente RT] Pedido rechazado por el cadete #${payload.id_cadete_rechazo}. Buscando alternativas...`);
+            
+            if (!cadetesRechazadosGlobal.includes(payload.id_cadete_rechazo)) {
+              cadetesRechazadosGlobal.push(payload.id_cadete_rechazo);
+            }
+
+            // 1. EL CLIENTE BUSCA EL SIGUIENTE CADETE DISPONIBLE
+            try {
+              const { data: candidatos, error: errCandidatos } = await supabase
+                .from('Cadetes')
+                .select('id_cad, nombre_cad')
+                .eq('estado_cad', 'disponible')
+                .not('id_cad', 'in', `(${cadetesRechazadosGlobal.join(",")})`)
+                .order('id_cad', { ascending: true })
+                .limit(1);
+
+              if (candidatos && candidatos.length > 0) {
+                const idSiguienteCadete = candidatos[0].id_cad;
+                console.log(`[Cliente RT] Siguiente cadete encontrado: #${idSiguienteCadete}. Asignando directamente...`);
+
+                // 2. EL CLIENTE ASIGNA DIRECTO EN LA BD (Sin Edge Function)
+                await Promise.all([
+                  supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idSiguienteCadete),
+                  supabase.from('Pedidos').update({ id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' }).eq('id_pedido', pedidoActivo.id_pedido)
+                ]);
+
+                const orderPayload = { ...pedidoActivo, id_cadete: idSiguienteCadete };
+
+                // 3. ENVIAMOS EL WS AL NUEVO CADETE
+                const chan = supabase.channel(`pedidos-cadete-${idSiguienteCadete}`, { config: { broadcast: { ack: true } } });
+                chan.subscribe(async (status) => {
+                  if (status === 'SUBSCRIBED') {
+                    await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload: orderPayload });
+                    supabase.removeChannel(chan);
+                  }
+                });
+                
+                console.log('[Cliente RT] Re-asignación directa lanzada con éxito.');
+              } else {
+                console.warn('[Cliente RT] No hay más cadetes disponibles tras el rechazo.');
+                await supabase.from('Pedidos').update({ estado_pedido: 'cancelado' }).eq('id_pedido', pedidoActivo.id_pedido);
+                pedidoActivo.estado_pedido = 'cancelado';
+                actualizarUIEstado('cancelado', null);
+              }
+            } catch (err) {
+              console.error('[Cliente RT] Fallo al buscar y reasignar:', err);
+            }
+          }
+        })
+        // E) Escuchar cambios directos en la Base de Datos (Postgres Changes)
         .on(
           'postgres_changes',
           {
@@ -645,11 +736,14 @@
           },
           async (payload) => {
             console.log('[Cliente RT] Pedido actualizado en DB:', payload.new);
-            actualizarUIEstado(payload.new.estado_pedido);
+            const nuevoEstado = payload.new.estado_pedido;
+            const idCad = payload.new.id_cadete;
 
-            // Si se asignó un cadete, cargar sus datos
-            if (payload.new.id_cadete) {
-              cargarDatosCadeteAsignado(payload.new.id_cadete);
+            actualizarUIEstado(nuevoEstado, idCad);
+
+            // Si se asignó un cadete y el estado es asignado o en camino, cargar datos
+            if (idCad && (nuevoEstado === 'asignado' || nuevoEstado === 'en_camino_entrega')) {
+              cargarDatosCadeteAsignado(idCad);
             }
           }
         )
@@ -679,17 +773,32 @@
       }
     }
 
-    function actualizarUIEstado(estado) {
+    function actualizarUIEstado(estado, idCadete = null) {
       const badge = document.getElementById('badgeEstadoPedido');
       if (!badge) return;
 
-      if (estado === 'asignado') {
+      if (estado === 'cancelado') {
+        badge.className = "px-3 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-500 text-xs font-black uppercase";
+        badge.innerText = "Pedido Cancelado • Sin cadetes";
+
+        document.getElementById('cadeteNombreText').innerText = "Cancelado automáticamente";
+        document.getElementById('cadeteAvatarInitials').innerText = "❌";
+        document.getElementById('cadeteGpsStatus').innerText = "Ningún cadete pudo aceptar este pedido";
+      } else if (estado === 'pendiente' || estado === 'en_confirmacion' || !idCadete) {
+        badge.className = "px-3 py-1 rounded-full bg-brand-warning/15 border border-brand-warning/30 text-brand-warning text-xs font-black uppercase";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-warning animate-pulse inline-block mr-1"></span> Buscando cadete cercano...`;
+
+        // Limpiar tarjeta del cadete mientras esté buscando o en confirmación
+        document.getElementById('cadeteNombreText').innerText = "Buscando cadete...";
+        document.getElementById('cadeteAvatarInitials').innerText = "🔍";
+        document.getElementById('cadeteGpsStatus').innerText = "Esperando confirmación del cadete";
+      } else if (estado === 'asignado') {
         badge.className = "px-3 py-1 rounded-full bg-brand-info/15 border border-brand-info/30 text-brand-info text-xs font-black uppercase";
         badge.innerText = "Cadete Asignado • En camino al local";
       } else if (estado === 'en_camino_entrega') {
         badge.className = "px-3 py-1 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-black uppercase";
         badge.innerText = "Pedido Retirado • En camino a tu puerta";
-      } else if (estado === 'entregado') {
+      } else if (estado === 'entregado' || estado === 'rendido') {
         badge.className = "px-3 py-1 rounded-full bg-brand-accent text-brand-bg text-xs font-black uppercase";
         badge.innerText = "¡Pedido Entregado con Éxito!";
       }

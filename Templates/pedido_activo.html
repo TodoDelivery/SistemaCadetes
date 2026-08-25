@@ -1270,6 +1270,16 @@
       localStorage.removeItem('active_order');
       sessionStorage.removeItem('active_order');
 
+      // 4. Liberar cadete a estado 'disponible'
+      if (pedidoActivo && pedidoActivo.id_cadete) {
+        try {
+          await supabase
+            .from('Cadetes')
+            .update({ estado_cad: 'disponible' })
+            .eq('id_cad', pedidoActivo.id_cadete);
+        } catch (err) {}
+      }
+
       alert(`¡Cobro confirmado! Pedido #${pedidoActivo.id_pedido} finalizado en ${tiempoPedidoMinutos} min.`);
       window.location.href = 'dashboard.html';
     };

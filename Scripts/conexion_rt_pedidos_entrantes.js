@@ -6,10 +6,13 @@ import { supabase } from './conexion_supabase.js';
 let channelPresence = null;
 let channelPedidos = null;
 let geoWatchId = null;
+let cadeteSession = null;
+let currentCadetState = 'disponible';
+let currentCoords = { lat: -31.5375, lng: -68.5364 }; // San Juan (Fallback)
 
 /**
  * Inicia la doble suscripción en Supabase Realtime:
- * 1. Canal 'cadetes-disponibles' (Presence): Transmite conexión y ubicación GPS al backend.
+ * 1. Canal 'cadetes-disponibles' (Presence): Transmite conexión, estado y ubicación GPS al backend.
  * 2. Canal 'pedidos-asignados' (Postgres Changes & Broadcast): Escucha pedidos asignados a id_cadete.
  * 
  * @param {Object} cadete - Objeto con datos del cadete (id_cad, nombre_cad, etc.)
@@ -21,13 +24,12 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
     return;
   }
 
+  cadeteSession = cadete;
+  currentCadetState = cadete.estado_cad || 'disponible';
   const idCadete = cadete.id_cad;
   const nombreCadete = cadete.nombre_cad || cadete.alias_cad || `Cadete #${idCadete}`;
 
-  console.log(`[Realtime] Inicializando suscripciones para cadete ID: ${idCadete} (${nombreCadete})`);
-
-  // Coordenadas iniciales (por defecto centro o GPS)
-  let currentCoords = { lat: -31.5375, lng: -68.5364 }; // San Juan (Fallback)
+  console.log(`[Realtime] Inicializando suscripciones para cadete ID: ${idCadete} (${nombreCadete}) - Estado: ${currentCadetState}`);
 
   // -----------------------------------------------------------------------
   // 1. CANAL DE PRESENCIA: 'cadetes-disponibles'
@@ -45,15 +47,24 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       const state = channelPresence.presenceState();
       console.log('[Realtime Presence] Estado sincronizado:', state);
     })
+    // Escuchar Broadcasts emitidos globalmente al canal de cadetes
+    .on('broadcast', { event: 'nuevo_pedido' }, ({ payload }) => {
+      console.log('[Realtime Presence Broadcast] Evento recibido:', payload, 'Mi ID:', idCadete);
+      if (payload && Number(payload.id_cadete) === Number(idCadete)) {
+        console.log('[Realtime Presence Broadcast] ¡Pedido destinado a mí! Abriendo modal:', payload);
+        procesarNuevoPedido(payload, onNuevoPedido);
+      }
+    })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('[Realtime Presence] Conectado al canal "cadetes-disponibles"');
+        console.log(`[Realtime Presence] Cadete #${idCadete} conectado a "cadetes-disponibles"`);
         
-        // Transmisión inicial de presencia y ubicación
+        // Transmisión inicial de presencia, estado y ubicación
         await channelPresence.track({
           id_cad: idCadete,
           nombre: nombreCadete,
-          coords: currentCoords
+          coords: currentCoords,
+          estado_cad: currentCadetState
         });
 
         // Seguimiento GPS en tiempo real si el navegador lo soporta
@@ -68,7 +79,8 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
                 await channelPresence.track({
                   id_cad: idCadete,
                   nombre: nombreCadete,
-                  coords: currentCoords
+                  coords: currentCoords,
+                  estado_cad: currentCadetState
                 });
               }
             },
@@ -96,10 +108,12 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       },
       (payload) => {
         console.log('[Realtime Pedidos] Nuevo pedido INSERT recibido:', payload.new);
-        procesarNuevoPedido(payload.new, onNuevoPedido);
+        if (payload.new && Number(payload.new.id_cadete) === Number(idCadete) && payload.new.estado_pedido === 'en_confirmacion') {
+          procesarNuevoPedido(payload.new, onNuevoPedido);
+        }
       }
     )
-    // B) Escuchar actualizaciones en la tabla 'Pedidos' (por ejemplo cuando se asigna id_cadete)
+    // B) Escuchar actualizaciones en la tabla 'Pedidos' (oferta de asignación)
     .on(
       'postgres_changes',
       {
@@ -110,16 +124,23 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       },
       (payload) => {
         console.log('[Realtime Pedidos] Pedido UPDATE asignado:', payload.new);
-        // Si el estado es pendiente o asignado para el cadete
-        if (payload.new.estado_pedido === 'asignado' || payload.new.estado_pedido === 'pendiente') {
+        // El modal SOLO debe abrirse ante una nueva oferta 'en_confirmacion'.
+        // NUNCA cuando pasa a 'asignado' (ya que significa que el cadete acaba de aceptarlo y va a viajar).
+        if (
+          payload.new &&
+          Number(payload.new.id_cadete) === Number(idCadete) &&
+          payload.new.estado_pedido === 'en_confirmacion'
+        ) {
           procesarNuevoPedido(payload.new, onNuevoPedido);
         }
       }
     )
-    // C) Escuchar mensajes directos por Broadcast emitidos por backend
+    // C) Escuchar mensajes directos por Broadcast emitidos al canal privado
     .on('broadcast', { event: 'nuevo_pedido' }, ({ payload }) => {
-      console.log('[Realtime Broadcast] Pedido recibido por broadcast:', payload);
-      procesarNuevoPedido(payload, onNuevoPedido);
+      console.log('[Realtime Broadcast Canal Privado] Pedido recibido:', payload);
+      if (payload && Number(payload.id_cadete) === Number(idCadete)) {
+        procesarNuevoPedido(payload, onNuevoPedido);
+      }
     })
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -134,25 +155,37 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
 }
 
 /**
+ * Actualiza el estado de presencia del cadete (ej. 'disponible', 'en_confirmacion', 'ocupado')
+ * y lo retransmite inmediatamente en Realtime Presence
+ * 
+ * @param {string} nuevoEstado - 'disponible' | 'en_confirmacion' | 'ocupado' | 'desconectado'
+ */
+export async function actualizarEstadoPresencia(nuevoEstado) {
+  currentCadetState = nuevoEstado;
+  if (channelPresence && cadeteSession) {
+    const idCadete = cadeteSession.id_cad;
+    const nombreCadete = cadeteSession.nombre_cad || cadeteSession.alias_cad || `Cadete #${idCadete}`;
+    
+    await channelPresence.track({
+      id_cad: idCadete,
+      nombre: nombreCadete,
+      coords: currentCoords,
+      estado_cad: nuevoEstado
+    });
+    console.log(`[Realtime Presence] Estado del cadete actualizado a: ${nuevoEstado}`);
+  }
+}
+
+/**
  * Procesa los datos del pedido recibido y notifica a la interfaz del Dashboard
  */
 function procesarNuevoPedido(pedido, callback) {
-  if (!pedido) return;
+  if (!pedido || !pedido.id_pedido) return;
 
-  // Notificar mediante callback si fue provisto
   if (typeof callback === 'function') {
     callback(pedido);
-  }
-
-  // Notificar globalmente mediante CustomEvent para el DOM
-  if (typeof window !== 'undefined') {
-    const event = new CustomEvent('nuevoPedidoEntrante', { detail: pedido });
-    window.dispatchEvent(event);
-
-    // Si existe la función global en dashboard.html para abrir el modal
-    if (typeof window.recibirPedidoRealtime === 'function') {
-      window.recibirPedidoRealtime(pedido);
-    }
+  } else if (typeof window !== 'undefined' && typeof window.triggerIncomingOrderModal === 'function') {
+    window.triggerIncomingOrderModal(pedido);
   }
 }
 
@@ -182,10 +215,12 @@ export async function desconectarSuscripcionesDashboard() {
 // Exponer globalmente en window para fácil uso desde cualquier script
 if (typeof window !== 'undefined') {
   window.iniciarSuscripcionesDashboard = iniciarSuscripcionesDashboard;
+  window.actualizarEstadoPresencia = actualizarEstadoPresencia;
   window.desconectarSuscripcionesDashboard = desconectarSuscripcionesDashboard;
 }
 
 export default {
   iniciarSuscripcionesDashboard,
+  actualizarEstadoPresencia,
   desconectarSuscripcionesDashboard
 };
