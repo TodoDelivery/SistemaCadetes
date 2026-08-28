@@ -505,13 +505,31 @@
       longitud_dest: -68.5320
     };
 
+    let cadeteActual = null;
+    let storageKey = 'active_order';
+
     // -------------------------------------------------------------------------
     // 1. CARGA DE DATOS REALES (LOCALSTORAGE & SUPABASE)
     // -------------------------------------------------------------------------
     window.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlCadId = urlParams.get('id_cad');
+      
+      if (urlCadId) {
+        cadeteActual = { id_cad: Number(urlCadId) };
+      } else {
+        // Fallback a session si no hay URL (aunque la redirección ahora la incluye)
+        const sessionCadId = sessionStorage.getItem('cadet_tab_id');
+        if (sessionCadId) cadeteActual = { id_cad: Number(sessionCadId) };
+      }
+      
+      if (cadeteActual) {
+        storageKey = `active_order_${cadeteActual.id_cad}`;
+      }
+
       // 1. Cargar desde localStorage / sessionStorage
       try {
-        const storedOrder = localStorage.getItem('active_order') || sessionStorage.getItem('active_order');
+        const storedOrder = localStorage.getItem(storageKey) || sessionStorage.getItem(storageKey);
         if (storedOrder) {
           const parsed = JSON.parse(storedOrder);
           if (parsed && parsed.id_pedido) {
@@ -526,8 +544,8 @@
       await sincronizarDatosRealesDesdeBD();
 
       // Guardar estado actualizado en almacenamiento persistente
-      localStorage.setItem('active_order', JSON.stringify(pedidoActivo));
-      sessionStorage.setItem('active_order', JSON.stringify(pedidoActivo));
+      localStorage.setItem(storageKey, JSON.stringify(pedidoActivo));
+      sessionStorage.setItem(storageKey, JSON.stringify(pedidoActivo));
 
       if (pedidoActivo && pedidoActivo.id_pedido && !localStorage.getItem(`order_start_time_${pedidoActivo.id_pedido}`)) {
         localStorage.setItem(`order_start_time_${pedidoActivo.id_pedido}`, new Date().toISOString());
@@ -547,8 +565,8 @@
           const st = typeof estadoObj === 'string' ? estadoObj : estadoObj?.estado_pedido;
           if (st === 'cancelado') {
             alert('El pedido ha sido cancelado por el cliente o el sistema.');
-            localStorage.removeItem('active_order');
-            sessionStorage.removeItem('active_order');
+            localStorage.removeItem(storageKey);
+            sessionStorage.removeItem(storageKey);
             try {
               if (cadeteActual && cadeteActual.id_cad) {
                 await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
@@ -573,8 +591,8 @@
             pedidoActivo = { ...pedidoActivo, ...dbPed };
             if (dbPed.estado_pedido === 'cancelado') {
               alert('Este pedido fue cancelado.');
-              localStorage.removeItem('active_order');
-              sessionStorage.removeItem('active_order');
+              localStorage.removeItem(storageKey);
+              sessionStorage.removeItem(storageKey);
               try {
                 if (cadeteActual && cadeteActual.id_cad) {
                   await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
@@ -1293,8 +1311,8 @@
 
       // 3. Limpiar pedido de la memoria local y de sesión
       localStorage.removeItem(`order_start_time_${pedidoActivo.id_pedido}`);
-      localStorage.removeItem('active_order');
-      sessionStorage.removeItem('active_order');
+      localStorage.removeItem(storageKey);
+      sessionStorage.removeItem(storageKey);
 
       // 4. Liberar cadete a estado 'disponible'
       if (pedidoActivo && pedidoActivo.id_cadete) {

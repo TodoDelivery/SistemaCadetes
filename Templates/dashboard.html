@@ -456,16 +456,6 @@
     </div>
   </div>
 
-  <!-- DEBUG OVERLAY (SOLO PARA PRUEBAS LOCALES) -->
-  <div id="debugOverlay"
-    class="fixed bottom-4 left-4 bg-black/90 border border-brand-accent p-3 rounded-lg z-50 text-[10px] font-mono text-brand-accent pointer-events-none shadow-lg backdrop-blur-sm">
-    <div class="font-bold text-white mb-1">=== DIAGNÓSTICO P2P aislam. ===</div>
-    <div>ID Memoria: <span id="debugMemId">Cargando...</span></div>
-    <div>ID URL: <span id="debugUrlId">Cargando...</span></div>
-    <div>Canal Asignación: <span id="debugChanAssign">Esperando...</span></div>
-    <div class="mt-1 text-gray-400">Si dos pestañas tienen el mismo ID, colisionarán.</div>
-  </div>
-
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
@@ -511,14 +501,6 @@
       window.location.href = '../index.html';
       throw new Error("Sesión no iniciada"); // Detener ejecución del script actual
     }
-
-    // Actualizar Panel de Debug Visual
-    const debugMem = document.getElementById('debugMemId');
-    const debugUrl = document.getElementById('debugUrlId');
-    const debugChan = document.getElementById('debugChanAssign');
-    if (debugMem) debugMem.innerText = cadeteActual.id_cad;
-    if (debugUrl) debugUrl.innerText = urlCadId || 'Ninguno';
-    if (debugChan) debugChan.innerText = `pedidos-cadete-${cadeteActual.id_cad}`;
 
     // Asegurar valores por defecto mínimos si vienen incompletos
     cadeteActual.nombre_cad = cadeteActual.nombre_cad || `Cadete #${cadeteActual.id_cad}`;
@@ -841,8 +823,6 @@
 
     // Modal de Pedido Entrante
     window.triggerIncomingOrderModal = async function (pedido = null) {
-      console.trace(`[MISTERIO RESUELTO] ABRIENDO MODAL PARA PEDIDO #${pedido ? pedido.id_pedido : 'null'} EN CADETE #${cadeteActual.id_cad}. Trazabilidad:`);
-
       if (!isOnline) {
         console.warn("Se ignoró pedido entrante porque el cadete está desconectado.");
         return;
@@ -1117,7 +1097,7 @@
       ]).catch(err => console.warn('[Dashboard] Error al actualizar en Supabase:', err));
 
       // 3. Redirigir de forma instantánea a la vista de viaje
-      window.location.href = 'pedido_activo.html';
+      window.location.href = `pedido_activo.html?id_cad=${cadeteActual.id_cad}`;
     };
 
     window.closeModal = function () {
