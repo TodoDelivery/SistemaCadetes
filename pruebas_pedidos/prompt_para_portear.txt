@@ -1,0 +1,68 @@
+# Prompt / Guía de Implementación para el Frontend de Clientes
+
+## Contexto y Objetivo
+Se requiere desarrollar el frontend definitivo para la aplicación de Clientes del sistema "Todo Delivery". 
+Este frontend debe replicar EXACTAMENTE la lógica de inserción, asignación, bloqueo optimista y reasignación de pedidos que actualmente se encuentra en el archivo de pruebas `prueba_insercion_pedidos.html`. 
+La base de datos es Supabase y se hace un uso intensivo de Supabase Realtime (Canales de Broadcast y Postgres Changes).
+
+## 1. Reglas Arquitectónicas Críticas (Bloqueo Optimista)
+El sistema utiliza un patrón de "Bloqueo Optimista" para garantizar la exclusión mutua entre cadetes.
+- El Cliente NUNCA fuerza el estado del pedido a "asignado" o "en_confirmacion".
+- El Cliente SIEMPRE inserta o reasigna el pedido con `estado_pedido: 'libre'`.
+- El Cliente se comunica con el cadete enviando un evento de Broadcast a un canal privado del cadete.
+- Es responsabilidad del Cadete intentar hacer un `UPDATE` en la base de datos para pasar el estado de `libre` a `en_confirmacion`.
+
+## 2. Flujo Exacto de Creación de Pedido
+Cuando el cliente presiona "Crear Pedido", el frontend debe ejecutar estrictamente estos pasos:
+
+1. **Obtener Cadetes Disponibles:**
+   - Hacer un `SELECT id_cad FROM Cadetes WHERE estado_cad = 'disponible' ORDER BY id_cad ASC`.
+   - Seleccionar el primer cadete de la lista (ej. `idCandidato`).
+   - Si no hay cadetes, cancelar el flujo y avisar al cliente.
+
+2. **Insertar el Pedido en BD:**
+   - `INSERT INTO Pedidos (id_cliente, ..., id_cadete, estado_pedido) VALUES (..., idCandidato, 'libre')`.
+   - Prestar especial atención a que `id_cadete` tiene el ID del cadete candidato, pero el estado ES `'libre'`.
+
+3. **Notificar al Cadete (Broadcast Instantáneo):**
+   - Conectarse al canal de Supabase del cadete específico: `pedidos-cadete-${idCandidato}`.
+   - Emitir un mensaje de tipo `broadcast` con el evento `nuevo_pedido`.
+   - El payload debe ser el objeto completo del pedido recién insertado.
+   - (Recomendado: Desuscribirse del canal de envío unos segundos después de emitir el broadcast para liberar conexiones).
+
+## 3. Flujo Exacto de Rechazo y Reasignación
+Si un cadete rechaza el pedido (o se le agota el tiempo), emitirá un Broadcast. El cliente debe estar escuchando y reaccionar así:
+
+1. **Escucha de Rechazos (Broadcast):**
+   - El frontend del cliente debe mantener una suscripción activa a un canal del pedido: `pedido-en-curso-${id_pedido}`.
+   - Escuchar eventos `broadcast` de nombre `pedido_rechazado`.
+   - El payload del rechazo incluirá el `id_cadete_rechazo`.
+
+2. **Lógica de Reasignación (`manejarRechazoOReasignacion`):**
+   - Mantener un array global/estado en memoria local: `cadetesRechazados = []`.
+   - Al recibir el rechazo, agregar el ID del cadete (que viene en el payload) a ese array.
+   - Volver a buscar cadetes disponibles en la BD: `SELECT id_cad FROM Cadetes WHERE estado_cad = 'disponible'`.
+   - Filtrar la lista descartando los IDs que estén en `cadetesRechazados`.
+   - Si hay un nuevo cadete disponible:
+     - Actualizar el pedido en la BD: `UPDATE Pedidos SET id_cadete = nuevoCandidato, estado_pedido = 'libre' WHERE id_pedido = X`.
+     - Enviar el Broadcast `nuevo_pedido` al canal `pedidos-cadete-${nuevoCandidato}`.
+   - Si NO hay más cadetes disponibles tras el filtro:
+     - Actualizar el pedido: `UPDATE Pedidos SET id_cadete = null, estado_pedido = 'cancelado' WHERE id_pedido = X`.
+     - Mostrar mensaje al cliente: "No hay cadetes disponibles, pedido cancelado".
+
+## 4. Flujo de Seguimiento del Pedido Activo
+El cliente debe estar escuchando los cambios de estado de su pedido para actualizar su propia UI y saber cuándo el cadete está llegando:
+
+1. **Suscripción a Postgres Changes:**
+   - Evento: `UPDATE` en la tabla `Pedidos` con filtro `id_pedido=eq.${id_pedido_actual}`.
+   - Reacciones a estados:
+     - `'en_confirmacion'`: El cadete está evaluando la solicitud.
+     - `'asignado'`: El cadete aceptó y está en camino al local.
+     - `'en_camino_origen'`: El cadete está yendo a buscar el paquete.
+     - `'en_camino_entrega'`: El cadete ya tiene el paquete y va hacia el domicilio del cliente.
+     - `'finalizado'`: Viaje concluido.
+     - `'cancelado'`: Viaje abortado (sea por falta de cadetes o rechazos).
+
+## 5. Consideraciones Clave para el Desarrollo
+- La latencia es crítica. Se debe utilizar siempre `broadcast` de Supabase para comunicar la oferta del pedido al cadete (es más rápido que esperar a que el cadete lea la base de datos).
+- Se debe asegurar un cleanup (limpieza) de los canales de Realtime una vez que el pedido finaliza o se cancela, para no saturar las conexiones WebSocket del cliente.
