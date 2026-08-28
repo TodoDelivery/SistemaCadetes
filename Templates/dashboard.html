@@ -1,18 +1,21 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#090B10" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Todo Delivery - Panel Cadete</title>
-  
+
   <!-- Fuente Google Inter / Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -48,6 +51,7 @@
       box-sizing: border-box;
       user-select: none;
     }
+
     body {
       background-color: #090B10;
       color: #FFFFFF;
@@ -61,10 +65,12 @@
         transform: scale(0.95);
         opacity: 0.8;
       }
+
       50% {
         transform: scale(1.35);
         opacity: 0.2;
       }
+
       100% {
         transform: scale(1.8);
         opacity: 0;
@@ -79,49 +85,65 @@
     .glow-online {
       box-shadow: 0 0 35px -5px rgba(0, 229, 143, 0.3);
     }
+
     .glow-offline {
       box-shadow: 0 0 35px -5px rgba(255, 77, 77, 0.2);
     }
+
     @view-transition {
       navigation: auto;
     }
 
     /* Barra de tiempo regresivo para pedido entrante */
     @keyframes countdown {
-      from { width: 100%; }
-      to { width: 0%; }
+      from {
+        width: 100%;
+      }
+
+      to {
+        width: 0%;
+      }
     }
+
     .timer-bar {
       animation: countdown 15s linear forwards;
     }
   </style>
 </head>
+
 <body class="flex flex-col min-h-[100dvh] max-w-md mx-auto bg-brand-bg relative pb-8">
 
   <!-- ============================================== -->
   <!-- 1. HEADER OPERATIVO                             -->
   <!-- ============================================== -->
-  <header class="p-5 pt-7 flex items-center justify-between border-b border-brand-border/50 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-30">
+  <header
+    class="p-5 pt-7 flex items-center justify-between border-b border-brand-border/50 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-30">
     <!-- Perfil del Cadete -->
     <div class="flex items-center gap-3">
       <div class="relative">
-        <div id="cadetAvatar" class="w-11 h-11 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-white font-bold text-base">
+        <div id="cadetAvatar"
+          class="w-11 h-11 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-white font-bold text-base">
           RC
         </div>
         <!-- Indicador GPS en Vivo -->
-        <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-brand-accent rounded-full border-2 border-brand-bg flex items-center justify-center">
+        <span
+          class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-brand-accent rounded-full border-2 border-brand-bg flex items-center justify-center">
           <span class="w-1.5 h-1.5 bg-brand-bg rounded-full"></span>
         </span>
       </div>
       <div>
         <div class="flex items-center gap-1.5">
-          <h1 id="cadetName" class="text-sm font-bold text-white">Ramiro Córdoba</h1>
-          <span id="cadetBadge" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-surfaceLight text-brand-accent border border-brand-border">CADETE #1</span>
+          <h1 id="cadetName" class="text-sm font-bold text-white">...</h1>
+          <span id="cadetBadge"
+            class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-surfaceLight text-brand-accent border border-brand-border">CADETE
+            #1</span>
         </div>
         <p id="cadetVehicleInfo" class="text-xs text-brand-textMuted flex items-center gap-1 mt-0.5">
           <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z">
+            </path>
           </svg>
           GPS Preciso &bull; San Juan
         </p>
@@ -130,7 +152,8 @@
 
     <!-- Marca de la Empresa -->
     <div class="text-right">
-      <span class="text-xs font-extrabold tracking-tight text-white block">Todo <span class="text-brand-accent">Delivery</span></span>
+      <span class="text-xs font-extrabold tracking-tight text-white block">Todo <span
+          class="text-brand-accent">Delivery</span></span>
       <span class="text-[10px] text-brand-textMuted uppercase tracking-wider font-semibold">Central</span>
     </div>
   </header>
@@ -141,38 +164,37 @@
     <!-- 1.5. BANNER DE VIAJE ACTIVO EN CURSO (REANUDAR)-->
     <!-- ============================================== -->
     <section id="activeTripBanner" class="hidden mb-1">
-      <div class="relative overflow-hidden bg-gradient-to-br from-brand-surfaceLight via-brand-surface to-brand-surface border-2 border-brand-accent rounded-3xl p-4 shadow-2xl shadow-brand-accent/20">
-        <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-brand-accent/10 rounded-full blur-2xl pointer-events-none"></div>
-        
+      <div
+        class="relative overflow-hidden bg-gradient-to-br from-brand-surfaceLight via-brand-surface to-brand-surface border-2 border-brand-accent rounded-3xl p-4 shadow-2xl shadow-brand-accent/20">
+        <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-brand-accent/10 rounded-full blur-2xl pointer-events-none">
+        </div>
+
         <div class="flex items-center justify-between gap-3 relative z-10">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="w-12 h-12 rounded-2xl bg-brand-accent text-brand-black flex items-center justify-center text-xl shrink-0 shadow-lg shadow-brand-accent/30">
+            <div
+              class="w-12 h-12 rounded-2xl bg-brand-accent text-brand-black flex items-center justify-center text-xl shrink-0 shadow-lg shadow-brand-accent/30">
               🛵
             </div>
             <div class="min-w-0">
-              <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-accent bg-brand-accent/15 px-2.5 py-0.5 rounded-full border border-brand-accent/30">
+              <span
+                class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-accent bg-brand-accent/15 px-2.5 py-0.5 rounded-full border border-brand-accent/30">
                 <span class="w-1.5 h-1.5 rounded-full bg-brand-accent animate-ping"></span>
                 Pedido en Curso
               </span>
               <h3 id="activeTripTitle" class="text-sm font-black text-white mt-1 truncate">Pedido Activo</h3>
-              <p id="activeTripStatus" class="text-[11px] text-brand-textMuted font-medium truncate mt-0.5">Toca para reanudar la navegación</p>
+              <p id="activeTripStatus" class="text-[11px] text-brand-textMuted font-medium truncate mt-0.5">Toca para
+                reanudar la navegación</p>
             </div>
           </div>
 
           <div class="flex items-center gap-2">
-            <button
-              type="button"
-              onclick="descartarPedidoActivo(event)"
+            <button type="button" onclick="descartarPedidoActivo(event)"
               class="shrink-0 px-3 py-2.5 text-[11px] font-bold text-brand-textMuted hover:text-white bg-brand-surfaceLight border border-brand-border rounded-xl active:scale-95 transition-all"
-              title="Marcar como entregado y descartar"
-            >
+              title="Marcar como entregado y descartar">
               Finalizar
             </button>
-            <button
-              type="button"
-              onclick="reanudarViajeActivo()"
-              class="shrink-0 px-4 py-2.5 bg-brand-accent hover:bg-brand-accentDark text-brand-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-brand-accent/20 active:scale-95 transition-transform flex items-center gap-1.5"
-            >
+            <button type="button" onclick="reanudarViajeActivo()"
+              class="shrink-0 px-4 py-2.5 bg-brand-accent hover:bg-brand-accentDark text-brand-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-brand-accent/20 active:scale-95 transition-transform flex items-center gap-1.5">
               <span>Reanudar</span>
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
@@ -186,17 +208,20 @@
     <!-- ============================================== -->
     <!-- 2. CARD PRINCIPAL: TOGGLE DE ESTADO            -->
     <!-- ============================================== -->
-    <section id="statusCard" class="relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-online">
-      
+    <section id="statusCard"
+      class="relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-online">
+
       <!-- Fondo Ilustrativo Radar (Sintético) -->
-      <div id="radarAnimation" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-100 transition-opacity">
+      <div id="radarAnimation"
+        class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-100 transition-opacity">
         <div class="w-48 h-48 rounded-full border border-brand-accent/30 radar-ring absolute"></div>
         <div class="w-32 h-32 rounded-full border border-brand-accent/20 absolute"></div>
       </div>
 
       <div class="relative z-10 flex flex-col items-center">
         <!-- Badge Superior de Estado -->
-        <span id="statusBadge" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-bold uppercase tracking-wider mb-4">
+        <span id="statusBadge"
+          class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-bold uppercase tracking-wider mb-4">
           <span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span>
           Conectado - Recibiendo Pedidos
         </span>
@@ -207,13 +232,11 @@
         </p>
 
         <!-- Botón Gigante de Conexión/Desconexión -->
-        <button
-          id="toggleBtn"
-          onclick="toggleServiceStatus()"
-          class="mt-6 w-full py-4 px-6 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20"
-        >
+        <button id="toggleBtn" onclick="toggleServiceStatus()"
+          class="mt-6 w-full py-4 px-6 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M12 3v9"></path>
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M12 3v9"></path>
           </svg>
           <span id="toggleBtnText">Finalizar Turno</span>
         </button>
@@ -234,7 +257,9 @@
         <div class="bg-brand-surface border border-brand-border rounded-2xl p-4 flex flex-col justify-between">
           <div class="text-brand-accent mb-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+              </path>
             </svg>
           </div>
           <div>
@@ -260,7 +285,8 @@
         <div class="bg-brand-surface border border-brand-border rounded-2xl p-4 flex flex-col justify-between">
           <div class="text-brand-textMuted mb-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z">
+              </path>
             </svg>
           </div>
           <div>
@@ -283,17 +309,22 @@
       <!-- Tarjeta: Estado de Caja y Efectivo -->
       <div class="bg-brand-surface border border-brand-border rounded-2xl p-4 flex items-center justify-between">
         <div class="flex items-center gap-3.5">
-          <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-warning shrink-0">
+          <div
+            class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-warning shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z">
+              </path>
             </svg>
           </div>
           <div>
             <h4 class="text-xs font-bold text-white">Efectivo en Mano a Rendir</h4>
-            <p class="text-xs text-brand-textMuted mt-0.5">Cobros a rendir (40%): <strong id="dashCashOwed" class="text-white">$0</strong></p>
+            <p class="text-xs text-brand-textMuted mt-0.5">Cobros a rendir (40%): <strong id="dashCashOwed"
+                class="text-white">$0</strong></p>
           </div>
         </div>
-        <button onclick="location.href='cashout.html'" class="px-3 py-2 bg-brand-surfaceLight hover:bg-brand-border border border-brand-border rounded-xl text-xs font-semibold text-white active:scale-95 transition-all">
+        <button onclick="location.href='cashout.html'"
+          class="px-3 py-2 bg-brand-surfaceLight hover:bg-brand-border border border-brand-border rounded-xl text-xs font-semibold text-white active:scale-95 transition-all">
           Rendición
         </button>
       </div>
@@ -301,17 +332,21 @@
       <!-- Tarjeta: Historial de Viajes y Ganancias (NUEVO) -->
       <div class="bg-brand-surface border border-brand-border rounded-2xl p-4 flex items-center justify-between">
         <div class="flex items-center gap-3.5">
-          <div class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
+          <div
+            class="w-10 h-10 rounded-xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z">
+              </path>
             </svg>
           </div>
           <div>
             <h4 class="text-xs font-bold text-white">Historial de Viajes</h4>
-            <p id="dashHistorySubtitle" class="text-xs text-brand-textMuted mt-0.5">0 entregas hoy &bull; <strong class="text-brand-accent">+$0</strong></p>
+            <p id="dashHistorySubtitle" class="text-xs text-brand-textMuted mt-0.5">0 entregas hoy &bull; <strong
+                class="text-brand-accent">+$0</strong></p>
           </div>
         </div>
-        <button onclick="location.href='Historial.html'" class="px-3 py-2 bg-brand-surfaceLight hover:bg-brand-border border border-brand-border rounded-xl text-xs font-semibold text-brand-accent active:scale-95 transition-all flex items-center gap-1">
+        <button onclick="location.href='Historial.html'"
+          class="px-3 py-2 bg-brand-surfaceLight hover:bg-brand-border border border-brand-border rounded-xl text-xs font-semibold text-brand-accent active:scale-95 transition-all flex items-center gap-1">
           <span>Ver Todo</span>
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path>
@@ -325,9 +360,12 @@
   <!-- ============================================== -->
   <!-- 5. MODAL DISPATCHER: NUEVO PEDIDO ENTRANTE     -->
   <!-- ============================================== -->
-  <div id="orderModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-    <div class="w-full max-w-md bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-6 space-y-5 transform translate-y-full sm:translate-y-0 transition-transform duration-300" id="orderModalContent">
-      
+  <div id="orderModal"
+    class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div
+      class="w-full max-w-md bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-6 space-y-5 transform translate-y-full sm:translate-y-0 transition-transform duration-300"
+      id="orderModalContent">
+
       <!-- Barra de Tiempo Regresivo -->
       <div class="w-full h-1.5 bg-brand-surfaceLight rounded-full overflow-hidden">
         <div id="timerBar" class="h-full bg-brand-accent"></div>
@@ -336,7 +374,8 @@
       <!-- Header del Pedido -->
       <div class="flex items-start justify-between pt-1">
         <div>
-          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-[11px] font-extrabold uppercase">
+          <span
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-[11px] font-extrabold uppercase">
             ¡NUEVO PEDIDO DISPONIBLE!
           </span>
           <h3 id="modalStoreName" class="text-xl font-extrabold text-white mt-2">Local Comercial</h3>
@@ -351,7 +390,8 @@
       </div>
 
       <!-- Información de Distancia y Tiempos -->
-      <div class="grid grid-cols-2 gap-2 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-2xl p-3 text-center">
+      <div
+        class="grid grid-cols-2 gap-2 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-2xl p-3 text-center">
         <div>
           <span class="text-[10px] uppercase font-bold text-brand-textMuted block">Distancia Total</span>
           <span id="modalDistance" class="text-sm font-extrabold text-white mt-0.5 block">2.3 km</span>
@@ -391,24 +431,21 @@
       <!-- Modalidad de Pago del Cliente -->
       <div class="p-3 bg-brand-bg rounded-xl border border-brand-border flex items-center justify-between text-xs">
         <span class="text-brand-textMuted font-medium">Forma de pago cliente:</span>
-        <span id="modalPaymentInfo" class="font-extrabold text-brand-warning bg-brand-warning/10 px-2.5 py-1 rounded-lg border border-brand-warning/20">
+        <span id="modalPaymentInfo"
+          class="font-extrabold text-brand-warning bg-brand-warning/10 px-2.5 py-1 rounded-lg border border-brand-warning/20">
           Efectivo: Cobrar $8.500
         </span>
       </div>
 
       <!-- Botones de Acción Instantánea -->
       <div class="grid grid-cols-2 gap-3 pt-2">
-        <button
-          onclick="rejectOrder()"
-          class="py-4 px-4 rounded-2xl bg-brand-surfaceLight border border-brand-border text-brand-textMuted font-extrabold text-xs uppercase tracking-wider hover:text-white active:scale-[0.97] transition-all"
-        >
+        <button onclick="rejectOrder()"
+          class="py-4 px-4 rounded-2xl bg-brand-surfaceLight border border-brand-border text-brand-textMuted font-extrabold text-xs uppercase tracking-wider hover:text-white active:scale-[0.97] transition-all">
           Rechazar
         </button>
 
-        <button
-          onclick="acceptOrder()"
-          class="py-4 px-4 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-xs uppercase tracking-wider hover:bg-brand-accentHover active:scale-[0.97] transition-all shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-1.5"
-        >
+        <button onclick="acceptOrder()"
+          class="py-4 px-4 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-xs uppercase tracking-wider hover:bg-brand-accentHover active:scale-[0.97] transition-all shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-1.5">
           <span>Aceptar Pedido</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
@@ -419,13 +456,23 @@
     </div>
   </div>
 
+  <!-- DEBUG OVERLAY (SOLO PARA PRUEBAS LOCALES) -->
+  <div id="debugOverlay"
+    class="fixed bottom-4 left-4 bg-black/90 border border-brand-accent p-3 rounded-lg z-50 text-[10px] font-mono text-brand-accent pointer-events-none shadow-lg backdrop-blur-sm">
+    <div class="font-bold text-white mb-1">=== DIAGNÓSTICO P2P aislam. ===</div>
+    <div>ID Memoria: <span id="debugMemId">Cargando...</span></div>
+    <div>ID URL: <span id="debugUrlId">Cargando...</span></div>
+    <div>Canal Asignación: <span id="debugChanAssign">Esperando...</span></div>
+    <div class="mt-1 text-gray-400">Si dos pestañas tienen el mismo ID, colisionarán.</div>
+  </div>
+
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { 
-      iniciarSuscripcionesDashboard, 
-      actualizarEstadoPresencia, 
-      desconectarSuscripcionesDashboard 
+    import {
+      iniciarSuscripcionesDashboard,
+      actualizarEstadoPresencia,
+      desconectarSuscripcionesDashboard
     } from '../Scripts/conexion_rt_pedidos_entrantes.js';
 
     let isOnline = true;
@@ -437,26 +484,20 @@
     const urlParams = new URLSearchParams(window.location.search);
     const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
 
-    let cadeteActual = {
-      id_cad: 1,
-      nombre_cad: 'Ramiro Córdoba',
-      alias_cad: 'Rama',
-      vehiculo_cad: 'Moto 150cc',
-      estado_cad: 'disponible'
-    };
+    let cadeteActual = null;
 
     if (urlCadId) {
-      cadeteActual.id_cad = Number(urlCadId);
+      cadeteActual = { id_cad: Number(urlCadId) };
       sessionStorage.setItem('cadet_tab_id', String(urlCadId));
     } else if (sessionStorage.getItem('cadet_tab_id')) {
-      cadeteActual.id_cad = Number(sessionStorage.getItem('cadet_tab_id'));
+      cadeteActual = { id_cad: Number(sessionStorage.getItem('cadet_tab_id')) };
     } else {
       try {
         const sessionData = localStorage.getItem('cadet_session');
         if (sessionData) {
           const parsed = JSON.parse(sessionData);
           if (parsed && parsed.id_cad) {
-            cadeteActual = { ...cadeteActual, ...parsed };
+            cadeteActual = { ...parsed };
           }
         }
       } catch (err) {
@@ -464,12 +505,32 @@
       }
     }
 
+    // Si no se pudo determinar el cadete por ningún medio, forzar redirección al login
+    if (!cadeteActual || !cadeteActual.id_cad) {
+      console.warn('[Auth] No se encontró sesión activa. Redirigiendo a inicio de sesión...');
+      window.location.href = '../index.html';
+      throw new Error("Sesión no iniciada"); // Detener ejecución del script actual
+    }
+
+    // Actualizar Panel de Debug Visual
+    const debugMem = document.getElementById('debugMemId');
+    const debugUrl = document.getElementById('debugUrlId');
+    const debugChan = document.getElementById('debugChanAssign');
+    if (debugMem) debugMem.innerText = cadeteActual.id_cad;
+    if (debugUrl) debugUrl.innerText = urlCadId || 'Ninguno';
+    if (debugChan) debugChan.innerText = `pedidos-cadete-${cadeteActual.id_cad}`;
+
+    // Asegurar valores por defecto mínimos si vienen incompletos
+    cadeteActual.nombre_cad = cadeteActual.nombre_cad || `Cadete #${cadeteActual.id_cad}`;
+    cadeteActual.estado_cad = cadeteActual.estado_cad || 'disponible';
+
+
     pedidosRechazadosLocalmente = new Set(
       JSON.parse(localStorage.getItem(`rejected_orders_${cadeteActual.id_cad}`) || sessionStorage.getItem(`rejected_orders_${cadeteActual.id_cad}`) || '[]')
     );
 
     // Cambiar de cadete desde el selector interactivo
-    window.cambiarCadeteSesion = function(nuevoId) {
+    window.cambiarCadeteSesion = function (nuevoId) {
       sessionStorage.setItem('cadet_tab_id', String(nuevoId));
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set('id_cad', nuevoId);
@@ -590,15 +651,15 @@
         try {
           const localStr = localStorage.getItem(`active_order_${cadeteActual.id_cad}`);
           if (localStr) activeOrder = JSON.parse(localStr);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 2. Renderizar banner solo si el estado es asignado o en_camino_entrega
       if (activeOrder && activeOrder.id_pedido && (activeOrder.estado_pedido === 'asignado' || activeOrder.estado_pedido === 'en_camino_entrega')) {
         currentActiveOrder = activeOrder;
         const storeName = activeOrder.inform_pedido ? activeOrder.inform_pedido.split('-')[0].trim() : 'Local Comercial';
-        const estadoTxt = activeOrder.estado_pedido === 'en_camino_entrega' 
-          ? 'En camino a entregar al cliente' 
+        const estadoTxt = activeOrder.estado_pedido === 'en_camino_entrega'
+          ? 'En camino a entregar al cliente'
           : 'En camino a retirar del local';
 
         if (titleEl) titleEl.innerText = `Orden #${activeOrder.id_pedido} • ${storeName}`;
@@ -611,7 +672,7 @@
       }
     }
 
-    window.reanudarViajeActivo = function() {
+    window.reanudarViajeActivo = function () {
       if (currentActiveOrder) {
         localStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(currentActiveOrder));
         sessionStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(currentActiveOrder));
@@ -619,7 +680,7 @@
       window.location.href = 'pedido_activo.html';
     };
 
-    window.descartarPedidoActivo = async function(e) {
+    window.descartarPedidoActivo = async function (e) {
       if (e) e.stopPropagation();
       if (!confirm("¿Deseas marcar este pedido como entregado y descartarlo del panel?")) return;
 
@@ -729,7 +790,7 @@
     });
 
     // Toggle Conectado / Desconectado
-    window.toggleServiceStatus = async function() {
+    window.toggleServiceStatus = async function () {
       isOnline = !isOnline;
 
       const card = document.getElementById('statusCard');
@@ -779,7 +840,9 @@
     };
 
     // Modal de Pedido Entrante
-    window.triggerIncomingOrderModal = async function(pedido = null) {
+    window.triggerIncomingOrderModal = async function (pedido = null) {
+      console.trace(`[MISTERIO RESUELTO] ABRIENDO MODAL PARA PEDIDO #${pedido ? pedido.id_pedido : 'null'} EN CADETE #${cadeteActual.id_cad}. Trazabilidad:`);
+
       if (!isOnline) {
         console.warn("Se ignoró pedido entrante porque el cadete está desconectado.");
         return;
@@ -791,6 +854,13 @@
       }
 
       const orderId = Number(pedido.id_pedido);
+      const estPed = String(pedido.estado_pedido);
+      
+      if (estPed !== "libre" && estPed !== "en_confirmacion") {
+        console.warn(`Se ignoró pedido #${orderId} porque el estado es ${estPed}.`);
+        return;
+      }
+      
       if (pedidosRechazadosLocalmente.has(orderId)) {
         console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ignorando orden #${orderId} porque ya fue rechazada localmente.`);
         return;
@@ -800,6 +870,30 @@
       if (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId) {
         console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Modal ya abierto para pedido #${orderId}. Ignorando evento repetido.`);
         return;
+      }
+
+      // INTENTO DE BLOQUEO OPTIMISTA (Reclamar el pedido libre)
+      if (estPed === "libre") {
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Intentando reclamar el pedido libre #${orderId}...`);
+        
+        const { data: claimData, error: claimError } = await supabase
+          .from('Pedidos')
+          .update({ estado_pedido: 'en_confirmacion' })
+          .eq('id_pedido', orderId)
+          .eq('estado_pedido', 'libre') // Condición atómica
+          .select()
+          .maybeSingle();
+          
+        if (claimError || !claimData) {
+          console.warn(`[Dashboard Cadete #${cadeteActual.id_cad}] No se pudo reclamar el pedido #${orderId}. Posiblemente otro cadete lo tomó o fue cancelado.`);
+          return;
+        }
+        
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] ¡Pedido #${orderId} reclamado exitosamente! Actualizando estado cadete a en_confirmacion.`);
+        pedido = claimData; // Usar los datos actualizados
+        
+        // Actualizar estado del cadete a ocupado visualmente
+        await supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad);
       }
 
       currentActiveOrder = pedido;
@@ -883,7 +977,7 @@
     };
 
     // Manejador en tiempo real por si el pedido abierto en modal es cancelado
-    window.handlePedidoCanceladoRealtime = async function(pedidoCancelado) {
+    window.handlePedidoCanceladoRealtime = async function (pedidoCancelado) {
       if (currentActiveOrder && Number(currentActiveOrder.id_pedido) === Number(pedidoCancelado.id_pedido)) {
         console.log(`[Dashboard] El pedido #${pedidoCancelado.id_pedido} fue cancelado mientras estaba en confirmación.`);
         clearTimeout(timerTimeout);
@@ -900,7 +994,7 @@
     };
 
     // Conectores globales para eventos de Realtime
-    window.recibirPedidoRealtime = function(pedido) {
+    window.recibirPedidoRealtime = function (pedido) {
       console.log('[Dashboard] recibirPedidoRealtime recibido:', pedido);
       triggerIncomingOrderModal(pedido);
     };
@@ -910,7 +1004,7 @@
       triggerIncomingOrderModal(e.detail);
     });
 
-    window.rejectOrder = async function() {
+    window.rejectOrder = async function () {
       clearTimeout(timerTimeout);
       closeModal();
 
@@ -951,7 +1045,7 @@
 
           // 2. Emitimos el Broadcast al Cliente para que él busque a otro cadete
           const chan = supabase.channel(`pedido-en-curso-${orderToReject.id_pedido}`, { config: { broadcast: { ack: true } } });
-          
+
           chan.subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
               await chan.send({
@@ -968,7 +1062,7 @@
       }
     };
 
-    window.acceptOrder = async function() {
+    window.acceptOrder = async function () {
       console.log('[Dashboard] Botón Aceptar presionado. currentActiveOrder:', currentActiveOrder);
       clearTimeout(timerTimeout);
       closeModal();
@@ -1026,7 +1120,7 @@
       window.location.href = 'pedido_activo.html';
     };
 
-    window.closeModal = function() {
+    window.closeModal = function () {
       const modal = document.getElementById('orderModal');
       const content = document.getElementById('orderModalContent');
 
@@ -1035,4 +1129,5 @@
     };
   </script>
 </body>
+
 </html>

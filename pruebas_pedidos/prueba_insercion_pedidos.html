@@ -539,16 +539,15 @@
         // Asegurar cliente en BD en segundo plano
         syncClienteEnDB(clienteActual).catch(e => console.warn(e));
 
-        // 1. Buscar cadete disponible de inmediato
-        const { data: cadetesCandidatos } = await supabase
+        // 1. Buscar todos los cadetes disponibles y asignar al primero
+        const { data: todosDisponibles, error: errCandidatos } = await supabase
           .from('Cadetes')
           .select('id_cad, nombre_cad')
           .eq('estado_cad', 'disponible')
-          .order('id_cad', { ascending: true })
-          .limit(1);
+          .order('id_cad', { ascending: true });
 
-        const idCandidato = (cadetesCandidatos && cadetesCandidatos.length > 0) ? cadetesCandidatos[0].id_cad : null;
-        const estadoInicial = idCandidato ? 'en_confirmacion' : 'cancelado';
+        const idCandidato = (todosDisponibles && todosDisponibles.length > 0) ? Number(todosDisponibles[0].id_cad) : null;
+        const estadoInicial = idCandidato ? 'libre' : 'cancelado';
 
         // 2. Insertar pedido en la BD directamente con estado y cadete asignado en un solo paso
         const nuevoPedidoData = {
@@ -581,10 +580,10 @@
         if (idCandidato) {
           console.log(`[Cliente] Asignando pedido #${pedidoInsertado.id_pedido} de forma instantánea al Cadete #${idCandidato}`);
 
-          // Actualizar estado del cadete en BD y presencia
-          supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idCandidato).then();
-
-          const orderPayload = { ...pedidoInsertado, id_cadete: idCandidato, estado_pedido: 'en_confirmacion' };
+          // NOTA: Ya no actualizamos el estado_cad a 'en_confirmacion' desde el cliente.
+          // El cadete será quien lo reclame.
+          
+          const orderPayload = { ...pedidoInsertado, id_cadete: idCandidato, estado_pedido: 'libre' };
 
           // Emitir broadcast instantáneo al Cadete
           const chan = supabase.channel(`pedidos-cadete-${idCandidato}`, { config: { broadcast: { ack: true } } });
@@ -717,30 +716,27 @@
       }
 
       if (idCadeteRechazo) {
-        if (cadetesRechazadosGlobal.includes(idCadeteRechazo)) {
+        const idRechazoNum = Number(idCadeteRechazo);
+        if (cadetesRechazadosGlobal.includes(idRechazoNum)) {
           return; // Ya procesamos este rechazo
         }
-        cadetesRechazadosGlobal.push(idCadeteRechazo);
+        cadetesRechazadosGlobal.push(idRechazoNum);
       }
 
       console.log(`[Cliente RT] Pedido rechazado/liberado por cadete #${idCadeteRechazo || 'desconocido'}. Buscando alternativas... Excluidos:`, cadetesRechazadosGlobal);
 
       try {
-        let querySiguiente = supabase
+        const { data: todosDisponibles, error: errCandidatos } = await supabase
           .from('Cadetes')
           .select('id_cad, nombre_cad')
-          .eq('estado_cad', 'disponible');
+          .eq('estado_cad', 'disponible')
+          .order('id_cad', { ascending: true });
 
-        if (cadetesRechazadosGlobal.length > 0) {
-          querySiguiente = querySiguiente.not('id_cad', 'in', `(${cadetesRechazadosGlobal.join(',')})`);
-        }
+        // Filtrado 100% seguro en memoria (evita bugs de sintaxis con .not() en Supabase JS)
+        const candidatos = (todosDisponibles || []).filter(c => !cadetesRechazadosGlobal.includes(Number(c.id_cad)));
 
-        const { data: candidatos, error: errCandidatos } = await querySiguiente
-          .order('id_cad', { ascending: true })
-          .limit(1);
-
-        if (candidatos && candidatos.length > 0) {
-          const idSiguienteCadete = candidatos[0].id_cad;
+        if (candidatos.length > 0) {
+          const idSiguienteCadete = Number(candidatos[0].id_cad);
           console.log(`[Cliente RT] Siguiente cadete encontrado: #${idSiguienteCadete}. Asignando directamente...`);
 
           pedidoActivo.id_cadete = idSiguienteCadete;

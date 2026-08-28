@@ -113,7 +113,17 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       },
       (payload) => {
         console.log('[Realtime Pedidos] Nuevo pedido INSERT recibido:', payload.new);
-        if (payload.new && Number(payload.new.id_cadete) === Number(idCadete) && payload.new.estado_pedido === 'en_confirmacion') {
+        if (!payload.new) return;
+        
+        const destId = Number(payload.new.id_cadete);
+        const myId = Number(idCadete);
+        
+        if (destId !== myId) {
+          console.error(`[FUEGO P2P] INTENTO DE INVASIÓN INSERT! Destinado a ${destId}, pero yo soy ${myId}! Bloqueando.`);
+          return;
+        }
+
+        if (payload.new.estado_pedido === 'libre' || payload.new.estado_pedido === 'en_confirmacion') {
           procesarNuevoPedido(payload.new, onNuevoPedido);
         }
       }
@@ -131,7 +141,9 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
         console.log('[Realtime Pedidos] Pedido UPDATE recibido:', payload.new);
         if (!payload.new) return;
 
-        // Si el pedido fue cancelado en tiempo real, notificar al dashboard
+        const destId = Number(payload.new.id_cadete);
+        const myId = Number(idCadete);
+
         if (payload.new.estado_pedido === 'cancelado') {
           if (typeof window !== 'undefined' && typeof window.handlePedidoCanceladoRealtime === 'function') {
             window.handlePedidoCanceladoRealtime(payload.new);
@@ -139,12 +151,12 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
           return;
         }
 
-        // El modal SOLO debe abrirse ante una nueva oferta 'en_confirmacion'.
-        // NUNCA cuando pasa a 'asignado' (ya que significa que el cadete acaba de aceptarlo y va a viajar).
-        if (
-          Number(payload.new.id_cadete) === Number(idCadete) &&
-          payload.new.estado_pedido === 'en_confirmacion'
-        ) {
+        if (destId !== myId) {
+          console.error(`[FUEGO P2P] INTENTO DE INVASIÓN UPDATE! Destinado a ${destId}, pero yo soy ${myId}! Bloqueando.`);
+          return;
+        }
+
+        if (payload.new.estado_pedido === 'en_confirmacion') {
           procesarNuevoPedido(payload.new, onNuevoPedido);
         }
       }
@@ -152,9 +164,17 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
     // C) Escuchar mensajes directos por Broadcast emitidos al canal privado
     .on('broadcast', { event: 'nuevo_pedido' }, ({ payload }) => {
       console.log('[Realtime Broadcast Canal Privado] Pedido recibido:', payload);
-      if (payload && Number(payload.id_cadete) === Number(idCadete)) {
-        procesarNuevoPedido(payload, onNuevoPedido);
+      if (!payload) return;
+
+      const destId = Number(payload.id_cadete);
+      const myId = Number(idCadete);
+
+      if (destId !== myId) {
+        console.error(`[FUEGO P2P] INTENTO DE INVASIÓN BROADCAST! Destinado a ${destId}, pero yo soy ${myId}! Bloqueando.`);
+        return;
       }
+
+      procesarNuevoPedido(payload, onNuevoPedido);
     })
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') {

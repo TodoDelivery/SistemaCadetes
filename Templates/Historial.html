@@ -213,20 +213,34 @@
     let currentPeriod = 'today';
     let pedidosCache = [];
 
-    // Sesión del Cadete
-    let cadeteActual = {
-      id_cad: 1,
-      nombre_cad: 'Ramiro Córdoba'
-    };
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
 
-    try {
-      const session = localStorage.getItem('cadet_session');
-      if (session) {
-        const parsed = JSON.parse(session);
-        if (parsed && parsed.id_cad) cadeteActual = parsed;
+    let cadeteActual = null;
+
+    if (urlCadId) {
+      cadeteActual = { id_cad: Number(urlCadId) };
+      sessionStorage.setItem('cadet_tab_id', String(urlCadId));
+    } else if (sessionStorage.getItem('cadet_tab_id')) {
+      cadeteActual = { id_cad: Number(sessionStorage.getItem('cadet_tab_id')) };
+    } else {
+      try {
+        const sessionData = localStorage.getItem('cadet_session');
+        if (sessionData) {
+          const parsed = JSON.parse(sessionData);
+          if (parsed && parsed.id_cad) {
+            cadeteActual = { ...parsed };
+          }
+        }
+      } catch (err) {
+        console.warn('Error al leer datos de sesión del cadete:', err);
       }
-    } catch (e) {
-      console.warn('No se pudo leer cadet_session:', e);
+    }
+
+    if (!cadeteActual || !cadeteActual.id_cad) {
+      console.warn('[Auth] No se encontró sesión activa. Redirigiendo a inicio de sesión...');
+      window.location.href = '../index.html';
+      throw new Error("Sesión no iniciada");
     }
 
     window.addEventListener('DOMContentLoaded', () => {
