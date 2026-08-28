@@ -431,9 +431,7 @@
     let isOnline = true;
     let timerTimeout;
     let currentActiveOrder = null;
-    const pedidosRechazadosLocalmente = new Set(
-      JSON.parse(localStorage.getItem('rejected_orders') || sessionStorage.getItem('rejected_orders') || '[]')
-    );
+    let pedidosRechazadosLocalmente = new Set();
 
     // 1. Obtener ID del cadete con prioridad: URL param -> sessionStorage -> localStorage -> fallback
     const urlParams = new URLSearchParams(window.location.search);
@@ -465,6 +463,10 @@
         console.warn('Error al leer datos de sesión del cadete:', err);
       }
     }
+
+    pedidosRechazadosLocalmente = new Set(
+      JSON.parse(localStorage.getItem(`rejected_orders_${cadeteActual.id_cad}`) || sessionStorage.getItem(`rejected_orders_${cadeteActual.id_cad}`) || '[]')
+    );
 
     // Cambiar de cadete desde el selector interactivo
     window.cambiarCadeteSesion = function(nuevoId) {
@@ -565,15 +567,15 @@
 
           if (dbOrder) {
             activeOrder = dbOrder;
-            localStorage.setItem('active_order', JSON.stringify(dbOrder));
-            sessionStorage.setItem('active_order', JSON.stringify(dbOrder));
+            localStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(dbOrder));
+            sessionStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(dbOrder));
             // Si tiene pedido activo, su estado es 'ocupado'
             actualizarEstadoPresencia('ocupado');
             await supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad);
           } else {
             // NO hay pedidos activos en la BD para este cadete: limpiar memoria
-            localStorage.removeItem('active_order');
-            sessionStorage.removeItem('active_order');
+            localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+            sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
             currentActiveOrder = null;
             if (banner) banner.classList.add('hidden');
             if (isOnline) {
@@ -586,7 +588,7 @@
       } catch (err) {
         console.warn('[Verificación Pedido Activo] Error consultando Supabase:', err);
         try {
-          const localStr = localStorage.getItem('active_order');
+          const localStr = localStorage.getItem(`active_order_${cadeteActual.id_cad}`);
           if (localStr) activeOrder = JSON.parse(localStr);
         } catch (e) {}
       }
@@ -604,15 +606,15 @@
         if (banner) banner.classList.remove('hidden');
       } else {
         if (banner) banner.classList.add('hidden');
-        localStorage.removeItem('active_order');
-        sessionStorage.removeItem('active_order');
+        localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+        sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
       }
     }
 
     window.reanudarViajeActivo = function() {
       if (currentActiveOrder) {
-        localStorage.setItem('active_order', JSON.stringify(currentActiveOrder));
-        sessionStorage.setItem('active_order', JSON.stringify(currentActiveOrder));
+        localStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(currentActiveOrder));
+        sessionStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(currentActiveOrder));
       }
       window.location.href = 'pedido_activo.html';
     };
@@ -628,8 +630,8 @@
           .eq('id_pedido', currentActiveOrder.id_pedido);
       }
 
-      localStorage.removeItem('active_order');
-      sessionStorage.removeItem('active_order');
+      localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+      sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
       currentActiveOrder = null;
       const banner = document.getElementById('activeTripBanner');
       if (banner) banner.classList.add('hidden');
@@ -720,7 +722,7 @@
     });
 
     window.addEventListener('storage', (e) => {
-      if (e.key === 'active_order') {
+      if (e.key === `active_order_${cadeteActual.id_cad}`) {
         verificarPedidoActivoPendiente();
         actualizarMetricasDashboard();
       }
@@ -887,8 +889,8 @@
         clearTimeout(timerTimeout);
         closeModal();
         currentActiveOrder = null;
-        localStorage.removeItem('active_order');
-        sessionStorage.removeItem('active_order');
+        localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+        sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
         if (isOnline) {
           await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
           actualizarEstadoPresencia('disponible');
@@ -917,13 +919,13 @@
 
       if (orderToReject && orderToReject.id_pedido) {
         pedidosRechazadosLocalmente.add(Number(orderToReject.id_pedido));
-        localStorage.setItem('rejected_orders', JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
-        sessionStorage.setItem('rejected_orders', JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
+        localStorage.setItem(`rejected_orders_${cadeteActual.id_cad}`, JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
+        sessionStorage.setItem(`rejected_orders_${cadeteActual.id_cad}`, JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
       }
 
       // Limpiar datos de orden local
-      localStorage.removeItem('active_order');
-      sessionStorage.removeItem('active_order');
+      localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+      sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
 
       // Actualizamos estado de presencia visual y en BD SIEMPRE para asegurar que vuelve a la pool
       await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
@@ -986,8 +988,8 @@
         if (checkDb && checkDb.estado_pedido === 'cancelado') {
           alert('Este pedido fue cancelado antes de poder ser aceptado.');
           currentActiveOrder = null;
-          localStorage.removeItem('active_order');
-          sessionStorage.removeItem('active_order');
+          localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+          sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
           await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
           actualizarEstadoPresencia('disponible');
           return;
@@ -1002,8 +1004,8 @@
 
       // 1. Guardar INMEDIATAMENTE en almacenamiento local
       try {
-        localStorage.setItem('active_order', JSON.stringify(orderToSave));
-        sessionStorage.setItem('active_order', JSON.stringify(orderToSave));
+        localStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(orderToSave));
+        sessionStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(orderToSave));
         if (orderToSave.id_pedido) {
           localStorage.setItem(`order_start_time_${orderToSave.id_pedido}`, new Date().toISOString());
         }
@@ -1012,7 +1014,7 @@
       }
 
       // 2. Disparar sincronizaciones en paralelo sin frenar la transición de pantalla
-      Promise.all([
+      await Promise.all([
         orderToSave.id_pedido
           ? supabase.from('Pedidos').update({ id_cadete: cadeteActual.id_cad, estado_pedido: 'asignado' }).eq('id_pedido', orderToSave.id_pedido)
           : Promise.resolve(),

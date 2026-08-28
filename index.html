@@ -362,6 +362,7 @@
 
         // 5. Autenticación exitosa: guardar datos del cadete en localStorage y redirigir
         localStorage.setItem('cadet_session', JSON.stringify(cadet));
+        sessionStorage.setItem('cadet_tab_id', String(cadet.id_cad)); // Aísla la pestaña para permitir testear múltiples cadetes
 
         btn.innerHTML = `
           <svg class="w-5 h-5 text-brand-bg" fill="none" stroke="currentColor" viewBox="0 0 24 24">

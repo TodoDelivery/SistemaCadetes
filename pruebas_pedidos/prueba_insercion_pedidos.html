@@ -634,7 +634,9 @@
       }
 
       console.log(`[Cliente RT] Conectando a canal pedido-en-curso-${idPedido}`);
-      channelPedidoPrivado = supabase.channel(`pedido-en-curso-${idPedido}`);
+      channelPedidoPrivado = supabase.channel(`pedido-en-curso-${idPedido}`, {
+        config: { broadcast: { ack: true } }
+      });
 
       channelPedidoPrivado
         // A) Escuchar ubicación GPS en vivo del cadete
@@ -714,7 +716,10 @@
         return;
       }
 
-      if (idCadeteRechazo && !cadetesRechazadosGlobal.includes(idCadeteRechazo)) {
+      if (idCadeteRechazo) {
+        if (cadetesRechazadosGlobal.includes(idCadeteRechazo)) {
+          return; // Ya procesamos este rechazo
+        }
         cadetesRechazadosGlobal.push(idCadeteRechazo);
       }
 

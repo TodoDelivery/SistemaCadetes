@@ -31,7 +31,9 @@ export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
   console.log(`[RT Pedido Activo] Conectando canal privado para Pedido #${idPedido} (Cadete: ${idCadete} <-> Cliente: ${idCliente})`);
 
   // Canal privado único por pedido
-  channelPedidoActivo = supabase.channel(`pedido-en-curso-${idPedido}`);
+  channelPedidoActivo = supabase.channel(`pedido-en-curso-${idPedido}`, {
+    config: { broadcast: { ack: true } }
+  });
 
   channelPedidoActivo
     // ---------------------------------------------------------------------
