@@ -522,19 +522,11 @@
 
       const btn = document.getElementById('btnCrearPedido');
       btn.disabled = true;
-      btn.innerText = 'Insertando...';
+      btn.innerText = 'Asignando pedido...';
         
-      // 1. Manejo de cadetes rechazados:
-      // Si el pedido anterior FUE cancelado, preservamos la lista de excluidos y agregamos al último cadete asignado
-      if (pedidoActivo && pedidoActivo.estado_pedido === 'cancelado') {
-        if (pedidoActivo.id_cadete && !cadetesRechazadosGlobal.includes(pedidoActivo.id_cadete)) {
-          cadetesRechazadosGlobal.push(pedidoActivo.id_cadete);
-        }
-        console.log('[Cliente] Reintentando tras cancelación. Cadetes excluidos:', cadetesRechazadosGlobal);
-      } else {
-        // Si no venía de un pedido cancelado, es un flujo nuevo: limpiar memoria
-        cadetesRechazadosGlobal = [];
-      }
+      // 1. Limpiar memoria de cadetes rechazados:
+      // Para cada nuevo pedido que crea el cliente, todos los cadetes disponibles están 100% habilitados sin demoras
+      cadetesRechazadosGlobal = [];
 
       const inform = document.getElementById('inpInformPedido').value.trim();
       const tipo = document.getElementById('inpTipoPaquete').value;
@@ -544,16 +536,28 @@
       const [latDest, lngDest] = document.getElementById('inpCoordsDestino').value.split(',').map(n => Number(n.trim()));
 
       try {
-        // 0. Asegurar que el registro del cliente existe en la tabla 'Clientes' (evita violación de FK)
-        await syncClienteEnDB(clienteActual);
+        // Asegurar cliente en BD en segundo plano
+        syncClienteEnDB(clienteActual).catch(e => console.warn(e));
 
-        // 1. Insertar en tabla Pedidos
+        // 1. Buscar cadete disponible de inmediato
+        const { data: cadetesCandidatos } = await supabase
+          .from('Cadetes')
+          .select('id_cad, nombre_cad')
+          .eq('estado_cad', 'disponible')
+          .order('id_cad', { ascending: true })
+          .limit(1);
+
+        const idCandidato = (cadetesCandidatos && cadetesCandidatos.length > 0) ? cadetesCandidatos[0].id_cad : null;
+        const estadoInicial = idCandidato ? 'en_confirmacion' : 'cancelado';
+
+        // 2. Insertar pedido en la BD directamente con estado y cadete asignado en un solo paso
         const nuevoPedidoData = {
           id_cliente: clienteActual.id_cliente,
           coste_pedido: coste,
           inform_pedido: inform,
           tipo_paquete: tipo,
-          estado_pedido: 'pendiente',
+          estado_pedido: estadoInicial,
+          id_cadete: idCandidato,
           latitud_org: latOrg,
           longitud_org: lngOrg,
           latitud_dest: latDest,
@@ -574,57 +578,31 @@
         console.log('Pedido insertado exitosamente:', pedidoInsertado);
         pedidoActivo = pedidoInsertado;
 
-        btn.innerText = 'Buscando cadetes disponibles...';
+        if (idCandidato) {
+          console.log(`[Cliente] Asignando pedido #${pedidoInsertado.id_pedido} de forma instantánea al Cadete #${idCandidato}`);
 
-        // 2. ASIGNACIÓN 100% DESDE EL FRONTEND (Excluyendo cadetes rechazados/cancelados previamente)
-        try {
-          let queryCandidatos = supabase.from('Cadetes')
-            .select('id_cad, nombre_cad')
-            .eq('estado_cad', 'disponible');
+          // Actualizar estado del cadete en BD y presencia
+          supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idCandidato).then();
 
-          if (cadetesRechazadosGlobal.length > 0) {
-            queryCandidatos = queryCandidatos.not('id_cad', 'in', `(${cadetesRechazadosGlobal.join(',')})`);
-          }
+          const orderPayload = { ...pedidoInsertado, id_cadete: idCandidato, estado_pedido: 'en_confirmacion' };
 
-          const { data: cadetesCandidatos, error: errCandidatos } = await queryCandidatos
-            .order('id_cad', { ascending: true })
-            .limit(1);
-
-          if (cadetesCandidatos && cadetesCandidatos.length > 0) {
-            const idCandidato = cadetesCandidatos[0].id_cad;
-            console.log(`[Cliente] Asignando pedido #${pedidoInsertado.id_pedido} al Cadete #${idCandidato}`);
-
-            // A) Actualizamos BD
-            await Promise.all([
-              supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idCandidato),
-              supabase.from('Pedidos').update({ id_cadete: idCandidato, estado_pedido: 'en_confirmacion' }).eq('id_pedido', pedidoInsertado.id_pedido)
-            ]);
-
-            const orderPayload = { ...pedidoInsertado, id_cadete: idCandidato };
-
-            // B) Emitimos WS al Cadete
-            const chan = supabase.channel(`pedidos-cadete-${idCandidato}`, { config: { broadcast: { ack: true } } });
-            chan.subscribe(async (status) => {
-              if (status === 'SUBSCRIBED') {
-                await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload: orderPayload });
-                supabase.removeChannel(chan);
-              }
-            });
-            console.log('[Cliente] Broadcast de nuevo pedido enviado con éxito.');
-          } else {
-            console.warn('[Cliente] No hay cadetes disponibles en este momento (o los disponibles ya rechazaron).');
-            await supabase.from('Pedidos').update({ estado_pedido: 'cancelado' }).eq('id_pedido', pedidoInsertado.id_pedido);
-            pedidoActivo.estado_pedido = 'cancelado';
-            actualizarUIEstado('cancelado', null);
-          }
-        } catch (fErr) {
-          console.warn('[Cliente] Fallo en asignación directa:', fErr);
+          // Emitir broadcast instantáneo al Cadete
+          const chan = supabase.channel(`pedidos-cadete-${idCandidato}`, { config: { broadcast: { ack: true } } });
+          chan.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload: orderPayload });
+              setTimeout(() => supabase.removeChannel(chan), 2000);
+            }
+          });
+          console.log('[Cliente] Broadcast instantáneo de nuevo pedido enviado.');
+        } else {
+          console.warn('[Cliente] No hay cadetes disponibles en este momento.');
+          actualizarUIEstado('cancelado', null);
         }
 
         // 3. Activar el Panel de Seguimiento en Vivo
         mostrarPanelSeguimiento(pedidoInsertado);
 
-        // Actualizar UI del panel si ya fue cancelado inmediatamente
         if (pedidoActivo.estado_pedido === 'cancelado') {
           actualizarUIEstado('cancelado', null);
         }

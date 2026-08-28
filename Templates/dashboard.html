@@ -800,49 +800,10 @@
         return;
       }
 
-      // === VERIFICACIÓN ESTRICTA EN BASE DE DATOS (Verificar si está cancelado) ===
-      try {
-        const { data: dbOrder, error: errOrder } = await supabase
-          .from('Pedidos')
-          .select('*')
-          .eq('id_pedido', orderId)
-          .maybeSingle();
-
-        if (errOrder || !dbOrder) {
-          console.warn(`[Dashboard Cadete] No se pudo comprobar el pedido #${orderId} en BD:`, errOrder);
-          return;
-        }
-
-        if (dbOrder.estado_pedido === 'cancelado') {
-          console.log(`[Dashboard Cadete] Pedido #${orderId} está cancelado en la BD. No se muestra al cadete.`);
-          // Asegurar que el cadete quede disponible
-          if (isOnline) {
-            await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
-            actualizarEstadoPresencia('disponible');
-          }
-          return;
-        }
-
-        // Si ya fue asignado a otro cadete o ya no está en confirmación
-        if (dbOrder.estado_pedido !== 'en_confirmacion' || (dbOrder.id_cadete && Number(dbOrder.id_cadete) !== Number(cadeteActual.id_cad))) {
-          console.log(`[Dashboard Cadete] Pedido #${orderId} no disponible para este cadete (estado: ${dbOrder.estado_pedido}, id_cadete: ${dbOrder.id_cadete}).`);
-          return;
-        }
-
-        // Tomar los datos más recientes de la BD
-        pedido = dbOrder;
-      } catch (checkErr) {
-        console.error('[Dashboard Cadete] Error consultando estado en DB:', checkErr);
-      }
-
       currentActiveOrder = pedido;
-      console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Abriendo modal para pedido #${orderId}:`, pedido);
+      console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Abriendo modal instantáneamente para pedido #${orderId}:`, pedido);
 
-      // Bloquear cadete en 'en_confirmacion'
-      await actualizarEstadoPresencia('en_confirmacion');
-      await supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad);
-
-      // Elementos del Modal
+      // 1. RENDERIZADO INSTANTÁNEO DEL MODAL (Sin esperas de red)
       const modal = document.getElementById('orderModal');
       const content = document.getElementById('orderModalContent');
       const timerBar = document.getElementById('timerBar');
@@ -857,7 +818,7 @@
       const payEl = document.getElementById('modalPaymentInfo');
 
       if (pedido) {
-        const orderId = pedido.id_pedido || 'N/A';
+        const oId = pedido.id_pedido || 'N/A';
         const info = pedido.inform_pedido || 'Pedido de Comida';
         const tipo = pedido.tipo_paquete || 'Bolsa';
         const total = pedido.coste_pedido ? Number(pedido.coste_pedido) : 8500;
@@ -867,7 +828,7 @@
         const minsEst = Math.max(5, Math.round(distMetros / 200));
 
         storeEl.innerText = info.split('-')[0] || 'Pedido Asignado';
-        summaryEl.innerHTML = `Orden #${orderId} &bull; ${tipo}`;
+        summaryEl.innerHTML = `Orden #${oId} &bull; ${tipo}`;
         earningsEl.innerText = `$${gananciaEstimada.toLocaleString('es-AR')}`;
         distanceEl.innerText = `${distKm} km`;
         timeEl.innerText = `${minsEst} mins`;
@@ -893,6 +854,30 @@
       timerTimeout = setTimeout(() => {
         rejectOrder();
       }, 15000);
+
+      // 2. SINCRONIZACIONES EN SEGUNDO PLANO
+      actualizarEstadoPresencia('en_confirmacion');
+      supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad).then();
+
+      // Verificación en BD en segundo plano por si fue cancelado justo antes
+      supabase
+        .from('Pedidos')
+        .select('estado_pedido, id_cadete')
+        .eq('id_pedido', orderId)
+        .maybeSingle()
+        .then(({ data: dbOrder }) => {
+          if (dbOrder && dbOrder.estado_pedido === 'cancelado') {
+            console.log(`[Dashboard Cadete] Pedido #${orderId} cancelado en BD. Cerrando modal.`);
+            clearTimeout(timerTimeout);
+            closeModal();
+            currentActiveOrder = null;
+            if (isOnline) {
+              supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad).then();
+              actualizarEstadoPresencia('disponible');
+            }
+          }
+        })
+        .catch(err => console.warn('[Dashboard Cadete] Verificación DB background:', err));
     };
 
     // Manejador en tiempo real por si el pedido abierto en modal es cancelado
