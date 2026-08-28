@@ -542,7 +542,21 @@
       // 5. Iniciar suscripción Realtime (Canal privado de chat y estado)
       iniciarSuscripcionPedidoActivo(pedidoActivo, {
         onMensaje: (msg) => renderizarMensajeEntrante(msg),
-        onCambioEstado: (estado) => console.log('Estado actualizado:', estado)
+        onCambioEstado: async (estadoObj) => {
+          console.log('Estado actualizado por RT:', estadoObj);
+          const st = typeof estadoObj === 'string' ? estadoObj : estadoObj?.estado_pedido;
+          if (st === 'cancelado') {
+            alert('El pedido ha sido cancelado por el cliente o el sistema.');
+            localStorage.removeItem('active_order');
+            sessionStorage.removeItem('active_order');
+            try {
+              if (cadeteActual && cadeteActual.id_cad) {
+                await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+              }
+            } catch (e) {}
+            window.location.href = 'dashboard.html';
+          }
+        }
       });
     });
 
@@ -557,6 +571,18 @@
 
           if (dbPed) {
             pedidoActivo = { ...pedidoActivo, ...dbPed };
+            if (dbPed.estado_pedido === 'cancelado') {
+              alert('Este pedido fue cancelado.');
+              localStorage.removeItem('active_order');
+              sessionStorage.removeItem('active_order');
+              try {
+                if (cadeteActual && cadeteActual.id_cad) {
+                  await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+                }
+              } catch (e) {}
+              window.location.href = 'dashboard.html';
+              return;
+            }
           }
         }
 

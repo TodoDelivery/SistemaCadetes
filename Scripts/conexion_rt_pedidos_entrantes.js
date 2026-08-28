@@ -24,6 +24,11 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
     return;
   }
 
+  // Limpiar suscripciones previas si ya existían para evitar listeners duplicados
+  if (channelPresence || channelPedidos) {
+    await desconectarSuscripcionesDashboard();
+  }
+
   cadeteSession = cadete;
   currentCadetState = cadete.estado_cad || 'disponible';
   const idCadete = cadete.id_cad;
@@ -123,11 +128,20 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
         filter: `id_cadete=eq.${idCadete}`
       },
       (payload) => {
-        console.log('[Realtime Pedidos] Pedido UPDATE asignado:', payload.new);
+        console.log('[Realtime Pedidos] Pedido UPDATE recibido:', payload.new);
+        if (!payload.new) return;
+
+        // Si el pedido fue cancelado en tiempo real, notificar al dashboard
+        if (payload.new.estado_pedido === 'cancelado') {
+          if (typeof window !== 'undefined' && typeof window.handlePedidoCanceladoRealtime === 'function') {
+            window.handlePedidoCanceladoRealtime(payload.new);
+          }
+          return;
+        }
+
         // El modal SOLO debe abrirse ante una nueva oferta 'en_confirmacion'.
         // NUNCA cuando pasa a 'asignado' (ya que significa que el cadete acaba de aceptarlo y va a viajar).
         if (
-          payload.new &&
           Number(payload.new.id_cadete) === Number(idCadete) &&
           payload.new.estado_pedido === 'en_confirmacion'
         ) {

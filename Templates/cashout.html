@@ -332,14 +332,14 @@
         return;
       }
 
-      if (confirm(`¿Confirmas la rendición de $${summaryData.montoRendir.toLocaleString('es-AR')} con Token #${summaryData.token}?\n\nLos pedidos pendientes se marcarán como 'rendidos'.`)) {
+      if (confirm(`¿Confirmas la rendición de $${summaryData.montoRendir.toLocaleString('es-AR')} con Token #${summaryData.token}?\n\nLos pedidos pendientes se marcarán como 'rendidos' y se cerrará tu sesión de cadete.`)) {
         if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
 
         try {
           const hoyInicio = new Date();
           hoyInicio.setHours(0, 0, 0, 0);
 
-          // Actualizar todos los pedidos entregados de hoy a estado 'rendido'
+          // 1. Actualizar todos los pedidos entregados de hoy a estado 'rendido'
           const { error } = await supabase
             .from('Pedidos')
             .update({ estado_pedido: 'rendido' })
@@ -350,16 +350,28 @@
           if (error) {
             console.error('Error actualizando estado a rendido:', error);
           }
+
+          // 2. Marcar cadete como desconectado en la base de datos
+          if (cadeteActual && cadeteActual.id_cad) {
+            await supabase
+              .from('Cadetes')
+              .update({ estado_cad: 'desconectado' })
+              .eq('id_cad', cadeteActual.id_cad);
+          }
         } catch (e) {
           console.warn('Excepción al rendir pedidos:', e);
         }
 
-        // Limpiar sesión del viaje activo si hubiere
+        // 3. Cerrar sesión y limpiar almacenamiento local/sesión
+        localStorage.removeItem('cadet_session');
+        sessionStorage.removeItem('cadet_session');
+        sessionStorage.removeItem('cadet_tab_id');
         localStorage.removeItem('active_order');
         sessionStorage.removeItem('active_order');
+        sessionStorage.removeItem('rejected_orders');
 
-        alert(`¡Rendición confirmada exitosamente!\nToken registrado: #${summaryData.token}\n\nLos cobros han sido liquidados y el panel se ha reiniciado. ¡Buen descanso!`);
-        window.location.href = 'dashboard.html';
+        alert(`¡Rendición confirmada exitosamente!\nToken registrado: #${summaryData.token}\n\nLos cobros han sido liquidados y tu sesión ha sido cerrada. ¡Buen descanso!`);
+        window.location.href = '../index.html';
       }
     };
   </script>

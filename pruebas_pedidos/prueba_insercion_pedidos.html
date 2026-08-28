@@ -524,8 +524,17 @@
       btn.disabled = true;
       btn.innerText = 'Insertando...';
         
-      // 1. Limpiar memoria de cadetes rechazados para que el nuevo pedido tenga a todos disponibles
-      cadetesRechazadosGlobal = [];
+      // 1. Manejo de cadetes rechazados:
+      // Si el pedido anterior FUE cancelado, preservamos la lista de excluidos y agregamos al último cadete asignado
+      if (pedidoActivo && pedidoActivo.estado_pedido === 'cancelado') {
+        if (pedidoActivo.id_cadete && !cadetesRechazadosGlobal.includes(pedidoActivo.id_cadete)) {
+          cadetesRechazadosGlobal.push(pedidoActivo.id_cadete);
+        }
+        console.log('[Cliente] Reintentando tras cancelación. Cadetes excluidos:', cadetesRechazadosGlobal);
+      } else {
+        // Si no venía de un pedido cancelado, es un flujo nuevo: limpiar memoria
+        cadetesRechazadosGlobal = [];
+      }
 
       const inform = document.getElementById('inpInformPedido').value.trim();
       const tipo = document.getElementById('inpTipoPaquete').value;
@@ -567,11 +576,17 @@
 
         btn.innerText = 'Buscando cadetes disponibles...';
 
-        // 2. ASIGNACIÓN 100% DESDE EL FRONTEND (Sin depender de Edge Function para evitar CORS)
+        // 2. ASIGNACIÓN 100% DESDE EL FRONTEND (Excluyendo cadetes rechazados/cancelados previamente)
         try {
-          const { data: cadetesCandidatos } = await supabase.from('Cadetes')
+          let queryCandidatos = supabase.from('Cadetes')
             .select('id_cad, nombre_cad')
-            .eq('estado_cad', 'disponible')
+            .eq('estado_cad', 'disponible');
+
+          if (cadetesRechazadosGlobal.length > 0) {
+            queryCandidatos = queryCandidatos.not('id_cad', 'in', `(${cadetesRechazadosGlobal.join(',')})`);
+          }
+
+          const { data: cadetesCandidatos, error: errCandidatos } = await queryCandidatos
             .order('id_cad', { ascending: true })
             .limit(1);
 
@@ -597,7 +612,7 @@
             });
             console.log('[Cliente] Broadcast de nuevo pedido enviado con éxito.');
           } else {
-            console.warn('[Cliente] No hay cadetes disponibles en este momento.');
+            console.warn('[Cliente] No hay cadetes disponibles en este momento (o los disponibles ya rechazaron).');
             await supabase.from('Pedidos').update({ estado_pedido: 'cancelado' }).eq('id_pedido', pedidoInsertado.id_pedido);
             pedidoActivo.estado_pedido = 'cancelado';
             actualizarUIEstado('cancelado', null);
@@ -673,56 +688,10 @@
             }
           }
         })
-        // D) Escuchar notificación de rechazo de un cadete
+        // D) Escuchar notificación de rechazo de un cadete por Broadcast
         .on('broadcast', { event: 'pedido_rechazado' }, async ({ payload }) => {
           if (payload && payload.id_cadete_rechazo) {
-            console.log(`[Cliente RT] Pedido rechazado por el cadete #${payload.id_cadete_rechazo}. Buscando alternativas...`);
-            
-            if (!cadetesRechazadosGlobal.includes(payload.id_cadete_rechazo)) {
-              cadetesRechazadosGlobal.push(payload.id_cadete_rechazo);
-            }
-
-            // 1. EL CLIENTE BUSCA EL SIGUIENTE CADETE DISPONIBLE
-            try {
-              const { data: candidatos, error: errCandidatos } = await supabase
-                .from('Cadetes')
-                .select('id_cad, nombre_cad')
-                .eq('estado_cad', 'disponible')
-                .not('id_cad', 'in', `(${cadetesRechazadosGlobal.join(",")})`)
-                .order('id_cad', { ascending: true })
-                .limit(1);
-
-              if (candidatos && candidatos.length > 0) {
-                const idSiguienteCadete = candidatos[0].id_cad;
-                console.log(`[Cliente RT] Siguiente cadete encontrado: #${idSiguienteCadete}. Asignando directamente...`);
-
-                // 2. EL CLIENTE ASIGNA DIRECTO EN LA BD (Sin Edge Function)
-                await Promise.all([
-                  supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idSiguienteCadete),
-                  supabase.from('Pedidos').update({ id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' }).eq('id_pedido', pedidoActivo.id_pedido)
-                ]);
-
-                const orderPayload = { ...pedidoActivo, id_cadete: idSiguienteCadete };
-
-                // 3. ENVIAMOS EL WS AL NUEVO CADETE
-                const chan = supabase.channel(`pedidos-cadete-${idSiguienteCadete}`, { config: { broadcast: { ack: true } } });
-                chan.subscribe(async (status) => {
-                  if (status === 'SUBSCRIBED') {
-                    await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload: orderPayload });
-                    supabase.removeChannel(chan);
-                  }
-                });
-                
-                console.log('[Cliente RT] Re-asignación directa lanzada con éxito.');
-              } else {
-                console.warn('[Cliente RT] No hay más cadetes disponibles tras el rechazo.');
-                await supabase.from('Pedidos').update({ estado_pedido: 'cancelado' }).eq('id_pedido', pedidoActivo.id_pedido);
-                pedidoActivo.estado_pedido = 'cancelado';
-                actualizarUIEstado('cancelado', null);
-              }
-            } catch (err) {
-              console.error('[Cliente RT] Fallo al buscar y reasignar:', err);
-            }
+            await manejarRechazoOReasignacion(payload.id_cadete_rechazo);
           }
         })
         // E) Escuchar cambios directos en la Base de Datos (Postgres Changes)
@@ -736,10 +705,18 @@
           },
           async (payload) => {
             console.log('[Cliente RT] Pedido actualizado en DB:', payload.new);
+            if (!payload.new) return;
+
             const nuevoEstado = payload.new.estado_pedido;
             const idCad = payload.new.id_cadete;
 
             actualizarUIEstado(nuevoEstado, idCad);
+
+            // Si el pedido fue liberado a pendiente y no tiene cadete, gestionar reasignación o cancelación
+            if (nuevoEstado === 'pendiente' && !idCad && pedidoActivo && pedidoActivo.estado_pedido === 'en_confirmacion') {
+              console.log('[Cliente RT] Pedido liberado a pendiente detectado en DB. Buscando siguiente cadete...');
+              await manejarRechazoOReasignacion(pedidoActivo.id_cadete);
+            }
 
             // Si se asignó un cadete y el estado es asignado o en camino, cargar datos
             if (idCad && (nuevoEstado === 'asignado' || nuevoEstado === 'en_camino_entrega')) {
@@ -752,6 +729,65 @@
             console.log('[Cliente RT] Suscrito exitosamente al canal del pedido.');
           }
         });
+    }
+
+    async function manejarRechazoOReasignacion(idCadeteRechazo) {
+      if (!pedidoActivo || pedidoActivo.estado_pedido === 'cancelado' || pedidoActivo.estado_pedido === 'asignado') {
+        return;
+      }
+
+      if (idCadeteRechazo && !cadetesRechazadosGlobal.includes(idCadeteRechazo)) {
+        cadetesRechazadosGlobal.push(idCadeteRechazo);
+      }
+
+      console.log(`[Cliente RT] Pedido rechazado/liberado por cadete #${idCadeteRechazo || 'desconocido'}. Buscando alternativas... Excluidos:`, cadetesRechazadosGlobal);
+
+      try {
+        let querySiguiente = supabase
+          .from('Cadetes')
+          .select('id_cad, nombre_cad')
+          .eq('estado_cad', 'disponible');
+
+        if (cadetesRechazadosGlobal.length > 0) {
+          querySiguiente = querySiguiente.not('id_cad', 'in', `(${cadetesRechazadosGlobal.join(',')})`);
+        }
+
+        const { data: candidatos, error: errCandidatos } = await querySiguiente
+          .order('id_cad', { ascending: true })
+          .limit(1);
+
+        if (candidatos && candidatos.length > 0) {
+          const idSiguienteCadete = candidatos[0].id_cad;
+          console.log(`[Cliente RT] Siguiente cadete encontrado: #${idSiguienteCadete}. Asignando directamente...`);
+
+          pedidoActivo.id_cadete = idSiguienteCadete;
+          pedidoActivo.estado_pedido = 'en_confirmacion';
+
+          await Promise.all([
+            supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idSiguienteCadete),
+            supabase.from('Pedidos').update({ id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' }).eq('id_pedido', pedidoActivo.id_pedido)
+          ]);
+
+          const orderPayload = { ...pedidoActivo, id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' };
+
+          const chan = supabase.channel(`pedidos-cadete-${idSiguienteCadete}`, { config: { broadcast: { ack: true } } });
+          chan.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload: orderPayload });
+              setTimeout(() => supabase.removeChannel(chan), 2000);
+            }
+          });
+          
+          console.log('[Cliente RT] Re-asignación directa lanzada con éxito.');
+        } else {
+          console.warn('[Cliente RT] No hay más cadetes disponibles tras el rechazo. Cancelando pedido definitivamente...');
+          await supabase.from('Pedidos').update({ id_cadete: null, estado_pedido: 'cancelado' }).eq('id_pedido', pedidoActivo.id_pedido);
+          pedidoActivo.estado_pedido = 'cancelado';
+          actualizarUIEstado('cancelado', null);
+        }
+      } catch (err) {
+        console.error('[Cliente RT] Fallo al buscar y reasignar:', err);
+      }
     }
 
     async function cargarDatosCadeteAsignado(idCadete) {

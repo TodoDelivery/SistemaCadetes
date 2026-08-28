@@ -432,7 +432,7 @@
     let timerTimeout;
     let currentActiveOrder = null;
     const pedidosRechazadosLocalmente = new Set(
-      JSON.parse(sessionStorage.getItem('rejected_orders') || '[]')
+      JSON.parse(localStorage.getItem('rejected_orders') || sessionStorage.getItem('rejected_orders') || '[]')
     );
 
     // 1. Obtener ID del cadete con prioridad: URL param -> sessionStorage -> localStorage -> fallback
@@ -790,8 +790,49 @@
 
       const orderId = Number(pedido.id_pedido);
       if (pedidosRechazadosLocalmente.has(orderId)) {
-        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ignorando orden #${orderId} porque ya fue rechazada en esta sesión.`);
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ignorando orden #${orderId} porque ya fue rechazada localmente.`);
         return;
+      }
+
+      // Si el modal ya está abierto mostrando este mismo pedido, no reiniciar
+      if (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId) {
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Modal ya abierto para pedido #${orderId}. Ignorando evento repetido.`);
+        return;
+      }
+
+      // === VERIFICACIÓN ESTRICTA EN BASE DE DATOS (Verificar si está cancelado) ===
+      try {
+        const { data: dbOrder, error: errOrder } = await supabase
+          .from('Pedidos')
+          .select('*')
+          .eq('id_pedido', orderId)
+          .maybeSingle();
+
+        if (errOrder || !dbOrder) {
+          console.warn(`[Dashboard Cadete] No se pudo comprobar el pedido #${orderId} en BD:`, errOrder);
+          return;
+        }
+
+        if (dbOrder.estado_pedido === 'cancelado') {
+          console.log(`[Dashboard Cadete] Pedido #${orderId} está cancelado en la BD. No se muestra al cadete.`);
+          // Asegurar que el cadete quede disponible
+          if (isOnline) {
+            await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+            actualizarEstadoPresencia('disponible');
+          }
+          return;
+        }
+
+        // Si ya fue asignado a otro cadete o ya no está en confirmación
+        if (dbOrder.estado_pedido !== 'en_confirmacion' || (dbOrder.id_cadete && Number(dbOrder.id_cadete) !== Number(cadeteActual.id_cad))) {
+          console.log(`[Dashboard Cadete] Pedido #${orderId} no disponible para este cadete (estado: ${dbOrder.estado_pedido}, id_cadete: ${dbOrder.id_cadete}).`);
+          return;
+        }
+
+        // Tomar los datos más recientes de la BD
+        pedido = dbOrder;
+      } catch (checkErr) {
+        console.error('[Dashboard Cadete] Error consultando estado en DB:', checkErr);
       }
 
       currentActiveOrder = pedido;
@@ -854,6 +895,23 @@
       }, 15000);
     };
 
+    // Manejador en tiempo real por si el pedido abierto en modal es cancelado
+    window.handlePedidoCanceladoRealtime = async function(pedidoCancelado) {
+      if (currentActiveOrder && Number(currentActiveOrder.id_pedido) === Number(pedidoCancelado.id_pedido)) {
+        console.log(`[Dashboard] El pedido #${pedidoCancelado.id_pedido} fue cancelado mientras estaba en confirmación.`);
+        clearTimeout(timerTimeout);
+        closeModal();
+        currentActiveOrder = null;
+        localStorage.removeItem('active_order');
+        sessionStorage.removeItem('active_order');
+        if (isOnline) {
+          await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+          actualizarEstadoPresencia('disponible');
+        }
+        alert(`El pedido #${pedidoCancelado.id_pedido} fue cancelado por el cliente.`);
+      }
+    };
+
     // Conectores globales para eventos de Realtime
     window.recibirPedidoRealtime = function(pedido) {
       console.log('[Dashboard] recibirPedidoRealtime recibido:', pedido);
@@ -874,6 +932,7 @@
 
       if (orderToReject && orderToReject.id_pedido) {
         pedidosRechazadosLocalmente.add(Number(orderToReject.id_pedido));
+        localStorage.setItem('rejected_orders', JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
         sessionStorage.setItem('rejected_orders', JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
       }
 
@@ -888,6 +947,18 @@
       if (orderToReject && orderToReject.id_pedido) {
         console.log('[Rechazo] Ejecutando rechazo 100% desde el frontend (sin Edge Function)');
         try {
+          // Verificar si el pedido ya está cancelado en BD
+          const { data: checkDb } = await supabase
+            .from('Pedidos')
+            .select('estado_pedido')
+            .eq('id_pedido', orderToReject.id_pedido)
+            .maybeSingle();
+
+          if (checkDb && checkDb.estado_pedido === 'cancelado') {
+            console.log(`[Rechazo] El pedido #${orderToReject.id_pedido} ya estaba cancelado en DB.`);
+            return;
+          }
+
           // 1. Actualizamos BD localmente (solo el pedido, porque el cadete ya se liberó arriba)
           await supabase.from('Pedidos').update({ id_cadete: null, estado_pedido: 'pendiente' }).eq('id_pedido', orderToReject.id_pedido);
 
@@ -901,7 +972,7 @@
                 event: 'pedido_rechazado',
                 payload: { id_cadete_rechazo: cadeteActual.id_cad }
               });
-              supabase.removeChannel(chan);
+              setTimeout(() => supabase.removeChannel(chan), 2000);
             }
           });
         } catch (err) {
@@ -910,23 +981,37 @@
       }
     };
 
-    window.acceptOrder = function() {
+    window.acceptOrder = async function() {
       console.log('[Dashboard] Botón Aceptar presionado. currentActiveOrder:', currentActiveOrder);
       clearTimeout(timerTimeout);
       closeModal();
 
-      const orderToSave = currentActiveOrder ? { ...currentActiveOrder } : {
-        id_pedido: 4820,
-        id_cadete: cadeteActual.id_cad,
-        inform_pedido: 'Local Comercial',
-        coste_pedido: 8500,
-        tipo_paquete: 'Paquete',
-        latitud_org: -31.5375,
-        longitud_org: -68.5364,
-        latitud_dest: -31.5390,
-        longitud_dest: -68.5320
-      };
+      if (!currentActiveOrder || !currentActiveOrder.id_pedido) {
+        return;
+      }
 
+      // === VERIFICACIÓN EN BASE DE DATOS ANTES DE CONFIRMAR ACEPTACIÓN ===
+      try {
+        const { data: checkDb, error: errCheck } = await supabase
+          .from('Pedidos')
+          .select('estado_pedido')
+          .eq('id_pedido', currentActiveOrder.id_pedido)
+          .maybeSingle();
+
+        if (checkDb && checkDb.estado_pedido === 'cancelado') {
+          alert('Este pedido fue cancelado antes de poder ser aceptado.');
+          currentActiveOrder = null;
+          localStorage.removeItem('active_order');
+          sessionStorage.removeItem('active_order');
+          await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+          actualizarEstadoPresencia('disponible');
+          return;
+        }
+      } catch (e) {
+        console.warn('Error verificando estado del pedido al aceptar:', e);
+      }
+
+      const orderToSave = { ...currentActiveOrder };
       orderToSave.estado_pedido = 'asignado';
       orderToSave.id_cadete = cadeteActual.id_cad;
 
