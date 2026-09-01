@@ -66,6 +66,10 @@
       background: #090B10 !important;
       font-family: inherit;
     }
+    /* Estilo Dark Mode vía CSS para mosaicos de OpenStreetMap (OSM) */
+    .leaflet-tile {
+      filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
+    }
     .custom-gps-marker {
       background: transparent;
       border: none;
@@ -115,7 +119,7 @@
     <!-- ======================================================== -->
     <main id="view-route" class="view-screen active flex-col flex-1 h-[100dvh] relative overflow-hidden justify-between">
       
-      <!-- Fondo Mapa Real Interactivo (Leaflet + CartoDB Dark Matter) -->
+      <!-- Fondo Mapa Real Interactivo (OpenStreetMap Dark Mode vía CSS) -->
       <div id="liveMap" class="absolute inset-0 z-0 w-full h-full"></div>
 
       <!-- Botón Recentrar GPS -->
@@ -717,10 +721,10 @@
         attributionControl: true
       });
 
-      // Capa de mapa oscura CartoDB Dark Matter
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      // Capa oficial OpenStreetMap (OSM) - 100% público, gratuito y sin API Key
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        subdomains: 'abcd'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
       }).addTo(map);
 
       routeLayerGroup = L.layerGroup().addTo(map);
