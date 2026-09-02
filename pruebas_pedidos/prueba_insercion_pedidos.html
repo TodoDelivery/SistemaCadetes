@@ -661,8 +661,12 @@
         // C) Escuchar cambios de estado del pedido por broadcast
         .on('broadcast', { event: 'cambio_estado_pedido' }, ({ payload }) => {
           if (payload && payload.estado_pedido) {
+            if (pedidoActivo) {
+              pedidoActivo.estado_pedido = payload.estado_pedido;
+              if (payload.id_cadete) pedidoActivo.id_cadete = payload.id_cadete;
+            }
             actualizarUIEstado(payload.estado_pedido, payload.id_cadete);
-            if (payload.id_cadete && payload.estado_pedido === 'asignado') {
+            if (payload.id_cadete && (payload.estado_pedido === 'asignado' || payload.estado_pedido === 'en_camino_entrega')) {
               cargarDatosCadeteAsignado(payload.id_cadete);
             }
           }
@@ -689,12 +693,16 @@
             const nuevoEstado = payload.new.estado_pedido;
             const idCad = payload.new.id_cadete;
 
+            if (pedidoActivo) {
+              pedidoActivo = { ...pedidoActivo, ...payload.new };
+            }
+
             actualizarUIEstado(nuevoEstado, idCad);
 
             // Si el pedido fue liberado a pendiente y no tiene cadete, gestionar reasignación o cancelación
-            if (nuevoEstado === 'pendiente' && !idCad && pedidoActivo && pedidoActivo.estado_pedido === 'en_confirmacion') {
+            if (nuevoEstado === 'pendiente' && !idCad && pedidoActivo && (pedidoActivo.estado_pedido === 'en_confirmacion' || pedidoActivo.estado_pedido === 'pendiente' || pedidoActivo.estado_pedido === 'libre')) {
               console.log('[Cliente RT] Pedido liberado a pendiente detectado en DB. Buscando siguiente cadete...');
-              await manejarRechazoOReasignacion(pedidoActivo.id_cadete);
+              await manejarRechazoOReasignacion(idCad || pedidoActivo.id_cadete);
             }
 
             // Si se asignó un cadete y el estado es asignado o en camino, cargar datos
@@ -711,8 +719,34 @@
     }
 
     async function manejarRechazoOReasignacion(idCadeteRechazo) {
-      if (!pedidoActivo || pedidoActivo.estado_pedido === 'cancelado' || pedidoActivo.estado_pedido === 'asignado') {
+      if (!pedidoActivo) return;
+
+      const estadosFinalesOEnCurso = ['cancelado', 'asignado', 'en_camino_entrega', 'entregado', 'rendido'];
+      if (estadosFinalesOEnCurso.includes(pedidoActivo.estado_pedido)) {
+        console.log(`[Cliente RT] Ignorando rechazo: el pedido #${pedidoActivo.id_pedido} ya se encuentra en estado '${pedidoActivo.estado_pedido}'.`);
         return;
+      }
+
+      // Verificación directa y fresca en la Base de Datos para evitar condiciones de carrera
+      try {
+        const { data: pedidoFresco } = await supabase
+          .from('Pedidos')
+          .select('id_pedido, estado_pedido, id_cadete')
+          .eq('id_pedido', pedidoActivo.id_pedido)
+          .maybeSingle();
+
+        if (pedidoFresco) {
+          pedidoActivo.estado_pedido = pedidoFresco.estado_pedido;
+          if (pedidoFresco.id_cadete) pedidoActivo.id_cadete = pedidoFresco.id_cadete;
+
+          if (estadosFinalesOEnCurso.includes(pedidoFresco.estado_pedido)) {
+            console.log(`[Cliente RT] Pedido #${pedidoActivo.id_pedido} ya está '${pedidoFresco.estado_pedido}' en BD. Abortando reasignación.`);
+            actualizarUIEstado(pedidoFresco.estado_pedido, pedidoFresco.id_cadete);
+            return;
+          }
+        }
+      } catch (errDb) {
+        console.warn('[Cliente RT] Advertencia al consultar estado fresco en BD:', errDb);
       }
 
       if (idCadeteRechazo) {
@@ -732,22 +766,22 @@
           .eq('estado_cad', 'disponible')
           .order('id_cad', { ascending: true });
 
-        // Filtrado 100% seguro en memoria (evita bugs de sintaxis con .not() en Supabase JS)
+        // Filtrado seguro en memoria de candidatos no rechazados
         const candidatos = (todosDisponibles || []).filter(c => !cadetesRechazadosGlobal.includes(Number(c.id_cad)));
 
         if (candidatos.length > 0) {
           const idSiguienteCadete = Number(candidatos[0].id_cad);
-          console.log(`[Cliente RT] Siguiente cadete encontrado: #${idSiguienteCadete}. Asignando directamente...`);
+          console.log(`[Cliente RT] Siguiente cadete encontrado: #${idSiguienteCadete}. Reasignando como libre para reclamo atómico...`);
 
           pedidoActivo.id_cadete = idSiguienteCadete;
-          pedidoActivo.estado_pedido = 'en_confirmacion';
+          pedidoActivo.estado_pedido = 'libre';
 
-          await Promise.all([
-            supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idSiguienteCadete),
-            supabase.from('Pedidos').update({ id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' }).eq('id_pedido', pedidoActivo.id_pedido)
-          ]);
+          await supabase
+            .from('Pedidos')
+            .update({ id_cadete: idSiguienteCadete, estado_pedido: 'libre' })
+            .eq('id_pedido', pedidoActivo.id_pedido);
 
-          const orderPayload = { ...pedidoActivo, id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' };
+          const orderPayload = { ...pedidoActivo, id_cadete: idSiguienteCadete, estado_pedido: 'libre' };
 
           const chan = supabase.channel(`pedidos-cadete-${idSiguienteCadete}`, { config: { broadcast: { ack: true } } });
           chan.subscribe(async (status) => {

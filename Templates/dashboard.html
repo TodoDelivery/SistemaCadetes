@@ -968,6 +968,8 @@
     }
 
     // Modal de Pedido Entrante
+    let pedidosEnProcesoDeReclamo = new Set();
+
     window.triggerIncomingOrderModal = async function (pedido = null) {
       if (!isOnline) {
         console.warn("Se ignoró pedido entrante porque el cadete está desconectado.");
@@ -992,34 +994,39 @@
         return;
       }
 
-      // Si el modal ya está abierto mostrando este mismo pedido, no reiniciar
-      if (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId) {
-        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Modal ya abierto para pedido #${orderId}. Ignorando evento repetido.`);
+      // Si ya hay un reclamo en proceso o el modal ya está abierto con este pedido, evitar duplicados
+      if (pedidosEnProcesoDeReclamo.has(orderId) || (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId)) {
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Pedido #${orderId} ya en proceso o modal abierto. Ignorando evento repetido.`);
         return;
       }
 
       // INTENTO DE BLOQUEO OPTIMISTA (Reclamar el pedido libre)
       if (estPed === "libre") {
+        pedidosEnProcesoDeReclamo.add(orderId);
         console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Intentando reclamar el pedido libre #${orderId}...`);
         
-        const { data: claimData, error: claimError } = await supabase
-          .from('Pedidos')
-          .update({ estado_pedido: 'en_confirmacion' })
-          .eq('id_pedido', orderId)
-          .eq('estado_pedido', 'libre') // Condición atómica
-          .select()
-          .maybeSingle();
+        try {
+          const { data: claimData, error: claimError } = await supabase
+            .from('Pedidos')
+            .update({ estado_pedido: 'en_confirmacion' })
+            .eq('id_pedido', orderId)
+            .eq('estado_pedido', 'libre') // Condición atómica
+            .select()
+            .maybeSingle();
+            
+          if (claimError || !claimData) {
+            console.warn(`[Dashboard Cadete #${cadeteActual.id_cad}] No se pudo reclamar el pedido #${orderId}. Posiblemente otro cadete lo tomó o fue cancelado.`);
+            return;
+          }
           
-        if (claimError || !claimData) {
-          console.warn(`[Dashboard Cadete #${cadeteActual.id_cad}] No se pudo reclamar el pedido #${orderId}. Posiblemente otro cadete lo tomó o fue cancelado.`);
-          return;
+          console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] ¡Pedido #${orderId} reclamado exitosamente! Actualizando estado cadete a en_confirmacion.`);
+          pedido = claimData; // Usar los datos actualizados
+          
+          // Actualizar estado del cadete a ocupado visualmente
+          await supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad);
+        } finally {
+          pedidosEnProcesoDeReclamo.delete(orderId);
         }
-        
-        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] ¡Pedido #${orderId} reclamado exitosamente! Actualizando estado cadete a en_confirmacion.`);
-        pedido = claimData; // Usar los datos actualizados
-        
-        // Actualizar estado del cadete a ocupado visualmente
-        await supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad);
       }
 
       currentActiveOrder = pedido;
@@ -1157,15 +1164,15 @@
       if (orderToReject && orderToReject.id_pedido) {
         console.log('[Rechazo] Ejecutando rechazo 100% desde el frontend (sin Edge Function)');
         try {
-          // Verificar si el pedido ya está cancelado en BD
+          // Verificar si el pedido ya está cancelado o ya fue asignado/tomado en BD
           const { data: checkDb } = await supabase
             .from('Pedidos')
             .select('estado_pedido')
             .eq('id_pedido', orderToReject.id_pedido)
             .maybeSingle();
 
-          if (checkDb && checkDb.estado_pedido === 'cancelado') {
-            console.log(`[Rechazo] El pedido #${orderToReject.id_pedido} ya estaba cancelado en DB.`);
+          if (checkDb && ['cancelado', 'asignado', 'en_camino_entrega', 'entregado', 'rendido'].includes(checkDb.estado_pedido)) {
+            console.log(`[Rechazo] El pedido #${orderToReject.id_pedido} ya está en estado '${checkDb.estado_pedido}' en DB. Abortando rechazo.`);
             return;
           }
 
@@ -1222,6 +1229,7 @@
       }
 
       const orderToSave = { ...currentActiveOrder };
+      currentActiveOrder = null; // Limpiar inmediatamente para que ningún temporizador residual lo afecte
       orderToSave.estado_pedido = 'asignado';
       orderToSave.id_cadete = cadeteActual.id_cad;
 
@@ -1245,7 +1253,28 @@
         actualizarEstadoPresencia('ocupado')
       ]).catch(err => console.warn('[Dashboard] Error al actualizar en Supabase:', err));
 
-      // 3. Redirigir de forma instantánea a la vista de viaje
+      // 3. Emitir broadcast instantáneo de cambio de estado hacia el cliente
+      try {
+        const chan = supabase.channel(`pedido-en-curso-${orderToSave.id_pedido}`, { config: { broadcast: { ack: true } } });
+        chan.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await chan.send({
+              type: 'broadcast',
+              event: 'cambio_estado_pedido',
+              payload: {
+                id_pedido: orderToSave.id_pedido,
+                id_cadete: cadeteActual.id_cad,
+                estado_pedido: 'asignado'
+              }
+            });
+            setTimeout(() => supabase.removeChannel(chan), 2000);
+          }
+        });
+      } catch (e) {
+        console.warn('Error emitiendo broadcast de asignación:', e);
+      }
+
+      // 4. Redirigir de forma instantánea a la vista de viaje
       window.location.href = `pedido_activo.html?id_cad=${cadeteActual.id_cad}`;
     };
 
