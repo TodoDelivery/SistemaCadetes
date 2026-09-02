@@ -699,6 +699,12 @@
 
             actualizarUIEstado(nuevoEstado, idCad);
 
+            // Si el pedido finaliza o se cancela, limpiar completamente la memoria de rechazos
+            if (nuevoEstado === 'entregado' || nuevoEstado === 'rendido' || nuevoEstado === 'cancelado') {
+              console.log(`[Cliente RT] Pedido finalizado en estado '${nuevoEstado}'. Limpiando memoria de cadetes rechazados.`);
+              cadetesRechazadosGlobal = [];
+            }
+
             // Si el pedido fue liberado a pendiente y no tiene cadete, gestionar reasignación o cancelación
             if (nuevoEstado === 'pendiente' && !idCad && pedidoActivo && (pedidoActivo.estado_pedido === 'en_confirmacion' || pedidoActivo.estado_pedido === 'pendiente' || pedidoActivo.estado_pedido === 'libre')) {
               console.log('[Cliente RT] Pedido liberado a pendiente detectado en DB. Buscando siguiente cadete...');
@@ -850,6 +856,7 @@
       } else if (estado === 'entregado' || estado === 'rendido') {
         badge.className = "px-3 py-1 rounded-full bg-brand-accent text-brand-bg text-xs font-black uppercase";
         badge.innerText = "¡Pedido Entregado con Éxito!";
+        cadetesRechazadosGlobal = [];
       }
     }
 

@@ -497,6 +497,50 @@
     </div>
   </div>
 
+  <!-- ============================================== -->
+  <!-- 6. PANTALLA DE CARGA / TRANSICIÓN AL VIAJE     -->
+  <!-- ============================================== -->
+  <div id="acceptLoadingScreen"
+    class="fixed inset-0 z-[100] bg-brand-bg/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center opacity-0 pointer-events-none transition-all duration-300">
+    <div class="relative flex items-center justify-center mb-6">
+      <!-- Radar y Anillo Pulsante de Carga -->
+      <div class="w-24 h-24 rounded-full border-4 border-brand-accent/20 border-t-brand-accent animate-spin"></div>
+      <div
+        class="absolute w-14 h-14 rounded-2xl bg-brand-accent/15 border border-brand-accent/40 flex items-center justify-center text-brand-accent shadow-lg shadow-brand-accent/30">
+        <svg class="w-7 h-7 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+    </div>
+
+    <div class="space-y-2 max-w-xs">
+      <span
+        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-brand-accent text-xs font-black uppercase tracking-wider animate-pulse">
+        <span class="w-2 h-2 rounded-full bg-brand-accent"></span>
+        Confirmando Asignación
+      </span>
+      <h2 class="text-xl sm:text-2xl font-black text-white">Preparando tu Ruta de Entrega</h2>
+      <p id="acceptLoadingSubtitle" class="text-xs text-brand-textMuted font-medium leading-relaxed">
+        Sincronizando telemetría satelital y conectando con el comercio...
+      </p>
+    </div>
+
+    <!-- Barra de Carga Animada -->
+    <div class="w-64 max-w-xs h-1.5 bg-brand-surfaceLight border border-brand-border rounded-full mt-6 overflow-hidden">
+      <div id="acceptLoadingProgress"
+        class="h-full bg-gradient-to-r from-brand-accent to-emerald-400 rounded-full w-1/3 transition-all duration-500 animate-pulse">
+      </div>
+    </div>
+
+    <div class="mt-4 flex items-center gap-2 text-[11px] text-brand-textMuted font-mono">
+      <svg class="w-3.5 h-3.5 text-brand-accent animate-spin" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+      <span id="acceptLoadingStatus">Iniciando navegador GPS...</span>
+    </div>
+  </div>
+
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
@@ -560,7 +604,7 @@
       window.location.href = newUrl.toString();
     };
 
-    // Cargar datos reales del cadete desde Supabase y auto-crear si no existe
+    // Cargar datos reales del cadete desde Supabase y sincronizar estado de turno
     async function cargarPerfilDBSupabase() {
       try {
         const { data: dbCad, error } = await supabase
@@ -571,6 +615,19 @@
 
         if (dbCad) {
           cadeteActual = { ...cadeteActual, ...dbCad };
+
+          // Si en BD el cadete figura como desconectado, sincronizar la UI como Fuera de Servicio
+          if (dbCad.estado_cad === 'desconectado') {
+            window.actualizarUIEstadoServicio(false);
+          } else {
+            // Si está disponible u ocupado, sincronizar como Turno Activo y conectar canales
+            cadeteActual.estado_cad = 'disponible';
+            window.actualizarUIEstadoServicio(true);
+            await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+            await iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
+              triggerIncomingOrderModal(pedido);
+            });
+          }
         } else {
           // Si el cadete no existe en la BD (ej. Cadete #2 en pruebas), crearlo automáticamente
           await supabase
@@ -582,6 +639,11 @@
               vehiculo_cad: cadeteActual.vehiculo_cad || 'Moto 150cc',
               estado_cad: 'disponible'
             }, { onConflict: 'id_cad' });
+
+          window.actualizarUIEstadoServicio(true);
+          await iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
+            triggerIncomingOrderModal(pedido);
+          });
         }
         renderizarPerfilCadete();
       } catch (e) {
@@ -657,9 +719,12 @@
             actualizarEstadoPresencia('ocupado');
             await supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad);
           } else {
-            // NO hay pedidos activos en la BD para este cadete: limpiar memoria
+            // NO hay pedidos activos en la BD para este cadete: limpiar memoria y rechazos previos
             localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
             sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+            pedidosRechazadosLocalmente.clear();
+            localStorage.removeItem(`rejected_orders_${cadeteActual.id_cad}`);
+            sessionStorage.removeItem(`rejected_orders_${cadeteActual.id_cad}`);
             currentActiveOrder = null;
             if (banner) banner.classList.add('hidden');
             if (isOnline) {
@@ -784,12 +849,6 @@
       renderizarPerfilCadete();
       verificarPedidoActivoPendiente();
       actualizarMetricasDashboard();
-
-      if (isOnline) {
-        iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
-          triggerIncomingOrderModal(pedido);
-        });
-      }
     });
 
     // Detectar cuando el usuario vuelve a la pestaña o app
@@ -812,9 +871,25 @@
       }
     });
 
-    // Toggle Conectado / Desconectado
-    window.toggleServiceStatus = async function () {
-      isOnline = !isOnline;
+    // Desconectar turno de forma limpia si cierra o recarga la ventana sin viaje activo
+    window.addEventListener('beforeunload', () => {
+      if (cadeteActual && cadeteActual.id_cad && !currentActiveOrder) {
+        const url = `https://zngfzdcipqbddmyuqaht.supabase.co/rest/v1/Cadetes?id_cad=eq.${cadeteActual.id_cad}`;
+        const headers = {
+          'apikey': 'sb_publishable_4fmNtN1o4x20cXTNuGGPow_ZG01UHIB',
+          'Authorization': 'Bearer sb_publishable_4fmNtN1o4x20cXTNuGGPow_ZG01UHIB',
+          'Content-Type': 'application/json'
+        };
+        const body = JSON.stringify({ estado_cad: 'desconectado' });
+        try {
+          fetch(url, { method: 'PATCH', keepalive: true, headers, body });
+        } catch (e) {}
+      }
+    });
+
+    // Función unificada para actualizar la UI del estado de servicio
+    window.actualizarUIEstadoServicio = function (online) {
+      isOnline = online;
 
       const card = document.getElementById('statusCard');
       const badge = document.getElementById('statusBadge');
@@ -824,41 +899,82 @@
       const btnText = document.getElementById('toggleBtnText');
       const radar = document.getElementById('radarAnimation');
 
-      if (isOnline) {
-        // Estado Conectado
+      if (!card) return;
+
+      if (online) {
         card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-online";
-        badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-bold uppercase tracking-wider mb-4";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span> Conectado - Recibiendo Pedidos`;
-        title.innerText = "Estás en Turno Activo";
-        desc.innerText = "Mantén la app abierta. Los pedidos cercanos asignados por el sistema aparecerán en tu pantalla.";
-        btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20";
-        btnText.innerText = "Finalizar Turno";
-        radar.style.opacity = "1";
+        if (badge) {
+          badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-bold uppercase tracking-wider mb-4";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span> Conectado - Recibiendo Pedidos`;
+        }
+        if (title) title.innerText = "Estás en Turno Activo";
+        if (desc) desc.innerText = "Mantén la app abierta. Los pedidos cercanos asignados por el sistema aparecerán en tu pantalla.";
+        if (btn) {
+          btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20";
+        }
+        if (btnText) btnText.innerText = "Finalizar Turno";
+        if (radar) radar.style.opacity = "1";
+      } else {
+        card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-offline";
+        if (badge) {
+          badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-danger/15 border border-brand-danger/30 text-brand-danger text-xs font-bold uppercase tracking-wider mb-4";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-danger"></span> Fuera de Servicio`;
+        }
+        if (title) title.innerText = "Estás Desconectado";
+        if (desc) desc.innerText = "No recibirás solicitudes de entrega ni reportarás ubicación en tiempo real.";
+        if (btn) {
+          btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-surfaceLight border border-brand-border text-white font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2";
+        }
+        if (btnText) btnText.innerText = "Iniciar Turno / Conectar";
+        if (radar) radar.style.opacity = "0";
+      }
+    };
 
-        // Actualizar o registrar en DB y Presence
-        await supabase.from('Cadetes').upsert({
-          id_cad: cadeteActual.id_cad,
-          nombre_cad: cadeteActual.nombre_cad || `Cadete #${cadeteActual.id_cad}`,
-          estado_cad: 'disponible'
-        }, { onConflict: 'id_cad' });
+    // Toggle Conectado / Desconectado (Iniciar o Finalizar Turno)
+    window.toggleServiceStatus = async function () {
+      const nuevoOnline = !isOnline;
+      window.actualizarUIEstadoServicio(nuevoOnline);
 
-        iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
+      if (nuevoOnline) {
+        // --- 1. INICIAR TURNO / CONECTAR ---
+        cadeteActual.estado_cad = 'disponible';
+
+        // Actualizar en base de datos Supabase
+        try {
+          await supabase
+            .from('Cadetes')
+            .update({ estado_cad: 'disponible' })
+            .eq('id_cad', cadeteActual.id_cad);
+          console.log(`[Turno] Cadete #${cadeteActual.id_cad} actualizado a 'disponible' en BD.`);
+        } catch (err) {
+          console.error('[Turno] Error actualizando BD al conectar:', err);
+        }
+
+        // Conectar suscripciones Realtime limpias
+        await iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
           triggerIncomingOrderModal(pedido);
         });
-      } else {
-        // Estado Desconectado
-        card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-offline";
-        badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-danger/15 border border-brand-danger/30 text-brand-danger text-xs font-bold uppercase tracking-wider mb-4";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-danger"></span> Fuera de Servicio`;
-        title.innerText = "Estás Desconectado";
-        desc.innerText = "No recibirás solicitudes de entrega ni reportarás ubicación en tiempo real.";
-        btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-surfaceLight border border-brand-border text-white font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2";
-        btnText.innerText = "Iniciar Turno / Conectar";
-        radar.style.opacity = "0";
 
-        // Actualizar en DB y Presence
-        await supabase.from('Cadetes').update({ estado_cad: 'desconectado' }).eq('id_cad', cadeteActual.id_cad);
-        desconectarSuscripcionesDashboard();
+        // Transmitir presencia activa
+        await actualizarEstadoPresencia('disponible');
+
+      } else {
+        // --- 2. FINALIZAR TURNO / DESCONECTAR ---
+        cadeteActual.estado_cad = 'desconectado';
+
+        // Actualizar en base de datos Supabase
+        try {
+          await supabase
+            .from('Cadetes')
+            .update({ estado_cad: 'desconectado' })
+            .eq('id_cad', cadeteActual.id_cad);
+          console.log(`[Turno] Cadete #${cadeteActual.id_cad} actualizado a 'desconectado' en BD.`);
+        } catch (err) {
+          console.error('[Turno] Error actualizando BD al desconectar:', err);
+        }
+
+        // Desconectar presencia y canales Realtime de forma completa
+        await desconectarSuscripcionesDashboard();
       }
     };
 
@@ -1201,11 +1317,22 @@
     window.acceptOrder = async function () {
       console.log('[Dashboard] Botón Aceptar presionado. currentActiveOrder:', currentActiveOrder);
       clearTimeout(timerTimeout);
-      closeModal();
 
       if (!currentActiveOrder || !currentActiveOrder.id_pedido) {
+        closeModal();
         return;
       }
+
+      // Activar pantalla de carga visual de transición
+      const loadingScreen = document.getElementById('acceptLoadingScreen');
+      const loadingSub = document.getElementById('acceptLoadingSubtitle');
+      const loadingStatus = document.getElementById('acceptLoadingStatus');
+      const progressBar = document.getElementById('acceptLoadingProgress');
+
+      if (loadingScreen) {
+        loadingScreen.classList.remove('opacity-0', 'pointer-events-none');
+      }
+      closeModal();
 
       // === VERIFICACIÓN EN BASE DE DATOS ANTES DE CONFIRMAR ACEPTACIÓN ===
       try {
@@ -1216,6 +1343,7 @@
           .maybeSingle();
 
         if (checkDb && checkDb.estado_pedido === 'cancelado') {
+          if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
           alert('Este pedido fue cancelado antes de poder ser aceptado.');
           currentActiveOrder = null;
           localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
@@ -1232,6 +1360,10 @@
       currentActiveOrder = null; // Limpiar inmediatamente para que ningún temporizador residual lo afecte
       orderToSave.estado_pedido = 'asignado';
       orderToSave.id_cadete = cadeteActual.id_cad;
+
+      if (loadingSub) loadingSub.innerText = "Guardando exclusividad y sincronizando con la base de datos...";
+      if (progressBar) progressBar.style.width = "65%";
+      if (loadingStatus) loadingStatus.innerText = "Confirmando asignación...";
 
       // 1. Guardar INMEDIATAMENTE en almacenamiento local
       try {
@@ -1253,6 +1385,10 @@
         actualizarEstadoPresencia('ocupado')
       ]).catch(err => console.warn('[Dashboard] Error al actualizar en Supabase:', err));
 
+      if (loadingSub) loadingSub.innerText = "Cargando mapa en vivo, navegación satelital y chat...";
+      if (progressBar) progressBar.style.width = "95%";
+      if (loadingStatus) loadingStatus.innerText = "Redirigiendo a pantalla de viaje...";
+
       // 3. Emitir broadcast instantáneo de cambio de estado hacia el cliente
       try {
         const chan = supabase.channel(`pedido-en-curso-${orderToSave.id_pedido}`, { config: { broadcast: { ack: true } } });
@@ -1273,6 +1409,9 @@
       } catch (e) {
         console.warn('Error emitiendo broadcast de asignación:', e);
       }
+
+      // Pequeña pausa estética de 400ms para garantizar que la transición visual sea suave
+      await new Promise(r => setTimeout(r, 400));
 
       // 4. Redirigir de forma instantánea a la vista de viaje
       window.location.href = `pedido_activo.html?id_cad=${cadeteActual.id_cad}`;

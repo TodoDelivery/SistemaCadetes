@@ -1313,19 +1313,46 @@
       }
       await desconectarPedidoActivo();
 
-      // 3. Limpiar pedido de la memoria local y de sesión
+      // 3. Limpiar pedido de la memoria local y de sesión, y purgar datos de pedidos rechazados
+      const idCadeteFinal = (cadeteActual && cadeteActual.id_cad) || (pedidoActivo && pedidoActivo.id_cadete);
+
       localStorage.removeItem(`order_start_time_${pedidoActivo.id_pedido}`);
       localStorage.removeItem(storageKey);
       sessionStorage.removeItem(storageKey);
+      localStorage.removeItem('active_order');
+      sessionStorage.removeItem('active_order');
 
-      // 4. Liberar cadete a estado 'disponible'
-      if (pedidoActivo && pedidoActivo.id_cadete) {
+      if (idCadeteFinal) {
+        localStorage.removeItem(`rejected_orders_${idCadeteFinal}`);
+        sessionStorage.removeItem(`rejected_orders_${idCadeteFinal}`);
+        localStorage.removeItem(`active_order_${idCadeteFinal}`);
+        sessionStorage.removeItem(`active_order_${idCadeteFinal}`);
+      }
+
+      // Limpieza exhaustiva de cualquier clave residual de pedidos o rechazos
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('rejected_orders_') || k.startsWith('active_order_') || k.startsWith('order_start_time_'))) {
+          localStorage.removeItem(k);
+        }
+      }
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k && (k.startsWith('rejected_orders_') || k.startsWith('active_order_') || k.startsWith('order_start_time_'))) {
+          sessionStorage.removeItem(k);
+        }
+      }
+
+      // 4. Liberar cadete a estado 'disponible' garantizado
+      if (idCadeteFinal) {
         try {
           await supabase
             .from('Cadetes')
             .update({ estado_cad: 'disponible' })
-            .eq('id_cad', pedidoActivo.id_cadete);
-        } catch (err) {}
+            .eq('id_cad', idCadeteFinal);
+        } catch (err) {
+          console.warn('[DB Error al liberar cadete a disponible]:', err);
+        }
       }
 
       alert(`¡Cobro confirmado! Pedido #${pedidoActivo.id_pedido} finalizado en ${tiempoPedidoMinutos} min.`);
