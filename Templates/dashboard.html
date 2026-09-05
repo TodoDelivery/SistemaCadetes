@@ -732,9 +732,10 @@
           .maybeSingle();
 
         if (dbCad) {
+          // Tomar los datos reales directamente de la base de datos
           cadeteActual = { ...cadeteActual, ...dbCad };
         } else {
-          // Si el cadete no existe en la BD (ej. Cadete #2 en pruebas), crearlo automáticamente con patente
+          // Si el cadete no existe en la BD, crearlo con datos base y patente null (sin inventar patente)
           await supabase
             .from('Cadetes')
             .upsert({
@@ -742,10 +743,10 @@
               nombre_cad: cadeteActual.nombre_cad || `Cadete #${cadeteActual.id_cad}`,
               alias_cad: cadeteActual.alias_cad || `Cadete #${cadeteActual.id_cad}`,
               vehiculo_cad: cadeteActual.vehiculo_cad || 'Moto 150cc',
-              patente: cadeteActual.patente || 'A012BCD',
+              patente: null,
               estado_cad: 'disponible'
             }, { onConflict: 'id_cad' });
-          if (!cadeteActual.patente) cadeteActual.patente = 'A012BCD';
+          cadeteActual.patente = null;
         }
 
         // Actualizar sesión local y canal Realtime
@@ -799,11 +800,14 @@
 
       if (vehicleEl) {
         const detalleVehiculo = cadeteActual.vehiculo_cad ? `${cadeteActual.vehiculo_cad}` : 'Moto';
-        const patenteHtml = cadeteActual.patente
-          ? `<span class="inline-flex items-center px-2 py-0.5 rounded bg-brand-surfaceLight border border-brand-border text-white font-mono text-[10px] tracking-wider uppercase font-bold shadow-sm">
-               <span class="text-blue-400 mr-1 text-[8px]">AR</span>${cadeteActual.patente}
+        const tienePatente = Boolean(cadeteActual.patente && String(cadeteActual.patente).trim());
+        const patenteHtml = tienePatente
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded bg-black border border-white/30 text-white font-mono text-[10px] tracking-wider uppercase font-black shadow-sm">
+               <span class="text-blue-400 mr-1 text-[8px]">AR</span>${String(cadeteActual.patente).trim().toUpperCase()}
              </span>`
-          : '';
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded bg-brand-surfaceLight/50 border border-brand-border/60 text-brand-textMuted font-mono text-[10px] italic">
+               (Sin patente cargada)
+             </span>`;
         vehicleEl.innerHTML = `
           <svg class="w-3.5 h-3.5 text-brand-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
@@ -859,7 +863,9 @@
               await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
             }
 
-            // 2. Verificar si hay un pedido entrante pendiente asignado a este cadete
+            // 2. Verificar pedidos entrantes: primero asignados a mí, y si no, pedidos libres en cola general
+            let pedidoEntranteParaOfrecer = null;
+
             const { data: dbIncoming } = await supabase
               .from('Pedidos')
               .select('*')
@@ -869,9 +875,39 @@
               .limit(1)
               .maybeSingle();
 
-            if (dbIncoming && isOnline) {
-              console.log('[Dashboard] Pedido entrante pendiente detectado al cargar:', dbIncoming);
-              triggerIncomingOrderModal(dbIncoming);
+            if (dbIncoming) {
+              pedidoEntranteParaOfrecer = dbIncoming;
+            } else if (isOnline) {
+              // Buscar pedidos en espera sin cadete asignado
+              const { data: colaEspera } = await supabase
+                .from('Pedidos')
+                .select('*')
+                .in('estado_pedido', ['libre', 'pendiente'])
+                .is('id_cadete', null)
+                .order('fecha_pedido', { ascending: true })
+                .limit(1);
+
+              if (colaEspera && colaEspera.length > 0) {
+                const primerPedido = colaEspera[0];
+                if (!pedidosRechazadosLocalmente.has(Number(primerPedido.id_pedido))) {
+                  const { data: ordenReclamada } = await supabase
+                    .from('Pedidos')
+                    .update({ id_cadete: cadeteActual.id_cad, estado_pedido: 'libre' })
+                    .eq('id_pedido', primerPedido.id_pedido)
+                    .is('id_cadete', null)
+                    .select()
+                    .maybeSingle();
+
+                  if (ordenReclamada) {
+                    pedidoEntranteParaOfrecer = ordenReclamada;
+                  }
+                }
+              }
+            }
+
+            if (pedidoEntranteParaOfrecer && isOnline) {
+              console.log('[Dashboard] Pedido entrante asignado al cadete:', pedidoEntranteParaOfrecer);
+              triggerIncomingOrderModal(pedidoEntranteParaOfrecer);
             }
           }
         }
@@ -983,23 +1019,79 @@
       }
     }
 
+    // Verificador reactivo en segundo plano para capturar pedidos en cola inmediatamente
+    let intervaloVerificacionCola = null;
+    function iniciarBuscadorColaDashboard() {
+      if (intervaloVerificacionCola) clearInterval(intervaloVerificacionCola);
+      intervaloVerificacionCola = setInterval(async () => {
+        if (!isOnline || currentActiveOrder) return;
+        try {
+          // 1. Verificar si hay un pedido asignado a mí pendiente de confirmación
+          const { data: directos } = await supabase
+            .from('Pedidos')
+            .select('*')
+            .eq('id_cadete', cadeteActual.id_cad)
+            .in('estado_pedido', ['libre', 'en_confirmacion'])
+            .order('fecha_pedido', { ascending: false })
+            .limit(1);
+
+          if (directos && directos.length > 0) {
+            const pDir = directos[0];
+            if (!pedidosRechazadosLocalmente.has(Number(pDir.id_pedido))) {
+              triggerIncomingOrderModal(pDir);
+              return;
+            }
+          }
+
+          // 2. Si no hay directos, buscar si hay pedidos en cola general sin cadete
+          const { data: cola } = await supabase
+            .from('Pedidos')
+            .select('*')
+            .in('estado_pedido', ['libre', 'pendiente'])
+            .is('id_cadete', null)
+            .order('fecha_pedido', { ascending: true })
+            .limit(1);
+
+          if (cola && cola.length > 0) {
+            const ord = cola[0];
+            if (!pedidosRechazadosLocalmente.has(Number(ord.id_pedido))) {
+              const { data: claim } = await supabase
+                .from('Pedidos')
+                .update({ id_cadete: cadeteActual.id_cad, estado_pedido: 'libre' })
+                .eq('id_pedido', ord.id_pedido)
+                .is('id_cadete', null)
+                .select()
+                .maybeSingle();
+
+              if (claim) {
+                triggerIncomingOrderModal(claim);
+              }
+            }
+          }
+        } catch (e) { }
+      }, 3000);
+    }
+
     // Conectar suscripciones y verificar viajes activos al cargar la vista
     window.addEventListener('DOMContentLoaded', () => {
       renderizarPerfilCadete();
       verificarPedidoActivoPendiente();
       actualizarMetricasDashboard();
+      iniciarBuscadorColaDashboard();
     });
 
     // Detectar cuando el usuario vuelve a la pestaña o app
     window.addEventListener('pageshow', () => {
       verificarPedidoActivoPendiente();
       actualizarMetricasDashboard();
+      iniciarBuscadorColaDashboard();
     });
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         verificarPedidoActivoPendiente();
         actualizarMetricasDashboard();
+        iniciarBuscadorColaDashboard();
       }
     });
 
@@ -1007,22 +1099,6 @@
       if (e.key === `active_order_${cadeteActual.id_cad}`) {
         verificarPedidoActivoPendiente();
         actualizarMetricasDashboard();
-      }
-    });
-
-    // Desconectar turno de forma limpia si cierra o recarga la ventana sin viaje activo
-    window.addEventListener('beforeunload', () => {
-      if (cadeteActual && cadeteActual.id_cad && !currentActiveOrder) {
-        const url = `https://zngfzdcipqbddmyuqaht.supabase.co/rest/v1/Cadetes?id_cad=eq.${cadeteActual.id_cad}`;
-        const headers = {
-          'apikey': 'sb_publishable_4fmNtN1o4x20cXTNuGGPow_ZG01UHIB',
-          'Authorization': 'Bearer sb_publishable_4fmNtN1o4x20cXTNuGGPow_ZG01UHIB',
-          'Content-Type': 'application/json'
-        };
-        const body = JSON.stringify({ estado_cad: 'desconectado' });
-        try {
-          fetch(url, { method: 'PATCH', keepalive: true, headers, body });
-        } catch (e) { }
       }
     });
 
@@ -1219,8 +1295,6 @@
     }
 
     // Modal de Pedido Entrante
-    let pedidosEnProcesoDeReclamo = new Set();
-
     window.triggerIncomingOrderModal = async function (pedido = null) {
       if (!isOnline) {
         console.warn("Se ignoró pedido entrante porque el cadete está desconectado.");
@@ -1235,7 +1309,7 @@
       const orderId = Number(pedido.id_pedido);
       const estPed = String(pedido.estado_pedido);
 
-      if (estPed !== "libre" && estPed !== "en_confirmacion") {
+      if (estPed !== "libre" && estPed !== "en_confirmacion" && estPed !== "pendiente") {
         console.warn(`Se ignoró pedido #${orderId} porque el estado es ${estPed}.`);
         return;
       }
@@ -1245,45 +1319,15 @@
         return;
       }
 
-      // Si ya hay un reclamo en proceso o el modal ya está abierto con este pedido, evitar duplicados
-      if (pedidosEnProcesoDeReclamo.has(orderId) || (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId)) {
-        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Pedido #${orderId} ya en proceso o modal abierto. Ignorando evento repetido.`);
+      // Si el modal ya está abierto con este pedido, evitar duplicados
+      if (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId) {
         return;
       }
 
-      // INTENTO DE BLOQUEO OPTIMISTA (Reclamar el pedido libre)
-      if (estPed === "libre") {
-        pedidosEnProcesoDeReclamo.add(orderId);
-        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Intentando reclamar el pedido libre #${orderId}...`);
-
-        try {
-          const { data: claimData, error: claimError } = await supabase
-            .from('Pedidos')
-            .update({ estado_pedido: 'en_confirmacion' })
-            .eq('id_pedido', orderId)
-            .eq('estado_pedido', 'libre') // Condición atómica
-            .select()
-            .maybeSingle();
-
-          if (claimError || !claimData) {
-            console.warn(`[Dashboard Cadete #${cadeteActual.id_cad}] No se pudo reclamar el pedido #${orderId}. Posiblemente otro cadete lo tomó o fue cancelado.`);
-            return;
-          }
-
-          console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] ¡Pedido #${orderId} reclamado exitosamente! Actualizando estado cadete a en_confirmacion.`);
-          pedido = claimData; // Usar los datos actualizados
-
-          // Actualizar estado del cadete a ocupado visualmente
-          await supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad);
-        } finally {
-          pedidosEnProcesoDeReclamo.delete(orderId);
-        }
-      }
-
       currentActiveOrder = pedido;
-      console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Abriendo modal instantáneamente para pedido #${orderId}:`, pedido);
+      console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Abriendo modal instantáneamente (0ms) para pedido #${orderId}:`, pedido);
 
-      // 1. RENDERIZADO INSTANTÁNEO DEL MODAL (Sin esperas de red)
+      // 1. RENDERIZADO INMEDIATO DEL MODAL (0ms de latencia visual)
       const modal = document.getElementById('orderModal');
       const content = document.getElementById('orderModalContent');
       const timerBar = document.getElementById('timerBar');
@@ -1307,26 +1351,28 @@
         const distKm = (distMetros / 1000).toFixed(1);
         const minsEst = Math.max(5, Math.round(distMetros / 200));
 
-        storeEl.innerText = info.split('-')[0] || 'Pedido Asignado';
-        summaryEl.innerHTML = `Orden #${oId} &bull; ${tipo}`;
-        earningsEl.innerText = `$${gananciaEstimada.toLocaleString('es-AR')}`;
-        distanceEl.innerText = `${distKm} km`;
-        timeEl.innerText = `${minsEst} mins`;
-        originEl.innerText = pedido.latitud_org && pedido.longitud_org ? `Origen (${pedido.latitud_org}, ${pedido.longitud_org})` : 'Av. Libertador 450 (Centro)';
-        destEl.innerText = pedido.latitud_dest && pedido.longitud_dest ? `Destino (${pedido.latitud_dest}, ${pedido.longitud_dest})` : 'Calle San Martín 1234, 4° B';
-        payEl.innerText = `Efectivo: Cobrar $${total.toLocaleString('es-AR')}`;
+        if (storeEl) storeEl.innerText = info.split('-')[0] || 'Pedido Asignado';
+        if (summaryEl) summaryEl.innerHTML = `Orden #${oId} &bull; ${tipo}`;
+        if (earningsEl) earningsEl.innerText = `$${gananciaEstimada.toLocaleString('es-AR')}`;
+        if (distanceEl) distanceEl.innerText = `${distKm} km`;
+        if (timeEl) timeEl.innerText = `${minsEst} mins`;
+        if (originEl) originEl.innerText = pedido.latitud_org && pedido.longitud_org ? `Origen (${pedido.latitud_org}, ${pedido.longitud_org})` : 'Av. Libertador 450 (Centro)';
+        if (destEl) destEl.innerText = pedido.latitud_dest && pedido.longitud_dest ? `Destino (${pedido.latitud_dest}, ${pedido.longitud_dest})` : 'Calle San Martín 1234, 4° B';
+        if (payEl) payEl.innerText = `Efectivo: Cobrar $${total.toLocaleString('es-AR')}`;
 
         // Actualizar mapa interactivo de solo lectura
         actualizarMapaPedidoEntrante(pedido);
       }
 
       // Resetear animación del timer (15s)
-      timerBar.classList.remove('timer-bar');
-      void timerBar.offsetWidth; // Trigger reflow
-      timerBar.classList.add('timer-bar');
+      if (timerBar) {
+        timerBar.classList.remove('timer-bar');
+        void timerBar.offsetWidth; // Trigger reflow
+        timerBar.classList.add('timer-bar');
+      }
 
-      modal.classList.remove('opacity-0', 'pointer-events-none');
-      content.classList.remove('translate-y-full');
+      if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+      if (content) content.classList.remove('translate-y-full');
 
       if ("vibrate" in navigator) {
         navigator.vibrate([200, 100, 200, 100, 400]);
@@ -1338,9 +1384,17 @@
         rejectOrder();
       }, 15000);
 
-      // 2. SINCRONIZACIONES EN SEGUNDO PLANO
+      // 2. SINCRONIZACIONES ASÍNCRONAS EN SEGUNDO PLANO (Sin bloquear el render)
       actualizarEstadoPresencia('en_confirmacion');
       supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad).then();
+
+      // Asegurar reclamo en DB
+      supabase
+        .from('Pedidos')
+        .update({ estado_pedido: 'en_confirmacion', id_cadete: cadeteActual.id_cad })
+        .eq('id_pedido', orderId)
+        .in('estado_pedido', ['libre', 'en_confirmacion', 'pendiente'])
+        .then();
 
       // Verificación en BD en segundo plano por si fue cancelado justo antes
       supabase
@@ -1469,41 +1523,8 @@
       }
       closeModal();
 
-      // === VERIFICACIÓN EN BASE DE DATOS ANTES DE CONFIRMAR ACEPTACIÓN ===
-      try {
-        const { data: checkDb, error: errCheck } = await supabase
-          .from('Pedidos')
-          .select('estado_pedido, id_cadete')
-          .eq('id_pedido', currentActiveOrder.id_pedido)
-          .maybeSingle();
-
-        if (checkDb && checkDb.estado_pedido === 'cancelado') {
-          if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
-          alert('Este pedido fue cancelado antes de poder ser aceptado.');
-          currentActiveOrder = null;
-          localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
-          sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
-          await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
-          actualizarEstadoPresencia('disponible');
-          return;
-        }
-
-        if (checkDb && checkDb.estado_pedido === 'asignado' && checkDb.id_cadete && Number(checkDb.id_cadete) !== Number(cadeteActual.id_cad)) {
-          if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
-          alert('Este pedido ya fue tomado por otro cadete.');
-          currentActiveOrder = null;
-          localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
-          sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
-          await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
-          actualizarEstadoPresencia('disponible');
-          return;
-        }
-      } catch (e) {
-        console.warn('Error verificando estado del pedido al aceptar:', e);
-      }
-
       const orderToSave = { ...currentActiveOrder };
-      currentActiveOrder = null; // Limpiar inmediatamente para que ningún temporizador residual lo afecte
+      currentActiveOrder = null; // Limpiar inmediatamente
       orderToSave.estado_pedido = 'asignado';
       orderToSave.id_cadete = cadeteActual.id_cad;
       orderToSave.patente_cadete = cadeteActual.patente || '';
@@ -1529,7 +1550,7 @@
         actualizarEstadoPresencia('ocupado')
       ];
 
-      // Emitir broadcast de asignación con patente al canal privado del pedido
+      // Emitir broadcast único y completo de asignación con patente hacia el cliente
       if (orderToSave.id_pedido) {
         try {
           const chan = supabase.channel(`pedido-en-curso-${orderToSave.id_pedido}`, { config: { broadcast: { ack: true } } });
@@ -1556,33 +1577,12 @@
 
       await Promise.all(syncPromises).catch(err => console.warn('[Dashboard] Error al actualizar en Supabase:', err));
 
-      if (loadingSub) loadingSub.innerText = "Cargando mapa en vivo, navegación satelital y chat...";
-      if (progressBar) progressBar.style.width = "95%";
-      if (loadingStatus) loadingStatus.innerText = "Redirigiendo a pantalla de viaje...";
+      if (loadingSub) loadingSub.innerText = "Cargando mapa en vivo y navegación satelital...";
+      if (progressBar) progressBar.style.width = "100%";
+      if (loadingStatus) loadingStatus.innerText = "¡Asignado! Entrando al viaje...";
 
-      // 3. Emitir broadcast instantáneo de cambio de estado hacia el cliente
-      try {
-        const chan = supabase.channel(`pedido-en-curso-${orderToSave.id_pedido}`, { config: { broadcast: { ack: true } } });
-        chan.subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            await chan.send({
-              type: 'broadcast',
-              event: 'cambio_estado_pedido',
-              payload: {
-                id_pedido: orderToSave.id_pedido,
-                id_cadete: cadeteActual.id_cad,
-                estado_pedido: 'asignado'
-              }
-            });
-            setTimeout(() => supabase.removeChannel(chan), 2000);
-          }
-        });
-      } catch (e) {
-        console.warn('Error emitiendo broadcast de asignación:', e);
-      }
-
-      // Pequeña pausa estética de 400ms para garantizar que la transición visual sea suave
-      await new Promise(r => setTimeout(r, 400));
+      // Transición ágil y suave
+      await new Promise(r => setTimeout(r, 180));
 
       // 4. Redirigir de forma instantánea a la vista de viaje
       window.location.href = `pedido_activo.html?id_cad=${cadeteActual.id_cad}`;
@@ -1620,6 +1620,7 @@
       const fullNameEl = document.getElementById('dropdownProfileFullName');
       const phoneEl = document.getElementById('dropdownProfilePhone');
       const vehicleEl = document.getElementById('dropdownProfileVehicle');
+      const plateContainer = document.getElementById('dropdownProfilePlateContainer');
       const plateEl = document.getElementById('dropdownProfilePlateText');
       const statusEl = document.getElementById('dropdownProfileStatus');
 
@@ -1629,7 +1630,27 @@
       if (fullNameEl) fullNameEl.innerText = nombre;
       if (phoneEl) phoneEl.innerText = cadeteActual?.telef_cad || 'No registrado';
       if (vehicleEl) vehicleEl.innerText = cadeteActual?.vehiculo_cad || 'Moto 150cc';
-      if (plateEl) plateEl.innerText = cadeteActual?.patente ? cadeteActual.patente.toUpperCase() : 'Sin patente';
+
+      const tienePatente = Boolean(cadeteActual?.patente && String(cadeteActual.patente).trim());
+      if (plateContainer) {
+        if (tienePatente) {
+          const patenteTxt = String(cadeteActual.patente).trim().toUpperCase();
+          plateContainer.innerHTML = `
+            <span class="inline-flex items-center px-2 py-0.5 rounded bg-black border border-white/30 text-white font-mono text-[10px] tracking-wider uppercase font-black shadow-inner">
+              <span class="text-blue-400 mr-1 text-[7px]">AR</span>
+              <span id="dropdownProfilePlateText">${patenteTxt}</span>
+            </span>
+          `;
+        } else {
+          plateContainer.innerHTML = `
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded bg-brand-surfaceLight/50 border border-brand-border/60 text-brand-textMuted font-mono text-[10px] italic">
+              No cargada
+            </span>
+          `;
+        }
+      } else if (plateEl) {
+        plateEl.innerText = tienePatente ? String(cadeteActual.patente).trim().toUpperCase() : 'No cargada';
+      }
 
       if (statusEl) {
         if (typeof isOnline !== 'undefined' && isOnline) {

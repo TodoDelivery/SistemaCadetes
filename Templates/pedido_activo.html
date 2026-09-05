@@ -1361,7 +1361,7 @@
         }
       }
 
-      // 4. Liberar cadete a estado 'disponible' garantizado
+      // 4. Liberar cadete a estado 'disponible' garantizado en BD y Realtime
       if (idCadeteFinal) {
         try {
           await supabase
@@ -1373,8 +1373,8 @@
         }
       }
 
-      alert(`¡Cobro confirmado! Pedido #${pedidoActivo.id_pedido} finalizado en ${tiempoPedidoMinutos} min.`);
-      window.location.href = 'dashboard.html';
+      // Redirección inmediata y limpia al dashboard conservando la identidad del cadete
+      window.location.href = `dashboard.html?id_cad=${idCadeteFinal || 1}`;
     };
   </script>
 </body>

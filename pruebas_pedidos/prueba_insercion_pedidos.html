@@ -1006,7 +1006,8 @@
           .order('id_cad', { ascending: true });
 
         const idCandidato = (todosDisponibles && todosDisponibles.length > 0) ? Number(todosDisponibles[0].id_cad) : null;
-        const estadoInicial = idCandidato ? 'libre' : 'cancelado';
+        // Si no hay cadete libre al instante, encolar en 'pendiente' para el próximo cadete libre (no cancelar)
+        const estadoInicial = idCandidato ? 'libre' : 'pendiente';
 
         // 2. Insertar pedido en la BD con costo y coordenadas
         const nuevoPedidoData = {
@@ -1035,17 +1036,11 @@
 
         if (idCandidato) {
           const orderPayload = { ...pedidoInsertado, id_cadete: idCandidato, estado_pedido: 'libre' };
-
-          // Emitir broadcast instantáneo al Cadete
-          const chan = supabase.channel(`pedidos-cadete-${idCandidato}`, { config: { broadcast: { ack: true } } });
-          chan.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-              await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload: orderPayload });
-              setTimeout(() => supabase.removeChannel(chan), 2000);
-            }
-          });
+          despacharBroadcastNuevoPedido(idCandidato, orderPayload);
         } else {
-          actualizarUIEstado('cancelado', null);
+          // Iniciar buscador activo en espera de que un cadete se libere
+          actualizarUIEstado('pendiente', null);
+          iniciarBuscadorCadetesParaPedido(pedidoInsertado.id_pedido);
         }
 
         // 3. Activar el Panel de Seguimiento
@@ -1235,22 +1230,81 @@
             .update({ id_cadete: idSiguienteCadete, estado_pedido: 'libre' })
             .eq('id_pedido', pedidoActivo.id_pedido);
 
-          const orderPayload = { ...pedidoActivo, id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' };
-          const chan = supabase.channel(`pedidos-cadete-${idSiguienteCadete}`, { config: { broadcast: { ack: true } } });
-          chan.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-              await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload: orderPayload });
-              setTimeout(() => supabase.removeChannel(chan), 2000);
-            }
-          });
+          const orderPayload = { ...pedidoActivo, id_cadete: idSiguienteCadete, estado_pedido: 'libre' };
+          despacharBroadcastNuevoPedido(idSiguienteCadete, orderPayload);
         } else {
-          await supabase.from('Pedidos').update({ id_cadete: null, estado_pedido: 'cancelado' }).eq('id_pedido', pedidoActivo.id_pedido);
-          pedidoActivo.estado_pedido = 'cancelado';
-          actualizarUIEstado('cancelado', null);
+          // Encolar en 'pendiente' para que cualquier cadete que se libere lo tome de inmediato
+          await supabase.from('Pedidos').update({ id_cadete: null, estado_pedido: 'pendiente' }).eq('id_pedido', pedidoActivo.id_pedido);
+          pedidoActivo.id_cadete = null;
+          pedidoActivo.estado_pedido = 'pendiente';
+          actualizarUIEstado('pendiente', null);
+          iniciarBuscadorCadetesParaPedido(pedidoActivo.id_pedido);
         }
       } catch (err) {
         console.error('[Cliente RT] Fallo al reasignar:', err);
       }
+    }
+
+    // Despacho de broadcast optimizado con doble canal (privado y global)
+    function despacharBroadcastNuevoPedido(idCadete, payload) {
+      if (idCadete) {
+        const chan = supabase.channel(`pedidos-cadete-${idCadete}`, { config: { broadcast: { ack: true } } });
+        chan.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await chan.send({ type: 'broadcast', event: 'nuevo_pedido', payload });
+            setTimeout(() => supabase.removeChannel(chan), 2500);
+          }
+        });
+      }
+
+      // Redundancia global hacia el canal de presencia de cadetes
+      const chanGlobal = supabase.channel('cadetes-disponibles');
+      chanGlobal.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await chanGlobal.send({ type: 'broadcast', event: 'nuevo_pedido', payload });
+        }
+      });
+    }
+
+    // Buscador activo reactivo para pedidos en espera cuando los cadetes están ocupados
+    let seekerInterval = null;
+    function iniciarBuscadorCadetesParaPedido(idPedido) {
+      if (seekerInterval) clearInterval(seekerInterval);
+      seekerInterval = setInterval(async () => {
+        if (!pedidoActivo || Number(pedidoActivo.id_pedido) !== Number(idPedido)) {
+          clearInterval(seekerInterval);
+          return;
+        }
+        if (['asignado', 'en_camino_entrega', 'entregado', 'rendido', 'cancelado'].includes(pedidoActivo.estado_pedido)) {
+          clearInterval(seekerInterval);
+          return;
+        }
+
+        try {
+          const { data: disponibles } = await supabase
+            .from('Cadetes')
+            .select('id_cad, nombre_cad')
+            .eq('estado_cad', 'disponible')
+            .order('id_cad', { ascending: true });
+
+          const candidatos = (disponibles || []).filter(c => !cadetesRechazadosGlobal.includes(Number(c.id_cad)));
+          if (candidatos.length > 0) {
+            clearInterval(seekerInterval);
+            const idCad = Number(candidatos[0].id_cad);
+            pedidoActivo.id_cadete = idCad;
+            pedidoActivo.estado_pedido = 'libre';
+
+            await supabase
+              .from('Pedidos')
+              .update({ id_cadete: idCad, estado_pedido: 'libre' })
+              .eq('id_pedido', idPedido);
+
+            const payload = { ...pedidoActivo, id_cadete: idCad, estado_pedido: 'libre' };
+            despacharBroadcastNuevoPedido(idCad, payload);
+            actualizarUIEstado('en_confirmacion', idCad);
+          }
+        } catch (e) { }
+      }, 2000);
     }
 
     function actualizarInsigniaPatente(patente) {
@@ -1259,11 +1313,12 @@
       if (badge && text) {
         if (patente && String(patente).trim()) {
           text.innerText = String(patente).trim().toUpperCase();
+          badge.className = "flex flex-col items-center justify-center px-2.5 py-1 bg-black border-2 border-white/80 rounded-lg shadow-md shrink-0";
           badge.classList.remove('hidden');
-          badge.classList.add('flex');
         } else {
-          badge.classList.add('hidden');
-          badge.classList.remove('flex');
+          text.innerText = "NO CARGADA";
+          badge.className = "flex flex-col items-center justify-center px-2 py-0.5 bg-brand-surfaceLight/50 border border-brand-border/80 rounded-lg shrink-0";
+          badge.classList.remove('hidden');
         }
       }
     }
@@ -1282,9 +1337,8 @@
           document.getElementById('cadeteAvatarInitials').innerText = nombre.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'CD';
           document.getElementById('cadeteGpsStatus').innerText = cadete.vehiculo_cad ? `Vehículo: ${cadete.vehiculo_cad}` : 'En camino al local';
 
-          if (cadete.patente) {
-            actualizarInsigniaPatente(cadete.patente);
-          }
+          // Mostrar patente de BD o placeholder 'NO CARGADA'
+          actualizarInsigniaPatente(cadete.patente);
         }
       } catch (e) {
         console.warn('No se pudo cargar datos del cadete:', e);

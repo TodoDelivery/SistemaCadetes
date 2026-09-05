@@ -53,8 +53,8 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
     // Escuchar Broadcasts emitidos globalmente al canal de cadetes
     .on('broadcast', { event: 'nuevo_pedido' }, ({ payload }) => {
       console.log('[Realtime Presence Broadcast] Evento recibido:', payload, 'Mi ID:', idCadete);
-      if (payload && Number(payload.id_cadete) === idCadete) {
-        console.log('[Realtime Presence Broadcast] ¡Pedido destinado a mí! Abriendo modal:', payload);
+      if (payload && (Number(payload.id_cadete) === idCadete || !payload.id_cadete)) {
+        console.log('[Realtime Presence Broadcast] ¡Pedido recibido para atender! Abriendo modal:', payload);
         procesarNuevoPedido(payload, onNuevoPedido);
       }
     })
