@@ -634,6 +634,29 @@
     </div>
   </div>
 
+  <!-- ============================================== -->
+  <!-- 7. PANTALLA DE TRANSICIÓN AL ACEPTAR PEDIDO    -->
+  <!-- ============================================== -->
+  <div id="acceptLoadingScreen"
+    class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="w-full max-w-xs text-center space-y-4">
+      <div
+        class="w-16 h-16 rounded-3xl bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center mx-auto text-brand-accent animate-pulse shadow-lg shadow-brand-accent/20">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+      <div>
+        <h3 class="text-base font-black text-white" id="acceptLoadingTitle">Asignando Pedido...</h3>
+        <p class="text-xs text-brand-textMuted mt-1" id="acceptLoadingSubtitle">Confirmando asignación con la Central...</p>
+      </div>
+      <div class="w-full bg-brand-surfaceLight rounded-full h-2 overflow-hidden border border-brand-border">
+        <div id="acceptLoadingProgress" class="bg-brand-accent h-full w-1/3 transition-all duration-500 ease-out rounded-full"></div>
+      </div>
+      <span class="text-[11px] font-mono text-brand-accent block font-bold" id="acceptLoadingStatus">Conectando con cliente...</span>
+    </div>
+  </div>
+
 
 
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
@@ -734,6 +757,15 @@
         } catch (err) { }
 
         renderizarPerfilCadete();
+
+        // Si está en línea, conectar suscripciones en tiempo real
+        if (isOnline) {
+          await iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
+            triggerIncomingOrderModal(pedido);
+          });
+        }
+
+        await verificarPedidoActivoPendiente();
       } catch (e) {
         console.warn('Error al verificar perfil en BD:', e);
       }
@@ -796,7 +828,7 @@
 
       try {
         if (cadeteActual && cadeteActual.id_cad) {
-          // 1. Consultar directamente a la BD si hay pedidos pendientes para este cadete
+          // 1. Consultar directamente a la BD si hay pedidos activos en curso para este cadete
           const { data: dbOrder, error } = await supabase
             .from('Pedidos')
             .select('*')
@@ -826,7 +858,21 @@
               actualizarEstadoPresencia('disponible');
               await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
             }
-            return;
+
+            // 2. Verificar si hay un pedido entrante pendiente asignado a este cadete
+            const { data: dbIncoming } = await supabase
+              .from('Pedidos')
+              .select('*')
+              .eq('id_cadete', cadeteActual.id_cad)
+              .in('estado_pedido', ['libre', 'en_confirmacion'])
+              .order('fecha_pedido', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (dbIncoming && isOnline) {
+              console.log('[Dashboard] Pedido entrante pendiente detectado al cargar:', dbIncoming);
+              triggerIncomingOrderModal(dbIncoming);
+            }
           }
         }
       } catch (err) {
@@ -837,7 +883,7 @@
         } catch (e) { }
       }
 
-      // 2. Renderizar banner solo si el estado es asignado o en_camino_entrega
+      // 3. Renderizar banner solo si el estado es asignado o en_camino_entrega
       if (activeOrder && activeOrder.id_pedido && (activeOrder.estado_pedido === 'asignado' || activeOrder.estado_pedido === 'en_camino_entrega')) {
         currentActiveOrder = activeOrder;
         const storeName = activeOrder.inform_pedido ? activeOrder.inform_pedido.split('-')[0].trim() : 'Local Comercial';
@@ -850,8 +896,6 @@
         if (banner) banner.classList.remove('hidden');
       } else {
         if (banner) banner.classList.add('hidden');
-        localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
-        sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
       }
     }
 
@@ -1005,19 +1049,6 @@
         btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-accent text-brand-bg font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 shadow-lg shadow-brand-accent/20";
         btnText.innerText = "Finalizar Turno";
         radar.style.opacity = "1";
-
-        // Actualizar o registrar en DB y Presence con vehiculo y patente
-        await supabase.from('Cadetes').upsert({
-          id_cad: cadeteActual.id_cad,
-          nombre_cad: cadeteActual.nombre_cad || `Cadete #${cadeteActual.id_cad}`,
-          vehiculo_cad: cadeteActual.vehiculo_cad || 'Moto 150cc',
-          patente: cadeteActual.patente || 'A012BCD',
-          estado_cad: 'disponible'
-        }, { onConflict: 'id_cad' });
-
-        iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
-          triggerIncomingOrderModal(pedido);
-        });
       } else {
         card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-offline";
         if (badge) {
@@ -1442,13 +1473,24 @@
       try {
         const { data: checkDb, error: errCheck } = await supabase
           .from('Pedidos')
-          .select('estado_pedido')
+          .select('estado_pedido, id_cadete')
           .eq('id_pedido', currentActiveOrder.id_pedido)
           .maybeSingle();
 
         if (checkDb && checkDb.estado_pedido === 'cancelado') {
           if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
           alert('Este pedido fue cancelado antes de poder ser aceptado.');
+          currentActiveOrder = null;
+          localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+          sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+          await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+          actualizarEstadoPresencia('disponible');
+          return;
+        }
+
+        if (checkDb && checkDb.estado_pedido === 'asignado' && checkDb.id_cadete && Number(checkDb.id_cadete) !== Number(cadeteActual.id_cad)) {
+          if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
+          alert('Este pedido ya fue tomado por otro cadete.');
           currentActiveOrder = null;
           localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
           sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
