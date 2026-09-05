@@ -82,6 +82,23 @@ export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
       if (status === 'SUBSCRIBED') {
         console.log(`[RT Pedido Activo] Canal pedido-en-curso-${idPedido} conectado.`);
 
+        // Notificar presencia y patente inicial del cadete al cliente
+        const patente = pedidoActual?.patente_cadete || pedidoActual?.patente || '';
+        const vehiculo = pedidoActual?.vehiculo_cadete || pedidoActual?.vehiculo_cad || '';
+        try {
+          await channelPedidoActivo.send({
+            type: 'broadcast',
+            event: 'cadete_conectado',
+            payload: {
+              id_pedido: idPedido,
+              id_cadete: idCadete,
+              patente,
+              vehiculo,
+              timestamp: new Date().toISOString()
+            }
+          });
+        } catch (e) {}
+
         // Iniciar rastreo continuo de GPS y transmisión al cliente
         iniciarTransmisionGPS(idPedido, idCadete);
       }
@@ -91,7 +108,7 @@ export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
 }
 
 /**
- * Inicia el seguimiento del GPS del cadete y transmite su posición al cliente
+ * Inicia el seguimiento del GPS del cadete y transmite su posición y patente al cliente
  */
 function iniciarTransmisionGPS(idPedido, idCadete) {
   if (!('geolocation' in navigator)) return;
@@ -111,6 +128,9 @@ function iniciarTransmisionGPS(idPedido, idCadete) {
         timestamp: new Date().toISOString()
       };
 
+      const patente = pedidoActual?.patente_cadete || pedidoActual?.patente || '';
+      const vehiculo = pedidoActual?.vehiculo_cadete || pedidoActual?.vehiculo_cad || '';
+
       // Transmitir al canal del pedido
       if (channelPedidoActivo) {
         await channelPedidoActivo.send({
@@ -119,6 +139,8 @@ function iniciarTransmisionGPS(idPedido, idCadete) {
           payload: {
             id_pedido: idPedido,
             id_cadete: idCadete,
+            patente,
+            vehiculo,
             coords
           }
         });
@@ -192,11 +214,16 @@ export async function actualizarEstadoPedidoEnCurso(nuevoEstado, datosExtra = {}
 
     // 2. Notificar inmediatamente por broadcast al cliente
     if (channelPedidoActivo) {
+      const patente = pedidoActual?.patente_cadete || pedidoActual?.patente || '';
+      const vehiculo = pedidoActual?.vehiculo_cadete || pedidoActual?.vehiculo_cad || '';
       await channelPedidoActivo.send({
         type: 'broadcast',
         event: 'cambio_estado_pedido',
         payload: {
           id_pedido: idPedido,
+          id_cadete: pedidoActual.id_cadete,
+          patente,
+          vehiculo,
           estado_pedido: nuevoEstado,
           timestamp: new Date().toISOString()
         }
@@ -206,6 +233,16 @@ export async function actualizarEstadoPedidoEnCurso(nuevoEstado, datosExtra = {}
     return data;
   } catch (err) {
     console.error('[RT Estado] Error al actualizar estado del pedido:', err);
+  }
+}
+
+/**
+ * Permite actualizar los metadatos del cadete (como patente o vehículo) en el pedido activo
+ * @param {Object} datos - { patente_cadete, vehiculo_cadete, etc. }
+ */
+export function actualizarDatosCadetePedidoActivo(datos) {
+  if (pedidoActual && datos) {
+    pedidoActual = { ...pedidoActual, ...datos };
   }
 }
 
@@ -232,6 +269,7 @@ if (typeof window !== 'undefined') {
   window.iniciarSuscripcionPedidoActivo = iniciarSuscripcionPedidoActivo;
   window.enviarMensajeChat = enviarMensajeChat;
   window.actualizarEstadoPedidoEnCurso = actualizarEstadoPedidoEnCurso;
+  window.actualizarDatosCadetePedidoActivo = actualizarDatosCadetePedidoActivo;
   window.desconectarPedidoActivo = desconectarPedidoActivo;
 }
 
@@ -239,5 +277,6 @@ export default {
   iniciarSuscripcionPedidoActivo,
   enviarMensajeChat,
   actualizarEstadoPedidoEnCurso,
+  actualizarDatosCadetePedidoActivo,
   desconectarPedidoActivo
 };

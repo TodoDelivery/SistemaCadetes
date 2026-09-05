@@ -621,6 +621,23 @@
             pedidoActivo.cliente_telefono = dbCli.telefono_cliente;
           }
         }
+
+        // Consultar datos de patente y vehículo del cadete desde tabla Cadetes
+        const targetCadId = (cadeteActual && cadeteActual.id_cad) || pedidoActivo.id_cadete;
+        if (targetCadId) {
+          const { data: dbCad } = await supabase
+            .from('Cadetes')
+            .select('id_cad, nombre_cad, alias_cad, vehiculo_cad, patente')
+            .eq('id_cad', targetCadId)
+            .maybeSingle();
+
+          if (dbCad) {
+            cadeteActual = { ...cadeteActual, ...dbCad };
+            pedidoActivo.patente_cadete = dbCad.patente || '';
+            pedidoActivo.vehiculo_cadete = dbCad.vehiculo_cad || '';
+            pedidoActivo.nombre_cadete = dbCad.nombre_cad || dbCad.alias_cad || '';
+          }
+        }
       } catch (err) {
         console.warn('Nota: Usando datos de sesión locales:', err);
       }
@@ -634,7 +651,8 @@
 
       // Paso 1: Local / Retiro
       document.getElementById('destinationTitle').innerText = storeName;
-      document.getElementById('orderIdText').innerText = `Orden #${pedidoActivo.id_pedido} • ${pedidoActivo.tipo_paquete || 'Pedido'}`;
+      const tagPatente = pedidoActivo.patente_cadete ? ` • Pat: [${pedidoActivo.patente_cadete}]` : '';
+      document.getElementById('orderIdText').innerText = `Orden #${pedidoActivo.id_pedido} • ${pedidoActivo.tipo_paquete || 'Pedido'}${tagPatente}`;
       document.getElementById('cashBanner').querySelector('span:last-child').innerText = `$${orderTotal.toLocaleString('es-AR')} EFECTIVO`;
 
       // Teléfono del cliente

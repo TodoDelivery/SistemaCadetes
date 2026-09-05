@@ -64,12 +64,14 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       if (status === 'SUBSCRIBED') {
         console.log(`[Realtime Presence] Cadete #${idCadete} conectado a "cadetes-disponibles"`);
         
-        // Transmisión inicial de presencia, estado y ubicación
+        // Transmisión inicial de presencia, estado, patente y ubicación
         await channelPresence.track({
           id_cad: idCadete,
           nombre: nombreCadete,
           coords: currentCoords,
-          estado_cad: currentCadetState
+          estado_cad: currentCadetState,
+          patente: cadeteSession.patente || '',
+          vehiculo_cad: cadeteSession.vehiculo_cad || ''
         });
 
         // Seguimiento GPS en tiempo real si el navegador lo soporta
@@ -80,12 +82,14 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude
               };
-              if (channelPresence) {
+              if (channelPresence && cadeteSession) {
                 await channelPresence.track({
                   id_cad: idCadete,
                   nombre: nombreCadete,
                   coords: currentCoords,
-                  estado_cad: currentCadetState
+                  estado_cad: currentCadetState,
+                  patente: cadeteSession.patente || '',
+                  vehiculo_cad: cadeteSession.vehiculo_cad || ''
                 });
               }
             },
@@ -204,9 +208,24 @@ export async function actualizarEstadoPresencia(nuevoEstado) {
       id_cad: idCadete,
       nombre: nombreCadete,
       coords: currentCoords,
-      estado_cad: nuevoEstado
+      estado_cad: nuevoEstado,
+      patente: cadeteSession.patente || '',
+      vehiculo_cad: cadeteSession.vehiculo_cad || ''
     });
-    console.log(`[Realtime Presence] Estado del cadete actualizado a: ${nuevoEstado}`);
+    console.log(`[Realtime Presence] Estado del cadete #${idCadete} actualizado a: ${nuevoEstado} (Patente: ${cadeteSession.patente || 'S/D'})`);
+  }
+}
+
+/**
+ * Actualiza los datos en memoria de la sesión del cadete (ej. tras recargar perfil o patente desde BD)
+ * @param {Object} nuevosDatos 
+ */
+export function actualizarDatosCadeteSession(nuevosDatos) {
+  if (nuevosDatos && typeof nuevosDatos === 'object') {
+    cadeteSession = { ...cadeteSession, ...nuevosDatos };
+    if (channelPresence && cadeteSession) {
+      actualizarEstadoPresencia(currentCadetState);
+    }
   }
 }
 
@@ -250,11 +269,13 @@ export async function desconectarSuscripcionesDashboard() {
 if (typeof window !== 'undefined') {
   window.iniciarSuscripcionesDashboard = iniciarSuscripcionesDashboard;
   window.actualizarEstadoPresencia = actualizarEstadoPresencia;
+  window.actualizarDatosCadeteSession = actualizarDatosCadeteSession;
   window.desconectarSuscripcionesDashboard = desconectarSuscripcionesDashboard;
 }
 
 export default {
   iniciarSuscripcionesDashboard,
   actualizarEstadoPresencia,
+  actualizarDatosCadeteSession,
   desconectarSuscripcionesDashboard
 };
