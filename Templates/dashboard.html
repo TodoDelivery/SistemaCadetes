@@ -118,22 +118,27 @@
       background: #090B10 !important;
       font-family: inherit;
     }
+
     .leaflet-tile {
       filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
     }
+
     .custom-gps-marker {
       background: transparent;
       border: none;
     }
+
     .leaflet-control-zoom {
       display: none !important;
     }
+
     .leaflet-control-attribution {
-      background: rgba(0,0,0,0.7) !important;
+      background: rgba(0, 0, 0, 0.7) !important;
       color: #666 !important;
       font-size: 7px !important;
       padding: 0 4px !important;
     }
+
     .leaflet-control-attribution a {
       color: #888 !important;
     }
@@ -149,7 +154,8 @@
     class="p-5 pt-7 flex items-center justify-between border-b border-brand-border/50 sticky top-0 bg-brand-bg/90 backdrop-blur-md z-30">
     <!-- Perfil del Cadete (Menú Desplegable con datos de solo lectura) -->
     <div class="relative" id="cadetProfileMenuContainer">
-      <div class="flex items-center gap-3 cursor-pointer group select-none" id="cadetProfileTrigger" onclick="toggleCadetProfileDropdown(event)" title="Toca para desplegar tus datos">
+      <div class="flex items-center gap-3 cursor-pointer group select-none" id="cadetProfileTrigger"
+        onclick="toggleCadetProfileDropdown(event)" title="Toca para desplegar tus datos">
         <div class="relative">
           <div id="cadetAvatar"
             class="w-11 h-11 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-white font-bold text-base group-hover:border-brand-accent group-hover:scale-105 transition-all shadow-md">
@@ -163,12 +169,15 @@
         </div>
         <div>
           <div class="flex items-center gap-1.5">
-            <h1 id="cadetName" class="text-sm font-bold text-white group-hover:text-brand-accent transition-colors">...</h1>
+            <h1 id="cadetName" class="text-sm font-bold text-white group-hover:text-brand-accent transition-colors">...
+            </h1>
             <span id="cadetBadge"
               class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-brand-surfaceLight text-brand-accent border border-brand-border">CADETE
               #1</span>
             <!-- Icono Chevron animado para desplegable -->
-            <svg id="cadetChevron" class="w-3.5 h-3.5 text-brand-textMuted group-hover:text-brand-accent transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg id="cadetChevron"
+              class="w-3.5 h-3.5 text-brand-textMuted group-hover:text-brand-accent transition-transform duration-200"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
           </div>
@@ -176,7 +185,8 @@
             <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z">
               </path>
             </svg>
             GPS Preciso &bull; San Juan
@@ -197,12 +207,14 @@
             <div>
               <div class="flex items-center gap-1.5">
                 <p class="text-xs font-bold text-white" id="dropdownProfileName">Cadete</p>
-                <span id="dropdownProfileBadge" class="text-[9px] font-mono px-1 py-0.2 rounded bg-brand-surfaceLight text-brand-accent border border-brand-border">#---</span>
+                <span id="dropdownProfileBadge"
+                  class="text-[9px] font-mono px-1 py-0.2 rounded bg-brand-surfaceLight text-brand-accent border border-brand-border">#---</span>
               </div>
               <p class="text-[10px] text-brand-textMuted mt-0.5">Perfil de Cadete &bull; Todo Delivery</p>
             </div>
           </div>
-          <span class="inline-flex items-center gap-1 text-[9px] font-bold text-brand-accent px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/20">
+          <span
+            class="inline-flex items-center gap-1 text-[9px] font-bold text-brand-accent px-2 py-0.5 rounded-full bg-brand-accent/10 border border-brand-accent/20">
             <span class="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse"></span> Solo lectura
           </span>
         </div>
@@ -210,10 +222,12 @@
         <!-- Campos de Datos de Solo Lectura -->
         <div class="space-y-2 text-xs">
           <!-- Nombre completo -->
-          <div class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
+          <div
+            class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
             <span class="text-brand-textMuted text-[11px] flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
               </svg>
               Nombre:
             </span>
@@ -221,10 +235,13 @@
           </div>
 
           <!-- Teléfono -->
-          <div class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
+          <div
+            class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
             <span class="text-brand-textMuted text-[11px] flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z">
+                </path>
               </svg>
               Teléfono:
             </span>
@@ -232,10 +249,12 @@
           </div>
 
           <!-- Vehículo Asignado -->
-          <div class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
+          <div
+            class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
             <span class="text-brand-textMuted text-[11px] flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z">
+                </path>
               </svg>
               Vehículo:
             </span>
@@ -243,15 +262,19 @@
           </div>
 
           <!-- Patente Oficial -->
-          <div class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
+          <div
+            class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
             <span class="text-brand-textMuted text-[11px] flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z">
+                </path>
               </svg>
               Patente:
             </span>
             <div id="dropdownProfilePlateContainer">
-              <span class="inline-flex items-center px-2 py-0.5 rounded bg-black border border-white/30 text-white font-mono text-[10px] tracking-wider uppercase font-black shadow-inner">
+              <span
+                class="inline-flex items-center px-2 py-0.5 rounded bg-black border border-white/30 text-white font-mono text-[10px] tracking-wider uppercase font-black shadow-inner">
                 <span class="text-blue-400 mr-1 text-[7px]">AR</span>
                 <span id="dropdownProfilePlateText">--</span>
               </span>
@@ -259,10 +282,12 @@
           </div>
 
           <!-- Estado de Turno -->
-          <div class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
+          <div
+            class="p-2.5 bg-brand-surfaceLight/60 border border-brand-border/60 rounded-xl flex items-center justify-between">
             <span class="text-brand-textMuted text-[11px] flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
               Estado de turno:
             </span>
@@ -271,14 +296,18 @@
         </div>
 
         <!-- Footer discreto -->
-        <div class="pt-2 border-t border-brand-border/50 flex items-center justify-between text-[10px] text-brand-textMuted">
+        <div
+          class="pt-2 border-t border-brand-border/50 flex items-center justify-between text-[10px] text-brand-textMuted">
           <span class="flex items-center gap-1">
             <svg class="w-3 h-3 text-brand-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+              </path>
             </svg>
             Solo lectura Central
           </span>
-          <button type="button" onclick="closeCadetProfileDropdown()" class="text-brand-accent hover:underline font-bold px-1 py-0.5">
+          <button type="button" onclick="closeCadetProfileDropdown()"
+            class="text-brand-accent hover:underline font-bold px-1 py-0.5">
             Cerrar
           </button>
         </div>
@@ -566,11 +595,13 @@
       <!-- MAPA PREVIEW SOLO LECTURA: UBICACIÓN DE LLEGADA / CLIENTE -->
       <div class="relative w-full h-36 rounded-2xl overflow-hidden border border-brand-border bg-brand-bg shadow-inner">
         <div id="incomingOrderMap" class="w-full h-full"></div>
-        <div class="absolute top-2.5 left-2.5 z-[400] bg-brand-surface/90 backdrop-blur-md px-2.5 py-1 rounded-xl border border-brand-border flex items-center gap-1.5 shadow-lg pointer-events-none">
+        <div
+          class="absolute top-2.5 left-2.5 z-[400] bg-brand-surface/90 backdrop-blur-md px-2.5 py-1 rounded-xl border border-brand-border flex items-center gap-1.5 shadow-lg pointer-events-none">
           <span class="w-2 h-2 rounded-full bg-brand-warning animate-pulse"></span>
           <span class="text-[10px] font-extrabold text-white uppercase tracking-wider">Llegada Cliente</span>
         </div>
-        <div class="absolute bottom-2 right-2 z-[400] bg-black/75 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-white/10 text-[9px] text-brand-textMuted font-bold uppercase tracking-wider pointer-events-none">
+        <div
+          class="absolute bottom-2 right-2 z-[400] bg-black/75 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-white/10 text-[9px] text-brand-textMuted font-bold uppercase tracking-wider pointer-events-none">
           Solo Lectura
         </div>
       </div>
@@ -668,7 +699,7 @@
       window.location.href = newUrl.toString();
     };
 
-    // Cargar datos reales del cadete desde Supabase y auto-crear si no existe
+    // Cargar datos reales del cadete desde Supabase y sincronizar estado de turno
     async function cargarPerfilDBSupabase() {
       try {
         const { data: dbCad, error } = await supabase
@@ -700,7 +731,7 @@
           if (typeof window.actualizarDatosCadeteSession === 'function') {
             window.actualizarDatosCadeteSession(cadeteActual);
           }
-        } catch (err) {}
+        } catch (err) { }
 
         renderizarPerfilCadete();
       } catch (e) {
@@ -736,10 +767,10 @@
 
       if (vehicleEl) {
         const detalleVehiculo = cadeteActual.vehiculo_cad ? `${cadeteActual.vehiculo_cad}` : 'Moto';
-        const patenteHtml = cadeteActual.patente 
+        const patenteHtml = cadeteActual.patente
           ? `<span class="inline-flex items-center px-2 py-0.5 rounded bg-brand-surfaceLight border border-brand-border text-white font-mono text-[10px] tracking-wider uppercase font-bold shadow-sm">
                <span class="text-blue-400 mr-1 text-[8px]">AR</span>${cadeteActual.patente}
-             </span>` 
+             </span>`
           : '';
         vehicleEl.innerHTML = `
           <svg class="w-3.5 h-3.5 text-brand-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -783,9 +814,12 @@
             actualizarEstadoPresencia('ocupado');
             await supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad);
           } else {
-            // NO hay pedidos activos en la BD para este cadete: limpiar memoria
+            // NO hay pedidos activos en la BD para este cadete: limpiar memoria y rechazos previos
             localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
             sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
+            pedidosRechazadosLocalmente.clear();
+            localStorage.removeItem(`rejected_orders_${cadeteActual.id_cad}`);
+            sessionStorage.removeItem(`rejected_orders_${cadeteActual.id_cad}`);
             currentActiveOrder = null;
             if (banner) banner.classList.add('hidden');
             if (isOnline) {
@@ -910,12 +944,6 @@
       renderizarPerfilCadete();
       verificarPedidoActivoPendiente();
       actualizarMetricasDashboard();
-
-      if (isOnline) {
-        iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
-          triggerIncomingOrderModal(pedido);
-        });
-      }
     });
 
     // Detectar cuando el usuario vuelve a la pestaña o app
@@ -938,9 +966,25 @@
       }
     });
 
-    // Toggle Conectado / Desconectado
-    window.toggleServiceStatus = async function () {
-      isOnline = !isOnline;
+    // Desconectar turno de forma limpia si cierra o recarga la ventana sin viaje activo
+    window.addEventListener('beforeunload', () => {
+      if (cadeteActual && cadeteActual.id_cad && !currentActiveOrder) {
+        const url = `https://zngfzdcipqbddmyuqaht.supabase.co/rest/v1/Cadetes?id_cad=eq.${cadeteActual.id_cad}`;
+        const headers = {
+          'apikey': 'sb_publishable_4fmNtN1o4x20cXTNuGGPow_ZG01UHIB',
+          'Authorization': 'Bearer sb_publishable_4fmNtN1o4x20cXTNuGGPow_ZG01UHIB',
+          'Content-Type': 'application/json'
+        };
+        const body = JSON.stringify({ estado_cad: 'desconectado' });
+        try {
+          fetch(url, { method: 'PATCH', keepalive: true, headers, body });
+        } catch (e) { }
+      }
+    });
+
+    // Función unificada para actualizar la UI del estado de servicio
+    window.actualizarUIEstadoServicio = function (online) {
+      isOnline = online;
 
       const card = document.getElementById('statusCard');
       const badge = document.getElementById('statusBadge');
@@ -950,8 +994,9 @@
       const btnText = document.getElementById('toggleBtnText');
       const radar = document.getElementById('radarAnimation');
 
-      if (isOnline) {
-        // Estado Conectado
+      if (!card) return;
+
+      if (online) {
         card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-online";
         badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-bold uppercase tracking-wider mb-4";
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span> Conectado - Recibiendo Pedidos`;
@@ -974,19 +1019,66 @@
           triggerIncomingOrderModal(pedido);
         });
       } else {
-        // Estado Desconectado
         card.className = "relative overflow-hidden bg-brand-surface border border-brand-border rounded-3xl p-6 text-center transition-all duration-300 glow-offline";
-        badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-danger/15 border border-brand-danger/30 text-brand-danger text-xs font-bold uppercase tracking-wider mb-4";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-danger"></span> Fuera de Servicio`;
-        title.innerText = "Estás Desconectado";
-        desc.innerText = "No recibirás solicitudes de entrega ni reportarás ubicación en tiempo real.";
-        btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-surfaceLight border border-brand-border text-white font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2";
-        btnText.innerText = "Iniciar Turno / Conectar";
-        radar.style.opacity = "0";
+        if (badge) {
+          badge.className = "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-danger/15 border border-brand-danger/30 text-brand-danger text-xs font-bold uppercase tracking-wider mb-4";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-brand-danger"></span> Fuera de Servicio`;
+        }
+        if (title) title.innerText = "Estás Desconectado";
+        if (desc) desc.innerText = "No recibirás solicitudes de entrega ni reportarás ubicación en tiempo real.";
+        if (btn) {
+          btn.className = "mt-6 w-full py-4 px-6 rounded-2xl bg-brand-surfaceLight border border-brand-border text-white font-extrabold text-sm tracking-wider uppercase transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2";
+        }
+        if (btnText) btnText.innerText = "Iniciar Turno / Conectar";
+        if (radar) radar.style.opacity = "0";
+      }
+    };
 
-        // Actualizar en DB y Presence
-        await supabase.from('Cadetes').update({ estado_cad: 'desconectado' }).eq('id_cad', cadeteActual.id_cad);
-        desconectarSuscripcionesDashboard();
+    // Toggle Conectado / Desconectado (Iniciar o Finalizar Turno)
+    window.toggleServiceStatus = async function () {
+      const nuevoOnline = !isOnline;
+      window.actualizarUIEstadoServicio(nuevoOnline);
+
+      if (nuevoOnline) {
+        // --- 1. INICIAR TURNO / CONECTAR ---
+        cadeteActual.estado_cad = 'disponible';
+
+        // Actualizar en base de datos Supabase
+        try {
+          await supabase
+            .from('Cadetes')
+            .update({ estado_cad: 'disponible' })
+            .eq('id_cad', cadeteActual.id_cad);
+          console.log(`[Turno] Cadete #${cadeteActual.id_cad} actualizado a 'disponible' en BD.`);
+        } catch (err) {
+          console.error('[Turno] Error actualizando BD al conectar:', err);
+        }
+
+        // Conectar suscripciones Realtime limpias
+        await iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
+          triggerIncomingOrderModal(pedido);
+        });
+
+        // Transmitir presencia activa
+        await actualizarEstadoPresencia('disponible');
+
+      } else {
+        // --- 2. FINALIZAR TURNO / DESCONECTAR ---
+        cadeteActual.estado_cad = 'desconectado';
+
+        // Actualizar en base de datos Supabase
+        try {
+          await supabase
+            .from('Cadetes')
+            .update({ estado_cad: 'desconectado' })
+            .eq('id_cad', cadeteActual.id_cad);
+          console.log(`[Turno] Cadete #${cadeteActual.id_cad} actualizado a 'desconectado' en BD.`);
+        } catch (err) {
+          console.error('[Turno] Error actualizando BD al desconectar:', err);
+        }
+
+        // Desconectar presencia y canales Realtime de forma completa
+        await desconectarSuscripcionesDashboard();
       }
     };
 
@@ -1096,6 +1188,8 @@
     }
 
     // Modal de Pedido Entrante
+    let pedidosEnProcesoDeReclamo = new Set();
+
     window.triggerIncomingOrderModal = async function (pedido = null) {
       if (!isOnline) {
         console.warn("Se ignoró pedido entrante porque el cadete está desconectado.");
@@ -1109,45 +1203,50 @@
 
       const orderId = Number(pedido.id_pedido);
       const estPed = String(pedido.estado_pedido);
-      
+
       if (estPed !== "libre" && estPed !== "en_confirmacion") {
         console.warn(`Se ignoró pedido #${orderId} porque el estado es ${estPed}.`);
         return;
       }
-      
+
       if (pedidosRechazadosLocalmente.has(orderId)) {
         console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ignorando orden #${orderId} porque ya fue rechazada localmente.`);
         return;
       }
 
-      // Si el modal ya está abierto mostrando este mismo pedido, no reiniciar
-      if (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId) {
-        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Modal ya abierto para pedido #${orderId}. Ignorando evento repetido.`);
+      // Si ya hay un reclamo en proceso o el modal ya está abierto con este pedido, evitar duplicados
+      if (pedidosEnProcesoDeReclamo.has(orderId) || (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId)) {
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Pedido #${orderId} ya en proceso o modal abierto. Ignorando evento repetido.`);
         return;
       }
 
       // INTENTO DE BLOQUEO OPTIMISTA (Reclamar el pedido libre)
       if (estPed === "libre") {
+        pedidosEnProcesoDeReclamo.add(orderId);
         console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Intentando reclamar el pedido libre #${orderId}...`);
-        
-        const { data: claimData, error: claimError } = await supabase
-          .from('Pedidos')
-          .update({ estado_pedido: 'en_confirmacion' })
-          .eq('id_pedido', orderId)
-          .eq('estado_pedido', 'libre') // Condición atómica
-          .select()
-          .maybeSingle();
-          
-        if (claimError || !claimData) {
-          console.warn(`[Dashboard Cadete #${cadeteActual.id_cad}] No se pudo reclamar el pedido #${orderId}. Posiblemente otro cadete lo tomó o fue cancelado.`);
-          return;
+
+        try {
+          const { data: claimData, error: claimError } = await supabase
+            .from('Pedidos')
+            .update({ estado_pedido: 'en_confirmacion' })
+            .eq('id_pedido', orderId)
+            .eq('estado_pedido', 'libre') // Condición atómica
+            .select()
+            .maybeSingle();
+
+          if (claimError || !claimData) {
+            console.warn(`[Dashboard Cadete #${cadeteActual.id_cad}] No se pudo reclamar el pedido #${orderId}. Posiblemente otro cadete lo tomó o fue cancelado.`);
+            return;
+          }
+
+          console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] ¡Pedido #${orderId} reclamado exitosamente! Actualizando estado cadete a en_confirmacion.`);
+          pedido = claimData; // Usar los datos actualizados
+
+          // Actualizar estado del cadete a ocupado visualmente
+          await supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad);
+        } finally {
+          pedidosEnProcesoDeReclamo.delete(orderId);
         }
-        
-        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] ¡Pedido #${orderId} reclamado exitosamente! Actualizando estado cadete a en_confirmacion.`);
-        pedido = claimData; // Usar los datos actualizados
-        
-        // Actualizar estado del cadete a ocupado visualmente
-        await supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad);
       }
 
       currentActiveOrder = pedido;
@@ -1285,15 +1384,15 @@
       if (orderToReject && orderToReject.id_pedido) {
         console.log('[Rechazo] Ejecutando rechazo 100% desde el frontend (sin Edge Function)');
         try {
-          // Verificar si el pedido ya está cancelado en BD
+          // Verificar si el pedido ya está cancelado o ya fue asignado/tomado en BD
           const { data: checkDb } = await supabase
             .from('Pedidos')
             .select('estado_pedido')
             .eq('id_pedido', orderToReject.id_pedido)
             .maybeSingle();
 
-          if (checkDb && checkDb.estado_pedido === 'cancelado') {
-            console.log(`[Rechazo] El pedido #${orderToReject.id_pedido} ya estaba cancelado en DB.`);
+          if (checkDb && ['cancelado', 'asignado', 'en_camino_entrega', 'entregado', 'rendido'].includes(checkDb.estado_pedido)) {
+            console.log(`[Rechazo] El pedido #${orderToReject.id_pedido} ya está en estado '${checkDb.estado_pedido}' en DB. Abortando rechazo.`);
             return;
           }
 
@@ -1322,11 +1421,22 @@
     window.acceptOrder = async function () {
       console.log('[Dashboard] Botón Aceptar presionado. currentActiveOrder:', currentActiveOrder);
       clearTimeout(timerTimeout);
-      closeModal();
 
       if (!currentActiveOrder || !currentActiveOrder.id_pedido) {
+        closeModal();
         return;
       }
+
+      // Activar pantalla de carga visual de transición
+      const loadingScreen = document.getElementById('acceptLoadingScreen');
+      const loadingSub = document.getElementById('acceptLoadingSubtitle');
+      const loadingStatus = document.getElementById('acceptLoadingStatus');
+      const progressBar = document.getElementById('acceptLoadingProgress');
+
+      if (loadingScreen) {
+        loadingScreen.classList.remove('opacity-0', 'pointer-events-none');
+      }
+      closeModal();
 
       // === VERIFICACIÓN EN BASE DE DATOS ANTES DE CONFIRMAR ACEPTACIÓN ===
       try {
@@ -1337,6 +1447,7 @@
           .maybeSingle();
 
         if (checkDb && checkDb.estado_pedido === 'cancelado') {
+          if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
           alert('Este pedido fue cancelado antes de poder ser aceptado.');
           currentActiveOrder = null;
           localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
@@ -1350,6 +1461,7 @@
       }
 
       const orderToSave = { ...currentActiveOrder };
+      currentActiveOrder = null; // Limpiar inmediatamente para que ningún temporizador residual lo afecte
       orderToSave.estado_pedido = 'asignado';
       orderToSave.id_cadete = cadeteActual.id_cad;
       orderToSave.patente_cadete = cadeteActual.patente || '';
@@ -1397,12 +1509,40 @@
               setTimeout(() => supabase.removeChannel(chan), 1500);
             }
           });
-        } catch (e) {}
+        } catch (e) { }
       }
 
       await Promise.all(syncPromises).catch(err => console.warn('[Dashboard] Error al actualizar en Supabase:', err));
 
-      // 3. Redirigir de forma instantánea a la vista de viaje
+      if (loadingSub) loadingSub.innerText = "Cargando mapa en vivo, navegación satelital y chat...";
+      if (progressBar) progressBar.style.width = "95%";
+      if (loadingStatus) loadingStatus.innerText = "Redirigiendo a pantalla de viaje...";
+
+      // 3. Emitir broadcast instantáneo de cambio de estado hacia el cliente
+      try {
+        const chan = supabase.channel(`pedido-en-curso-${orderToSave.id_pedido}`, { config: { broadcast: { ack: true } } });
+        chan.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await chan.send({
+              type: 'broadcast',
+              event: 'cambio_estado_pedido',
+              payload: {
+                id_pedido: orderToSave.id_pedido,
+                id_cadete: cadeteActual.id_cad,
+                estado_pedido: 'asignado'
+              }
+            });
+            setTimeout(() => supabase.removeChannel(chan), 2000);
+          }
+        });
+      } catch (e) {
+        console.warn('Error emitiendo broadcast de asignación:', e);
+      }
+
+      // Pequeña pausa estética de 400ms para garantizar que la transición visual sea suave
+      await new Promise(r => setTimeout(r, 400));
+
+      // 4. Redirigir de forma instantánea a la vista de viaje
       window.location.href = `pedido_activo.html?id_cad=${cadeteActual.id_cad}`;
     };
 

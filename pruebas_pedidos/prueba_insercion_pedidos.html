@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#090B10" />
   <title>Todo Delivery - App Cliente</title>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
 
   <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -48,53 +51,75 @@
       -webkit-tap-highlight-color: transparent;
       box-sizing: border-box;
     }
+
     body {
       background-color: #090B10;
       color: #FFFFFF;
       min-height: 100dvh;
     }
+
     .leaflet-container {
       background: #090B10 !important;
       font-family: inherit;
     }
+
     .leaflet-tile {
       filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
     }
+
     .leaflet-control-zoom {
       display: none !important;
     }
+
     .leaflet-control-attribution {
-      background: rgba(0,0,0,0.7) !important;
+      background: rgba(0, 0, 0, 0.7) !important;
       color: #555 !important;
       font-size: 8px !important;
     }
+
     .leaflet-control-attribution a {
       color: #777 !important;
     }
+
     @keyframes pulseGlow {
-      0%, 100% { opacity: 0.4; transform: scale(1); }
-      50% { opacity: 0.8; transform: scale(1.08); }
+
+      0%,
+      100% {
+        opacity: 0.4;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.8;
+        transform: scale(1.08);
+      }
     }
+
     .pulse-radar {
       animation: pulseGlow 2s infinite ease-in-out;
     }
+
     /* Scrollbar personalizada */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
     }
+
     ::-webkit-scrollbar-track {
       background: #090B10;
     }
+
     ::-webkit-scrollbar-thumb {
       background: #1F2636;
       border-radius: 9999px;
     }
+
     ::-webkit-scrollbar-thumb:hover {
       background: #2D3748;
     }
   </style>
 </head>
+
 <body class="p-2 sm:p-6 flex justify-center items-start antialiased selection:bg-brand-accent selection:text-black">
 
   <div class="w-full max-w-2xl space-y-4 sm:space-y-5 pb-12">
@@ -102,15 +127,19 @@
     <!-- ======================================================== -->
     <!-- 1. HEADER PRINCIPAL & SESIÓN DE CLIENTE                  -->
     <!-- ======================================================== -->
-    <header class="bg-brand-surface/90 backdrop-blur-xl border border-brand-border rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <header
+      class="bg-brand-surface/90 backdrop-blur-xl border border-brand-border rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-accent to-brand-accentHover flex items-center justify-center text-brand-bg font-black text-base shadow-lg shadow-brand-accent/20">
+        <div
+          class="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-accent to-brand-accentHover flex items-center justify-center text-brand-bg font-black text-base shadow-lg shadow-brand-accent/20">
           TD
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-base font-black text-white tracking-tight">Todo <span class="text-brand-accent">Delivery</span></h1>
-            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-brand-surfaceLight border border-brand-border text-brand-textMuted">Clientes</span>
+            <h1 class="text-base font-black text-white tracking-tight">Todo <span
+                class="text-brand-accent">Delivery</span></h1>
+            <span
+              class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-brand-surfaceLight border border-brand-border text-brand-textMuted">Clientes</span>
           </div>
           <p class="text-[11px] text-brand-textMuted font-medium">Cotización inteligente y seguimiento en vivo</p>
         </div>
@@ -129,40 +158,43 @@
 
         <!-- Botones de Login (Ocultos si está autenticado) -->
         <div id="authButtons" class="hidden flex flex-wrap items-center gap-2">
-          <button 
-            type="button"
-            onclick="loginWithGoogle()" 
+          <button type="button" onclick="loginWithGoogle()"
             class="px-3 py-2 rounded-xl bg-white text-black font-extrabold text-xs flex items-center gap-1.5 hover:bg-gray-100 active:scale-95 transition-all shadow-md"
-            title="Iniciar sesión con cuenta de Google"
-          >
+            title="Iniciar sesión con cuenta de Google">
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
-              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/>
-              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
-              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+              <path fill="#4285F4"
+                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z" />
+              <path fill="#34A853"
+                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z" />
+              <path fill="#FBBC05"
+                d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z" />
+              <path fill="#EA4335"
+                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
             </svg>
             <span>Google</span>
           </button>
 
-          <button 
-            type="button"
-            onclick="loginWithDemoAuth()" 
+          <button type="button" onclick="loginWithDemoAuth()"
             class="px-3 py-2 rounded-xl bg-brand-accent text-brand-bg font-extrabold text-xs active:scale-95 transition-all shadow-md shadow-brand-accent/20 flex items-center gap-1.5"
-            title="Crea o inicia sesión con un usuario real instantáneamente"
-          >
+            title="Crea o inicia sesión con un usuario real instantáneamente">
             <span>⚡ Login 1-Click</span>
           </button>
         </div>
 
         <!-- Usuario Autenticado -->
-        <div id="authProfile" class="hidden flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto bg-brand-surfaceLight sm:bg-transparent p-2 sm:p-0 rounded-2xl border sm:border-0 border-brand-border">
+        <div id="authProfile"
+          class="hidden flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto bg-brand-surfaceLight sm:bg-transparent p-2 sm:p-0 rounded-2xl border sm:border-0 border-brand-border">
           <div class="text-left sm:text-right">
             <h2 id="userDisplayName" class="text-xs font-bold text-white">Cliente</h2>
-            <span id="userDisplayId" class="text-[10px] font-mono text-brand-accent block truncate max-w-[160px]">UUID</span>
+            <span id="userDisplayId"
+              class="text-[10px] font-mono text-brand-accent block truncate max-w-[160px]">UUID</span>
           </div>
-          <button onclick="handleLogout()" class="p-2 rounded-xl bg-brand-surfaceLight hover:bg-brand-danger/20 hover:text-brand-danger border border-brand-border text-brand-textMuted text-xs transition-colors" title="Cerrar Sesión">
+          <button onclick="handleLogout()"
+            class="p-2 rounded-xl bg-brand-surfaceLight hover:bg-brand-danger/20 hover:text-brand-danger border border-brand-border text-brand-textMuted text-xs transition-colors"
+            title="Cerrar Sesión">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
           </button>
         </div>
@@ -172,43 +204,35 @@
     <!-- ======================================================== -->
     <!-- 2. PESTAÑAS DE NAVEGACIÓN PRINCIPAL (TABS)               -->
     <!-- ======================================================== -->
-    <nav class="bg-brand-surface/70 backdrop-blur-md border border-brand-border p-1.5 rounded-2xl flex items-center gap-1.5">
-      <button 
-        type="button"
-        id="tabBtnSolicitar"
-        onclick="switchTab('solicitar')"
-        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all bg-brand-accent text-brand-bg shadow-sm"
-      >
+    <nav
+      class="bg-brand-surface/70 backdrop-blur-md border border-brand-border p-1.5 rounded-2xl flex items-center gap-1.5">
+      <button type="button" id="tabBtnSolicitar" onclick="switchTab('solicitar')"
+        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all bg-brand-accent text-brand-bg shadow-sm">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path>
         </svg>
         <span>Solicitar Envío</span>
       </button>
 
-      <button 
-        type="button"
-        id="tabBtnSeguimiento"
-        onclick="switchTab('seguimiento')"
-        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all text-brand-textMuted hover:text-white"
-      >
+      <button type="button" id="tabBtnSeguimiento" onclick="switchTab('seguimiento')"
+        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all text-brand-textMuted hover:text-white">
         <div class="relative">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="9"></circle>
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3"></path>
           </svg>
-          <span id="tabTrackingPulse" class="hidden absolute -top-1 -right-1 w-2 h-2 rounded-full bg-brand-accent animate-ping"></span>
+          <span id="tabTrackingPulse"
+            class="hidden absolute -top-1 -right-1 w-2 h-2 rounded-full bg-brand-accent animate-ping"></span>
         </div>
         <span>Seguimiento</span>
       </button>
 
-      <button 
-        type="button"
-        id="tabBtnHistorial"
-        onclick="switchTab('historial')"
-        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all text-brand-textMuted hover:text-white"
-      >
+      <button type="button" id="tabBtnHistorial" onclick="switchTab('historial')"
+        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all text-brand-textMuted hover:text-white">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+          </path>
         </svg>
         <span>Mis Pedidos</span>
       </button>
@@ -220,14 +244,16 @@
     <section id="viewSolicitar" class="space-y-4">
 
       <!-- Formulario de Creación con Cotizador -->
-      <form id="formCrearPedido" onsubmit="handleCrearPedido(event)" class="bg-brand-surface border border-brand-border rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
-        
+      <form id="formCrearPedido" onsubmit="handleCrearPedido(event)"
+        class="bg-brand-surface border border-brand-border rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+
         <div class="flex items-center justify-between border-b border-brand-border/60 pb-3">
           <div>
             <h2 class="text-base font-extrabold text-white">Configurar Nuevo Pedido</h2>
             <p class="text-xs text-brand-textMuted">Selecciona los puntos en el mapa y cotiza automáticamente</p>
           </div>
-          <span id="badgeTarifaStatus" class="px-2.5 py-1 rounded-full bg-brand-surfaceLight border border-brand-border text-brand-textMuted text-[10px] font-bold uppercase flex items-center gap-1.5">
+          <span id="badgeTarifaStatus"
+            class="px-2.5 py-1 rounded-full bg-brand-surfaceLight border border-brand-border text-brand-textMuted text-[10px] font-bold uppercase flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-brand-accent"></span>
             Tarifa Estándar
           </span>
@@ -236,20 +262,17 @@
         <!-- Campos de Datos: Qué se envía & Tipo -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] font-bold uppercase text-brand-textMuted mb-1.5">Descripción / Comercio</label>
-            <input 
-              id="inpInformPedido" 
-              type="text" 
-              required
-              value="Empanadas Don Luis - 1x Docena Criolla" 
-              placeholder="Ej: Farmacia Central - Medicamentos" 
-              class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs font-medium focus:outline-none focus:border-brand-accent"
-            />
+            <label class="block text-[11px] font-bold uppercase text-brand-textMuted mb-1.5">Descripción /
+              Comercio</label>
+            <input id="inpInformPedido" type="text" required value="Empanadas Don Luis - 1x Docena Criolla"
+              placeholder="Ej: Farmacia Central - Medicamentos"
+              class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs font-medium focus:outline-none focus:border-brand-accent" />
           </div>
 
           <div>
             <label class="block text-[11px] font-bold uppercase text-brand-textMuted mb-1.5">Tipo de Paquete</label>
-            <select id="inpTipoPaquete" class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs font-medium focus:outline-none focus:border-brand-accent">
+            <select id="inpTipoPaquete"
+              class="w-full px-3.5 py-2.5 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs font-medium focus:outline-none focus:border-brand-accent">
               <option value="Bolsa de Comida">🍱 Bolsa de Comida / Vianda</option>
               <option value="Caja de Pizza">🍕 Caja de Pizza / Empanadas</option>
               <option value="Paquete Chico">📦 Paquete Chico / Sobre</option>
@@ -262,39 +285,31 @@
         <!-- MAPA INTERACTIVO PARA RECOGIDA Y DESTINO -->
         <div class="space-y-2">
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <span class="text-[11px] font-bold uppercase text-brand-textMuted">Mapa de Ruta (Arrastra o toca para ubicar)</span>
-            
+            <span class="text-[11px] font-bold uppercase text-brand-textMuted">Mapa de Ruta (Arrastra o toca para
+              ubicar)</span>
+
             <!-- Selector de punto activo en mapa -->
-            <div class="flex items-center gap-1.5 bg-brand-surfaceLight p-1 rounded-xl border border-brand-border text-xs">
-              <button 
-                type="button" 
-                id="btnModoOrigen" 
-                onclick="setModoSeleccionMapa('origen')" 
-                class="px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-              >
+            <div
+              class="flex items-center gap-1.5 bg-brand-surfaceLight p-1 rounded-xl border border-brand-border text-xs">
+              <button type="button" id="btnModoOrigen" onclick="setModoSeleccionMapa('origen')"
+                class="px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 🟢 Punto A: Retiro
               </button>
-              <button 
-                type="button" 
-                id="btnModoDestino" 
-                onclick="setModoSeleccionMapa('destino')" 
-                class="px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all text-brand-textMuted hover:text-white"
-              >
+              <button type="button" id="btnModoDestino" onclick="setModoSeleccionMapa('destino')"
+                class="px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all text-brand-textMuted hover:text-white">
                 🟡 Punto B: Entrega
               </button>
             </div>
           </div>
 
           <!-- Contenedor del Mapa Leaflet -->
-          <div class="relative w-full h-64 sm:h-72 rounded-2xl overflow-hidden border border-brand-border bg-brand-bg shadow-inner">
+          <div
+            class="relative w-full h-64 sm:h-72 rounded-2xl overflow-hidden border border-brand-border bg-brand-bg shadow-inner">
             <div id="routePickerMap" class="w-full h-full"></div>
 
             <!-- Botón flotante Usar mi GPS -->
-            <button 
-              type="button" 
-              onclick="usarMiGpsParaDestino()" 
-              class="absolute top-3 right-3 z-[400] px-3 py-1.5 rounded-xl bg-brand-surface/90 hover:bg-brand-surface border border-brand-border backdrop-blur-md text-[11px] font-bold text-brand-accent flex items-center gap-1.5 shadow-xl active:scale-95 transition-all"
-            >
+            <button type="button" onclick="usarMiGpsParaDestino()"
+              class="absolute top-3 right-3 z-[400] px-3 py-1.5 rounded-xl bg-brand-surface/90 hover:bg-brand-surface border border-brand-border backdrop-blur-md text-[11px] font-bold text-brand-accent flex items-center gap-1.5 shadow-xl active:scale-95 transition-all">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
               </svg>
@@ -302,7 +317,8 @@
             </button>
 
             <!-- Mini indicador de distancia flotante -->
-            <div class="absolute bottom-3 left-3 z-[400] px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md border border-brand-border text-[11px] font-bold text-white flex items-center gap-2 shadow-xl">
+            <div
+              class="absolute bottom-3 left-3 z-[400] px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md border border-brand-border text-[11px] font-bold text-white flex items-center gap-2 shadow-xl">
               <span class="text-brand-textMuted uppercase text-[9px]">Distancia estimada:</span>
               <span id="mapFloatDistance" class="font-mono text-brand-accent">1.2 km</span>
             </div>
@@ -310,11 +326,13 @@
 
           <!-- Coordenadas legibles y campos ocultos -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-            <div class="p-2 bg-brand-surfaceLight rounded-xl border border-brand-border flex items-center justify-between">
+            <div
+              class="p-2 bg-brand-surfaceLight rounded-xl border border-brand-border flex items-center justify-between">
               <span class="text-emerald-400 font-bold flex items-center gap-1">🟢 Retiro (A):</span>
               <span id="labelCoordsOrg" class="font-mono text-white text-[10px]">-31.5375, -68.5364</span>
             </div>
-            <div class="p-2 bg-brand-surfaceLight rounded-xl border border-brand-border flex items-center justify-between">
+            <div
+              class="p-2 bg-brand-surfaceLight rounded-xl border border-brand-border flex items-center justify-between">
               <span class="text-amber-400 font-bold flex items-center gap-1">🟡 Entrega (B):</span>
               <span id="labelCoordsDest" class="font-mono text-white text-[10px]">-31.5390, -68.5320</span>
             </div>
@@ -325,18 +343,24 @@
         </div>
 
         <!-- TARJETA DE COTIZACIÓN DINÁMICA (SEGÚN TABLA Datos_cotiz) -->
-        <div class="bg-gradient-to-br from-brand-surfaceLight via-brand-surface to-brand-surfaceLight border border-brand-border rounded-2xl p-4 space-y-3">
+        <div
+          class="bg-gradient-to-br from-brand-surfaceLight via-brand-surface to-brand-surfaceLight border border-brand-border rounded-2xl p-4 space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-xs font-extrabold uppercase tracking-wider text-white flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <svg class="w-4 h-4 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                </path>
               </svg>
               Cotización del Envío
             </span>
 
             <!-- Switch para simular tarifa nocturna en pruebas -->
-            <label class="cursor-pointer flex items-center gap-1.5 text-[10px] text-brand-textMuted hover:text-white select-none">
-              <input type="checkbox" id="toggleSimularNocturno" onchange="toggleSimulacionNocturna(this.checked)" class="rounded bg-brand-surface border-brand-border text-brand-accent focus:ring-0" />
+            <label
+              class="cursor-pointer flex items-center gap-1.5 text-[10px] text-brand-textMuted hover:text-white select-none">
+              <input type="checkbox" id="toggleSimularNocturno" onchange="toggleSimulacionNocturna(this.checked)"
+                class="rounded bg-brand-surface border-brand-border text-brand-accent focus:ring-0" />
               <span>Simular horario nocturno (+30%)</span>
             </label>
           </div>
@@ -348,12 +372,14 @@
               <span id="cotizBajadaBandera" class="font-extrabold text-white text-xs mt-0.5 block">$1.200</span>
             </div>
             <div class="bg-brand-surface/80 p-2.5 rounded-xl border border-brand-border/60">
-              <span class="text-[10px] font-bold text-brand-textMuted uppercase block">Distancia (<span id="cotizDistKm">1.2 km</span>)</span>
+              <span class="text-[10px] font-bold text-brand-textMuted uppercase block">Distancia (<span
+                  id="cotizDistKm">1.2 km</span>)</span>
               <span id="cotizCostoDistancia" class="font-extrabold text-white text-xs mt-0.5 block">+$1.200</span>
             </div>
             <div class="bg-brand-surface/80 p-2.5 rounded-xl border border-brand-border/60">
               <span class="text-[10px] font-bold text-brand-textMuted uppercase block">Tarifa Nocturna</span>
-              <span id="cotizTarifaNocturna" class="font-extrabold text-brand-textMuted text-xs mt-0.5 block">$0 (0%)</span>
+              <span id="cotizTarifaNocturna" class="font-extrabold text-brand-textMuted text-xs mt-0.5 block">$0
+                (0%)</span>
             </div>
           </div>
 
@@ -372,14 +398,11 @@
         <input type="hidden" id="inpCostePedido" value="2400" />
 
         <!-- Botón de Envío -->
-        <button 
-          id="btnCrearPedido" 
-          type="submit" 
-          class="w-full py-4 rounded-2xl bg-brand-accent text-brand-bg font-black text-xs uppercase tracking-wider hover:bg-brand-accentHover active:scale-[0.98] transition-all shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-2"
-        >
+        <button id="btnCrearPedido" type="submit"
+          class="w-full py-4 rounded-2xl bg-brand-accent text-brand-bg font-black text-xs uppercase tracking-wider hover:bg-brand-accentHover active:scale-[0.98] transition-all shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-2">
           <span>Confirmar y Solicitar Cadete</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
           </svg>
         </button>
       </form>
@@ -391,31 +414,34 @@
     <section id="viewSeguimiento" class="hidden space-y-4">
 
       <!-- Si no hay pedido activo -->
-      <div id="noActiveOrderState" class="bg-brand-surface border border-brand-border rounded-3xl p-8 text-center space-y-3">
-        <div class="w-14 h-14 rounded-2xl bg-brand-surfaceLight border border-brand-border mx-auto flex items-center justify-center text-2xl">
+      <div id="noActiveOrderState"
+        class="bg-brand-surface border border-brand-border rounded-3xl p-8 text-center space-y-3">
+        <div
+          class="w-14 h-14 rounded-2xl bg-brand-surfaceLight border border-brand-border mx-auto flex items-center justify-center text-2xl">
           📡
         </div>
         <h3 class="text-base font-extrabold text-white">No tienes pedidos en curso</h3>
         <p class="text-xs text-brand-textMuted max-w-sm mx-auto">
-          Crea un nuevo pedido desde la pestaña de solicitud para monitorear la ubicación en vivo de tu cadete y chatear en tiempo real.
+          Crea un nuevo pedido desde la pestaña de solicitud para monitorear la ubicación en vivo de tu cadete y chatear
+          en tiempo real.
         </p>
-        <button 
-          type="button" 
-          onclick="switchTab('solicitar')" 
-          class="px-4 py-2.5 bg-brand-accent text-brand-bg font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all inline-flex items-center gap-1.5"
-        >
+        <button type="button" onclick="switchTab('solicitar')"
+          class="px-4 py-2.5 bg-brand-accent text-brand-bg font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all inline-flex items-center gap-1.5">
           <span>Solicitar Envío Ahora</span>
         </button>
       </div>
 
       <!-- Panel de Seguimiento Activo -->
-      <div id="trackingPanel" class="hidden bg-brand-surface border border-brand-border rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl">
-        
+      <div id="trackingPanel"
+        class="hidden bg-brand-surface border border-brand-border rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl">
+
         <!-- Encabezado del Pedido Activo -->
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-brand-border/60 pb-3">
+        <div
+          class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-brand-border/60 pb-3">
           <div>
             <div class="flex items-center gap-2">
-              <span id="badgeEstadoPedido" class="px-3 py-1 rounded-full bg-brand-warning/15 border border-brand-warning/30 text-brand-warning text-xs font-black uppercase">
+              <span id="badgeEstadoPedido"
+                class="px-3 py-1 rounded-full bg-brand-warning/15 border border-brand-warning/30 text-brand-warning text-xs font-black uppercase">
                 Buscando Cadete...
               </span>
               <span id="labelIdPedido" class="text-xs font-mono text-brand-textMuted font-bold">#---</span>
@@ -430,24 +456,30 @@
         </div>
 
         <!-- Información del Cadete Asignado & Patente Vehicular -->
-        <div id="cadeteInfoBox" class="p-3 bg-brand-surfaceLight rounded-2xl border border-brand-border flex items-center justify-between gap-3">
+        <div id="cadeteInfoBox"
+          class="p-3 bg-brand-surfaceLight rounded-2xl border border-brand-border flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="w-10 h-10 rounded-xl bg-brand-accent/20 text-brand-accent font-black flex items-center justify-center text-sm shrink-0">
+            <div
+              class="w-10 h-10 rounded-xl bg-brand-accent/20 text-brand-accent font-black flex items-center justify-center text-sm shrink-0">
               <span id="cadeteAvatarInitials">--</span>
             </div>
             <div class="min-w-0">
-              <h3 id="cadeteNombreText" class="text-xs font-extrabold text-white truncate">Buscando cadete cercano...</h3>
-              <p id="cadeteGpsStatus" class="text-[10px] text-brand-textMuted flex items-center gap-1 font-bold truncate">
+              <h3 id="cadeteNombreText" class="text-xs font-extrabold text-white truncate">Buscando cadete cercano...
+              </h3>
+              <p id="cadeteGpsStatus"
+                class="text-[10px] text-brand-textMuted flex items-center gap-1 font-bold truncate">
                 <span class="w-2 h-2 rounded-full bg-gray-500"></span>
                 Sin señal GPS
               </p>
             </div>
           </div>
-          
+
           <!-- Insignia de Chapa Patente Oficial de Argentina -->
-          <div id="cadetePatenteBadge" class="hidden flex-col items-center justify-center px-2.5 py-1 bg-black border-2 border-white/80 rounded-lg shadow-md shrink-0">
+          <div id="cadetePatenteBadge"
+            class="hidden flex-col items-center justify-center px-2.5 py-1 bg-black border-2 border-white/80 rounded-lg shadow-md shrink-0">
             <span class="text-[7px] font-black text-blue-400 tracking-widest leading-none uppercase">ARGENTINA</span>
-            <span id="cadetePatenteText" class="text-xs font-black font-mono text-white tracking-widest leading-tight">--</span>
+            <span id="cadetePatenteText"
+              class="text-xs font-black font-mono text-white tracking-widest leading-tight">--</span>
           </div>
         </div>
 
@@ -459,7 +491,8 @@
           </div>
           <div class="bg-brand-surfaceLight/60 border border-brand-border rounded-xl p-2.5">
             <span class="text-[9px] font-bold text-brand-textMuted uppercase block">Último Reporte GPS</span>
-            <span id="telemetriaCoords" class="text-[10px] font-mono text-brand-textMuted mt-0.5 block truncate">Esperando señal...</span>
+            <span id="telemetriaCoords"
+              class="text-[10px] font-mono text-brand-textMuted mt-0.5 block truncate">Esperando señal...</span>
           </div>
         </div>
 
@@ -468,25 +501,25 @@
           <div class="p-3 bg-brand-surface border-b border-brand-border/60 flex items-center justify-between">
             <span class="text-xs font-bold text-white flex items-center gap-1.5">
               <svg class="w-4 h-4 text-brand-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               Chat en Tiempo Real
             </span>
-            <span class="text-[9px] font-mono text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded">Canal Privado</span>
+            <span class="text-[9px] font-mono text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded">Canal
+              Privado</span>
           </div>
 
           <div id="clienteChatMessages" class="flex-1 p-3 overflow-y-auto space-y-2 text-xs">
             <p class="text-center text-[11px] text-brand-textMuted my-2">Los mensajes del cadete aparecerán aquí...</p>
           </div>
 
-          <form onsubmit="handleSendClienteChat(event)" class="p-2.5 bg-brand-surface border-t border-brand-border/60 flex gap-2">
-            <input 
-              id="clienteChatInput" 
-              type="text" 
-              placeholder="Escribe un mensaje al cadete..." 
-              class="flex-1 px-3 py-2 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs focus:outline-none focus:border-brand-accent"
-            />
-            <button type="submit" class="px-4 py-2 bg-brand-accent text-brand-bg rounded-xl font-bold text-xs active:scale-95 transition-transform">
+          <form onsubmit="handleSendClienteChat(event)"
+            class="p-2.5 bg-brand-surface border-t border-brand-border/60 flex gap-2">
+            <input id="clienteChatInput" type="text" placeholder="Escribe un mensaje al cadete..."
+              class="flex-1 px-3 py-2 bg-brand-surfaceLight border border-brand-border rounded-xl text-white text-xs focus:outline-none focus:border-brand-accent" />
+            <button type="submit"
+              class="px-4 py-2 bg-brand-accent text-brand-bg rounded-xl font-bold text-xs active:scale-95 transition-transform">
               Enviar
             </button>
           </form>
@@ -504,14 +537,13 @@
             <h2 class="text-base font-extrabold text-white">Historial de Pedidos</h2>
             <p class="text-xs text-brand-textMuted">Consulta de solo lectura de tus órdenes anteriores en Supabase</p>
           </div>
-          <button 
-            type="button" 
-            onclick="cargarHistorialCliente()" 
+          <button type="button" onclick="cargarHistorialCliente()"
             class="p-2 rounded-xl bg-brand-surfaceLight border border-brand-border text-brand-textMuted hover:text-white transition-colors"
-            title="Refrescar historial"
-          >
+            title="Refrescar historial">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+              </path>
             </svg>
           </button>
         </div>
@@ -617,7 +649,7 @@
 
     async function procesarUsuarioAutenticado(user) {
       const nombre = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Cliente Demo';
-      
+
       clienteActual = {
         id_cliente: user.id,
         nombre_cliente: nombre,
@@ -679,14 +711,14 @@
       }
     }
 
-    window.loginWithGoogle = async function() {
+    window.loginWithGoogle = async function () {
       await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: window.location.href.split('#')[0].split('?')[0] }
       });
     };
 
-    window.loginWithDemoAuth = async function() {
+    window.loginWithDemoAuth = async function () {
       const demoEmail = 'cliente.demo@tododelivery.com';
       const demoPass = 'ClienteTD2026!';
       const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
@@ -700,7 +732,7 @@
       }
     };
 
-    window.handleLogout = async function() {
+    window.handleLogout = async function () {
       await supabase.auth.signOut();
       clienteActual = null;
       document.getElementById('authProfile').classList.add('hidden');
@@ -710,7 +742,7 @@
     // -------------------------------------------------------------------------
     // 2. NAVEGACIÓN ENTRE PESTAÑAS (TABS)
     // -------------------------------------------------------------------------
-    window.switchTab = function(tabName) {
+    window.switchTab = function (tabName) {
       const viewSolicitar = document.getElementById('viewSolicitar');
       const viewSeguimiento = document.getElementById('viewSeguimiento');
       const viewHistorial = document.getElementById('viewHistorial');
@@ -817,7 +849,7 @@
       actualizarPuntosEnMapa();
     }
 
-    window.setModoSeleccionMapa = function(modo) {
+    window.setModoSeleccionMapa = function (modo) {
       modoSeleccion = modo;
       const btnOrg = document.getElementById('btnModoOrigen');
       const btnDest = document.getElementById('btnModoDestino');
@@ -831,7 +863,7 @@
       }
     };
 
-    window.usarMiGpsParaDestino = function() {
+    window.usarMiGpsParaDestino = function () {
       if (!('geolocation' in navigator)) {
         alert('Tu navegador no soporta geolocalización.');
         return;
@@ -872,18 +904,18 @@
       const R = 6371; // Radio de la Tierra en km
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = 
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const d = R * c;
       return Math.max(0.6, Math.round(d * 10) / 10); // Mínimo 0.6 km
     }
 
     function recalcularCotizacionUI() {
       const distKm = calcularDistanciaKm(coordsOrg.lat, coordsOrg.lng, coordsDest.lat, coordsDest.lng);
-      
+
       const bajada = datosCotiz.bajada_band;
       const tarifaKm = datosCotiz.tarifa_km;
       const porcNocturno = datosCotiz.porc_tarif_dinamica;
@@ -908,7 +940,7 @@
       document.getElementById('cotizDistKm').innerText = `${distKm.toFixed(1)} km`;
       document.getElementById('cotizBajadaBandera').innerText = `$${bajada.toLocaleString('es-AR')}`;
       document.getElementById('cotizCostoDistancia').innerText = `+$${costoKm.toLocaleString('es-AR')}`;
-      
+
       const elNocturno = document.getElementById('cotizTarifaNocturna');
       const badgeStatus = document.getElementById('badgeTarifaStatus');
 
@@ -928,7 +960,7 @@
       document.getElementById('inpCostePedido').value = totalFinal;
     }
 
-    window.toggleSimulacionNocturna = function(checked) {
+    window.toggleSimulacionNocturna = function (checked) {
       simularNocturno = checked;
       recalcularCotizacionUI();
     };
@@ -938,7 +970,7 @@
     // -------------------------------------------------------------------------
     let cadetesRechazadosGlobal = [];
 
-    window.handleCrearPedido = async function(e) {
+    window.handleCrearPedido = async function (e) {
       e.preventDefault();
       const btn = document.getElementById('btnCrearPedido');
       btn.disabled = true;
@@ -1090,6 +1122,10 @@
         // D) Cambios de estado del pedido por broadcast
         .on('broadcast', { event: 'cambio_estado_pedido' }, ({ payload }) => {
           if (payload && payload.estado_pedido) {
+            if (pedidoActivo) {
+              pedidoActivo.estado_pedido = payload.estado_pedido;
+              if (payload.id_cadete) pedidoActivo.id_cadete = payload.id_cadete;
+            }
             actualizarUIEstado(payload.estado_pedido, payload.id_cadete);
             if (payload.patente) {
               actualizarInsigniaPatente(payload.patente);
@@ -1119,7 +1155,17 @@
             const nuevoEstado = payload.new.estado_pedido;
             const idCad = payload.new.id_cadete;
 
+            if (pedidoActivo) {
+              pedidoActivo = { ...pedidoActivo, ...payload.new };
+            }
+
             actualizarUIEstado(nuevoEstado, idCad);
+
+            // Si el pedido finaliza o se cancela, limpiar completamente la memoria de rechazos
+            if (nuevoEstado === 'entregado' || nuevoEstado === 'rendido' || nuevoEstado === 'cancelado') {
+              console.log(`[Cliente RT] Pedido finalizado en estado '${nuevoEstado}'. Limpiando memoria de cadetes rechazados.`);
+              cadetesRechazadosGlobal = [];
+            }
 
             if (nuevoEstado === 'pendiente' && !idCad && pedidoActivo && pedidoActivo.estado_pedido === 'en_confirmacion') {
               await manejarRechazoOReasignacion(pedidoActivo.id_cadete);
@@ -1134,8 +1180,34 @@
     }
 
     async function manejarRechazoOReasignacion(idCadeteRechazo) {
-      if (!pedidoActivo || pedidoActivo.estado_pedido === 'cancelado' || pedidoActivo.estado_pedido === 'asignado') {
+      if (!pedidoActivo) return;
+
+      const estadosFinalesOEnCurso = ['cancelado', 'asignado', 'en_camino_entrega', 'entregado', 'rendido'];
+      if (estadosFinalesOEnCurso.includes(pedidoActivo.estado_pedido)) {
+        console.log(`[Cliente RT] Ignorando rechazo: el pedido #${pedidoActivo.id_pedido} ya se encuentra en estado '${pedidoActivo.estado_pedido}'.`);
         return;
+      }
+
+      // Verificación directa y fresca en la Base de Datos para evitar condiciones de carrera
+      try {
+        const { data: pedidoFresco } = await supabase
+          .from('Pedidos')
+          .select('id_pedido, estado_pedido, id_cadete')
+          .eq('id_pedido', pedidoActivo.id_pedido)
+          .maybeSingle();
+
+        if (pedidoFresco) {
+          pedidoActivo.estado_pedido = pedidoFresco.estado_pedido;
+          if (pedidoFresco.id_cadete) pedidoActivo.id_cadete = pedidoFresco.id_cadete;
+
+          if (estadosFinalesOEnCurso.includes(pedidoFresco.estado_pedido)) {
+            console.log(`[Cliente RT] Pedido #${pedidoActivo.id_pedido} ya está '${pedidoFresco.estado_pedido}' en BD. Abortando reasignación.`);
+            actualizarUIEstado(pedidoFresco.estado_pedido, pedidoFresco.id_cadete);
+            return;
+          }
+        }
+      } catch (errDb) {
+        console.warn('[Cliente RT] Advertencia al consultar estado fresco en BD:', errDb);
       }
 
       if (idCadeteRechazo) {
@@ -1156,12 +1228,12 @@
         if (candidatos.length > 0) {
           const idSiguienteCadete = Number(candidatos[0].id_cad);
           pedidoActivo.id_cadete = idSiguienteCadete;
-          pedidoActivo.estado_pedido = 'en_confirmacion';
+          pedidoActivo.estado_pedido = 'libre';
 
-          await Promise.all([
-            supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', idSiguienteCadete),
-            supabase.from('Pedidos').update({ id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' }).eq('id_pedido', pedidoActivo.id_pedido)
-          ]);
+          await supabase
+            .from('Pedidos')
+            .update({ id_cadete: idSiguienteCadete, estado_pedido: 'libre' })
+            .eq('id_pedido', pedidoActivo.id_pedido);
 
           const orderPayload = { ...pedidoActivo, id_cadete: idSiguienteCadete, estado_pedido: 'en_confirmacion' };
           const chan = supabase.channel(`pedidos-cadete-${idSiguienteCadete}`, { config: { broadcast: { ack: true } } });
@@ -1253,7 +1325,7 @@
       }
     }
 
-    window.handleSendClienteChat = async function(e) {
+    window.handleSendClienteChat = async function (e) {
       e.preventDefault();
       const input = document.getElementById('clienteChatInput');
       const text = input.value.trim();
@@ -1287,10 +1359,9 @@
       bubble.className = isMine ? 'flex flex-col items-end' : 'flex flex-col items-start';
 
       bubble.innerHTML = `
-        <div class="max-w-[80%] rounded-2xl px-3.5 py-2 text-xs font-medium shadow-sm ${
-          isMine 
-            ? 'bg-brand-accent text-brand-bg font-semibold rounded-tr-none' 
-            : 'bg-brand-surfaceLight border border-brand-border text-white rounded-tl-none'
+        <div class="max-w-[80%] rounded-2xl px-3.5 py-2 text-xs font-medium shadow-sm ${isMine
+          ? 'bg-brand-accent text-brand-bg font-semibold rounded-tr-none'
+          : 'bg-brand-surfaceLight border border-brand-border text-white rounded-tl-none'
         }">
           ${texto}
         </div>
@@ -1304,7 +1375,7 @@
     // -------------------------------------------------------------------------
     // 7. HISTORIAL DE PEDIDOS PREVIOS (SOLO LECTURA DESDE TABLA 'Pedidos')
     // -------------------------------------------------------------------------
-    window.cargarHistorialCliente = async function() {
+    window.cargarHistorialCliente = async function () {
       const listEl = document.getElementById('historialList');
       if (!listEl) return;
 
@@ -1415,7 +1486,7 @@
       }
     };
 
-    window.abrirSeguimientoDesdeHistorial = async function(idPedido) {
+    window.abrirSeguimientoDesdeHistorial = async function (idPedido) {
       try {
         const { data: pedido } = await supabase
           .from('Pedidos')
@@ -1436,4 +1507,5 @@
     };
   </script>
 </body>
+
 </html>
