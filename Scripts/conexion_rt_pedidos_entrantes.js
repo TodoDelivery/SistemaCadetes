@@ -50,10 +50,11 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       const state = channelPresence.presenceState();
       console.log('[Realtime Presence] Estado sincronizado:', state);
     })
-    // Escuchar Broadcasts emitidos globalmente al canal de cadetes
+    // Escuchar Broadcasts emitidos globalmente al canal de cadetes.
+    // Solo se atienden los dirigidos a este cadete: un pedido sin id_cadete NO se abre en todos a la vez
     .on('broadcast', { event: 'nuevo_pedido' }, ({ payload }) => {
       console.log('[Realtime Presence Broadcast] Evento recibido:', payload, 'Mi ID:', idCadete);
-      if (payload && (Number(payload.id_cadete) === idCadete || !payload.id_cadete)) {
+      if (payload && Number(payload.id_cadete) === idCadete) {
         console.log('[Realtime Presence Broadcast] ¡Pedido recibido para atender! Abriendo modal:', payload);
         procesarNuevoPedido(payload, onNuevoPedido);
       }
@@ -180,6 +181,14 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       }
 
       procesarNuevoPedido(payload, onNuevoPedido);
+    })
+    // D) El cliente retiró la oferta (no respondió a tiempo, se pasó al siguiente cadete o se canceló)
+    .on('broadcast', { event: 'pedido_retirado' }, ({ payload }) => {
+      console.log('[Realtime Broadcast Canal Privado] Oferta retirada:', payload);
+      if (!payload || Number(payload.id_cadete) !== idCadete) return;
+      if (typeof window !== 'undefined' && typeof window.handlePedidoRetiradoRealtime === 'function') {
+        window.handlePedidoRetiradoRealtime(payload);
+      }
     })
     .subscribe((status, err) => {
       console.log(`[Realtime Pedidos] Estado suscripción "pedidos-cadete-${idCadete}": ${status}`);

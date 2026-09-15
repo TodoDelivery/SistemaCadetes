@@ -671,7 +671,25 @@
     let isOnline = true;
     let timerTimeout;
     let currentActiveOrder = null;
-    let pedidosRechazadosLocalmente = new Set();
+
+    // Memoria corta de ofertas rechazadas/cerradas por este cadete: evita que un eco tardío de realtime
+    // o del verificador reabra el modal. Expira sola para no bloquear pedidos futuros.
+    const TTL_RECHAZO_LOCAL_MS = 60000;
+    const pedidosRechazadosLocalmente = new Map(); // id_pedido -> momento del rechazo
+
+    function recordarRechazoLocal(idPedido) {
+      pedidosRechazadosLocalmente.set(Number(idPedido), Date.now());
+    }
+
+    function fueRechazadoRecientemente(idPedido) {
+      const momento = pedidosRechazadosLocalmente.get(Number(idPedido));
+      if (momento === undefined) return false;
+      if (Date.now() - momento > TTL_RECHAZO_LOCAL_MS) {
+        pedidosRechazadosLocalmente.delete(Number(idPedido));
+        return false;
+      }
+      return true;
+    }
 
     // 1. Obtener ID del cadete con prioridad: URL param -> sessionStorage -> localStorage -> fallback
     const urlParams = new URLSearchParams(window.location.search);
@@ -710,9 +728,10 @@
     cadeteActual.estado_cad = cadeteActual.estado_cad || 'disponible';
 
 
-    pedidosRechazadosLocalmente = new Set(
-      JSON.parse(localStorage.getItem(`rejected_orders_${cadeteActual.id_cad}`) || sessionStorage.getItem(`rejected_orders_${cadeteActual.id_cad}`) || '[]')
-    );
+    // La memoria de rechazos ahora es corta y en memoria: se borran las listas persistidas antiguas,
+    // que bloqueaban pedidos nuevos (ej: si se reutilizan IDs al limpiar la tabla de pruebas)
+    localStorage.removeItem(`rejected_orders_${cadeteActual.id_cad}`);
+    sessionStorage.removeItem(`rejected_orders_${cadeteActual.id_cad}`);
 
     // Cambiar de cadete desde el selector interactivo
     window.cambiarCadeteSesion = function (nuevoId) {
@@ -850,22 +869,23 @@
             actualizarEstadoPresencia('ocupado');
             await supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad);
           } else {
-            // NO hay pedidos activos en la BD para este cadete: limpiar memoria y rechazos previos
+            // NO hay viajes activos en la BD para este cadete
             localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
             sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
-            pedidosRechazadosLocalmente.clear();
-            localStorage.removeItem(`rejected_orders_${cadeteActual.id_cad}`);
-            sessionStorage.removeItem(`rejected_orders_${cadeteActual.id_cad}`);
-            currentActiveOrder = null;
             if (banner) banner.classList.add('hidden');
+
+            // Con una oferta abierta en el modal no se toca nada: sigue en 'en_confirmacion' con su timer.
+            // (Antes se limpiaba currentActiveOrder al volver a la pestaña: el timer rechazaba "nada",
+            // el pedido quedaba colgado en este cadete y el modal se reabría en loop.)
+            if (hayOfertaAbierta()) return;
+
+            currentActiveOrder = null;
             if (isOnline) {
               actualizarEstadoPresencia('disponible');
               await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
             }
 
-            // 2. Verificar pedidos entrantes: primero asignados a mí, y si no, pedidos libres en cola general
-            let pedidoEntranteParaOfrecer = null;
-
+            // 2. Verificar si hay una oferta dirigida a este cadete que todavía no se mostró
             const { data: dbIncoming } = await supabase
               .from('Pedidos')
               .select('*')
@@ -875,39 +895,9 @@
               .limit(1)
               .maybeSingle();
 
-            if (dbIncoming) {
-              pedidoEntranteParaOfrecer = dbIncoming;
-            } else if (isOnline) {
-              // Buscar pedidos en espera sin cadete asignado
-              const { data: colaEspera } = await supabase
-                .from('Pedidos')
-                .select('*')
-                .in('estado_pedido', ['libre', 'pendiente'])
-                .is('id_cadete', null)
-                .order('fecha_pedido', { ascending: true })
-                .limit(1);
-
-              if (colaEspera && colaEspera.length > 0) {
-                const primerPedido = colaEspera[0];
-                if (!pedidosRechazadosLocalmente.has(Number(primerPedido.id_pedido))) {
-                  const { data: ordenReclamada } = await supabase
-                    .from('Pedidos')
-                    .update({ id_cadete: cadeteActual.id_cad, estado_pedido: 'libre' })
-                    .eq('id_pedido', primerPedido.id_pedido)
-                    .is('id_cadete', null)
-                    .select()
-                    .maybeSingle();
-
-                  if (ordenReclamada) {
-                    pedidoEntranteParaOfrecer = ordenReclamada;
-                  }
-                }
-              }
-            }
-
-            if (pedidoEntranteParaOfrecer && isOnline) {
-              console.log('[Dashboard] Pedido entrante asignado al cadete:', pedidoEntranteParaOfrecer);
-              triggerIncomingOrderModal(pedidoEntranteParaOfrecer);
+            if (dbIncoming && isOnline) {
+              console.log('[Dashboard] Pedido entrante ofrecido al cadete:', dbIncoming);
+              triggerIncomingOrderModal(dbIncoming);
             }
           }
         }
@@ -1019,14 +1009,37 @@
       }
     }
 
-    // Verificador reactivo en segundo plano para capturar pedidos en cola inmediatamente
+    // Verificador en segundo plano: respaldo por si se pierde el broadcast/postgres_changes de una oferta.
+    // El cadete NUNCA toma pedidos sin cadete de una "cola": el cliente los ofrece de a uno por vez.
     let intervaloVerificacionCola = null;
     function iniciarBuscadorColaDashboard() {
       if (intervaloVerificacionCola) clearInterval(intervaloVerificacionCola);
       intervaloVerificacionCola = setInterval(async () => {
-        if (!isOnline || currentActiveOrder) return;
+        if (!isOnline) return;
         try {
-          // 1. Verificar si hay un pedido asignado a mí pendiente de confirmación
+          // 1. Con el modal abierto: confirmar que la oferta sigue siendo para este cadete
+          if (hayOfertaAbierta()) {
+            const idPedido = Number(currentActiveOrder.id_pedido);
+            const { data: pedidoDb, error } = await supabase
+              .from('Pedidos')
+              .select('estado_pedido, id_cadete')
+              .eq('id_pedido', idPedido)
+              .maybeSingle();
+
+            if (error) return;
+            const sigueSiendoMia = pedidoDb
+              && Number(pedidoDb.id_cadete) === Number(cadeteActual.id_cad)
+              && ['libre', 'en_confirmacion'].includes(pedidoDb.estado_pedido);
+
+            if (!sigueSiendoMia) {
+              cerrarOfertaSinResponder(idPedido, `ya no está disponible (estado '${pedidoDb ? pedidoDb.estado_pedido : 'inexistente'}')`);
+            }
+            return;
+          }
+
+          if (currentActiveOrder) return; // viaje en curso
+
+          // 2. Oferta dirigida a este cadete que no llegó por realtime
           const { data: directos } = await supabase
             .from('Pedidos')
             .select('*')
@@ -1036,37 +1049,7 @@
             .limit(1);
 
           if (directos && directos.length > 0) {
-            const pDir = directos[0];
-            if (!pedidosRechazadosLocalmente.has(Number(pDir.id_pedido))) {
-              triggerIncomingOrderModal(pDir);
-              return;
-            }
-          }
-
-          // 2. Si no hay directos, buscar si hay pedidos en cola general sin cadete
-          const { data: cola } = await supabase
-            .from('Pedidos')
-            .select('*')
-            .in('estado_pedido', ['libre', 'pendiente'])
-            .is('id_cadete', null)
-            .order('fecha_pedido', { ascending: true })
-            .limit(1);
-
-          if (cola && cola.length > 0) {
-            const ord = cola[0];
-            if (!pedidosRechazadosLocalmente.has(Number(ord.id_pedido))) {
-              const { data: claim } = await supabase
-                .from('Pedidos')
-                .update({ id_cadete: cadeteActual.id_cad, estado_pedido: 'libre' })
-                .eq('id_pedido', ord.id_pedido)
-                .is('id_cadete', null)
-                .select()
-                .maybeSingle();
-
-              if (claim) {
-                triggerIncomingOrderModal(claim);
-              }
-            }
+            triggerIncomingOrderModal(directos[0]);
           }
         } catch (e) { }
       }, 3000);
@@ -1309,18 +1292,31 @@
       const orderId = Number(pedido.id_pedido);
       const estPed = String(pedido.estado_pedido);
 
-      if (estPed !== "libre" && estPed !== "en_confirmacion" && estPed !== "pendiente") {
+      // Solo se muestran ofertas vigentes dirigidas a ESTE cadete (el cliente ofrece de a un cadete)
+      if (estPed !== "libre" && estPed !== "en_confirmacion") {
         console.warn(`Se ignoró pedido #${orderId} porque el estado es ${estPed}.`);
         return;
       }
 
-      if (pedidosRechazadosLocalmente.has(orderId)) {
+      if (Number(pedido.id_cadete) !== Number(cadeteActual.id_cad)) {
+        console.warn(`Se ignoró pedido #${orderId} porque está ofrecido al cadete #${pedido.id_cadete}.`);
+        return;
+      }
+
+      if (fueRechazadoRecientemente(orderId)) {
         console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ignorando orden #${orderId} porque ya fue rechazada localmente.`);
         return;
       }
 
       // Si el modal ya está abierto con este pedido, evitar duplicados
       if (currentActiveOrder && Number(currentActiveOrder.id_pedido) === orderId) {
+        return;
+      }
+
+      // Ocupado (otra oferta abierta o viaje en curso): devolverla para que el cliente pase al siguiente
+      if (currentActiveOrder) {
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ocupado con #${currentActiveOrder.id_pedido}: devolviendo oferta #${orderId}.`);
+        devolverOfertaAlCliente(orderId);
         return;
       }
 
@@ -1388,33 +1384,23 @@
       actualizarEstadoPresencia('en_confirmacion');
       supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad).then();
 
-      // Asegurar reclamo en DB
+      // Marcar la oferta como vista, solo si sigue dirigida a este cadete (nunca tomar un pedido ajeno).
+      // Si no se actualiza ninguna fila, la oferta ya fue retirada, cancelada o reasignada: cerrar el modal
       supabase
         .from('Pedidos')
-        .update({ estado_pedido: 'en_confirmacion', id_cadete: cadeteActual.id_cad })
+        .update({ estado_pedido: 'en_confirmacion' })
         .eq('id_pedido', orderId)
-        .in('estado_pedido', ['libre', 'en_confirmacion', 'pendiente'])
-        .then();
-
-      // Verificación en BD en segundo plano por si fue cancelado justo antes
-      supabase
-        .from('Pedidos')
-        .select('estado_pedido, id_cadete')
-        .eq('id_pedido', orderId)
+        .eq('id_cadete', cadeteActual.id_cad)
+        .in('estado_pedido', ['libre', 'en_confirmacion'])
+        .select('id_pedido')
         .maybeSingle()
-        .then(({ data: dbOrder }) => {
-          if (dbOrder && dbOrder.estado_pedido === 'cancelado') {
-            console.log(`[Dashboard Cadete] Pedido #${orderId} cancelado en BD. Cerrando modal.`);
-            clearTimeout(timerTimeout);
-            closeModal();
-            currentActiveOrder = null;
-            if (isOnline) {
-              supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad).then();
-              actualizarEstadoPresencia('disponible');
-            }
+        .then(({ data, error }) => {
+          if (error) {
+            console.warn('[Dashboard Cadete] Error marcando oferta en confirmación:', error);
+            return;
           }
-        })
-        .catch(err => console.warn('[Dashboard Cadete] Verificación DB background:', err));
+          if (!data) cerrarOfertaSinResponder(orderId, 'ya no estaba vigente en BD');
+        });
     };
 
     // Manejador en tiempo real por si el pedido abierto en modal es cancelado
@@ -1434,6 +1420,34 @@
       }
     };
 
+    // El cliente retiró la oferta (no respondió a tiempo o la canceló): cerrar el modal sin avisar nada
+    window.handlePedidoRetiradoRealtime = function (payload) {
+      if (!payload || Number(payload.id_cadete) !== Number(cadeteActual.id_cad)) return;
+      cerrarOfertaSinResponder(payload.id_pedido, 'el cliente la retiró');
+    };
+
+    // Oferta abierta en el modal (a diferencia de un viaje ya aceptado y en curso)
+    function hayOfertaAbierta() {
+      return Boolean(currentActiveOrder && ['libre', 'en_confirmacion'].includes(String(currentActiveOrder.estado_pedido)));
+    }
+
+    // Cierra el modal de una oferta que dejó de ser para este cadete, sin tocar el pedido en BD
+    function cerrarOfertaSinResponder(idPedido, motivo) {
+      if (!hayOfertaAbierta() || Number(currentActiveOrder.id_pedido) !== Number(idPedido)) return false;
+
+      console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Oferta #${idPedido} cerrada: ${motivo}.`);
+      clearTimeout(timerTimeout);
+      closeModal();
+      currentActiveOrder = null;
+      recordarRechazoLocal(idPedido);
+
+      if (isOnline) {
+        supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad).then();
+        actualizarEstadoPresencia('disponible');
+      }
+      return true;
+    }
+
     // Conectores globales para eventos de Realtime
     window.recibirPedidoRealtime = function (pedido) {
       console.log('[Dashboard] recibirPedidoRealtime recibido:', pedido);
@@ -1449,14 +1463,8 @@
       clearTimeout(timerTimeout);
       closeModal();
 
-      const orderToReject = currentActiveOrder;
-      currentActiveOrder = null;
-
-      if (orderToReject && orderToReject.id_pedido) {
-        pedidosRechazadosLocalmente.add(Number(orderToReject.id_pedido));
-        localStorage.setItem(`rejected_orders_${cadeteActual.id_cad}`, JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
-        sessionStorage.setItem(`rejected_orders_${cadeteActual.id_cad}`, JSON.stringify(Array.from(pedidosRechazadosLocalmente)));
-      }
+      const orderToReject = hayOfertaAbierta() ? currentActiveOrder : null;
+      if (orderToReject) currentActiveOrder = null;
 
       // Limpiar datos de orden local
       localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
@@ -1467,47 +1475,82 @@
       actualizarEstadoPresencia('disponible');
 
       if (orderToReject && orderToReject.id_pedido) {
-        console.log('[Rechazo] Ejecutando rechazo 100% desde el frontend (sin Edge Function)');
-        try {
-          // Verificar si el pedido ya está cancelado o ya fue asignado/tomado en BD
-          const { data: checkDb } = await supabase
-            .from('Pedidos')
-            .select('estado_pedido')
-            .eq('id_pedido', orderToReject.id_pedido)
-            .maybeSingle();
-
-          if (checkDb && ['cancelado', 'asignado', 'en_camino_entrega', 'entregado', 'rendido'].includes(checkDb.estado_pedido)) {
-            console.log(`[Rechazo] El pedido #${orderToReject.id_pedido} ya está en estado '${checkDb.estado_pedido}' en DB. Abortando rechazo.`);
-            return;
-          }
-
-          // 1. Actualizamos BD localmente (solo el pedido, porque el cadete ya se liberó arriba)
-          await supabase.from('Pedidos').update({ id_cadete: null, estado_pedido: 'pendiente' }).eq('id_pedido', orderToReject.id_pedido);
-
-          // 2. Emitimos el Broadcast al Cliente para que él busque a otro cadete
-          const chan = supabase.channel(`pedido-en-curso-${orderToReject.id_pedido}`, { config: { broadcast: { ack: true } } });
-
-          chan.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-              await chan.send({
-                type: 'broadcast',
-                event: 'pedido_rechazado',
-                payload: { id_cadete_rechazo: cadeteActual.id_cad }
-              });
-              setTimeout(() => supabase.removeChannel(chan), 2000);
-            }
-          });
-        } catch (err) {
-          console.error('[Rechazo] Error ejecutando lógica local:', err);
-        }
+        await devolverOfertaAlCliente(Number(orderToReject.id_pedido));
       }
     };
+
+    // Devuelve al cliente una oferta dirigida a este cadete para que pase al siguiente.
+    // La escritura es condicional: si la oferta ya no es de este cadete (reasignada por timeout,
+    // cancelada o tomada) no se toca el pedido ni se avisa, así nunca se pisa la oferta de otro.
+    async function devolverOfertaAlCliente(idPedido) {
+      recordarRechazoLocal(idPedido);
+      try {
+        const { data: devuelto, error } = await supabase
+          .from('Pedidos')
+          .update({ id_cadete: null, estado_pedido: 'pendiente' })
+          .eq('id_pedido', idPedido)
+          .eq('id_cadete', cadeteActual.id_cad)
+          .in('estado_pedido', ['libre', 'en_confirmacion'])
+          .select('id_pedido')
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!devuelto) {
+          console.log(`[Rechazo] El pedido #${idPedido} ya no estaba ofrecido a este cadete. No se notifica.`);
+          return;
+        }
+
+        await enviarBroadcastEfimero(`pedido-en-curso-${idPedido}`, 'pedido_rechazado', {
+          id_pedido: idPedido,
+          id_cadete_rechazo: cadeteActual.id_cad
+        });
+      } catch (err) {
+        console.error('[Rechazo] Error devolviendo la oferta:', err);
+      }
+    }
+
+    // Broadcast puntual a un canal que este cadete no escucha (ej: el canal de un pedido)
+    async function enviarBroadcastEfimero(topic, event, payload) {
+      try {
+        // supabase.channel() devuelve el canal existente si ya hay uno con ese topic, y un canal ya
+        // suscrito no vuelve a notificar 'SUBSCRIBED': se elimina el anterior antes de crear uno nuevo
+        const previos = typeof supabase.getChannels === 'function'
+          ? supabase.getChannels().filter(c => c.topic === `realtime:${topic}`)
+          : [];
+        for (const ch of previos) await supabase.removeChannel(ch);
+
+        const chan = supabase.channel(topic, { config: { broadcast: { ack: true } } });
+        const resultado = await new Promise((resolve) => {
+          const limite = setTimeout(() => resolve('timed out'), 8000);
+          chan.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              clearTimeout(limite);
+              try {
+                resolve(await chan.send({ type: 'broadcast', event, payload }));
+              } catch (errSend) {
+                resolve('error');
+              }
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              clearTimeout(limite);
+              resolve(status);
+            }
+          });
+        });
+
+        if (resultado !== 'ok') console.warn(`[Broadcast] '${event}' a ${topic}: ${resultado}`);
+        setTimeout(() => supabase.removeChannel(chan), 1500);
+        return resultado;
+      } catch (err) {
+        console.warn(`[Broadcast] Error enviando '${event}' a ${topic}:`, err);
+        return 'error';
+      }
+    }
 
     window.acceptOrder = async function () {
       console.log('[Dashboard] Botón Aceptar presionado. currentActiveOrder:', currentActiveOrder);
       clearTimeout(timerTimeout);
 
-      if (!currentActiveOrder || !currentActiveOrder.id_pedido) {
+      if (!hayOfertaAbierta()) {
         closeModal();
         return;
       }
@@ -1523,14 +1566,43 @@
       }
       closeModal();
 
-      const orderToSave = { ...currentActiveOrder };
+      let orderToSave = { ...currentActiveOrder };
       currentActiveOrder = null; // Limpiar inmediatamente
+
+      // 1. Tomar el pedido con bloqueo optimista: solo si la oferta sigue siendo para ESTE cadete
+      //    (el cliente pudo haberla reasignado por timeout o cancelado)
+      let pedidoTomado = null;
+      try {
+        const { data, error } = await supabase
+          .from('Pedidos')
+          .update({ estado_pedido: 'asignado' })
+          .eq('id_pedido', orderToSave.id_pedido)
+          .eq('id_cadete', cadeteActual.id_cad)
+          .in('estado_pedido', ['libre', 'en_confirmacion'])
+          .select()
+          .maybeSingle();
+        if (error) throw error;
+        pedidoTomado = data;
+      } catch (err) {
+        console.warn('[Dashboard] Error al tomar el pedido:', err);
+      }
+
+      if (!pedidoTomado) {
+        if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
+        recordarRechazoLocal(orderToSave.id_pedido);
+        await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+        actualizarEstadoPresencia('disponible');
+        alert(`El pedido #${orderToSave.id_pedido} ya no está disponible (se ofreció a otro cadete o fue cancelado).`);
+        return;
+      }
+
+      orderToSave = { ...orderToSave, ...pedidoTomado };
       orderToSave.estado_pedido = 'asignado';
       orderToSave.id_cadete = cadeteActual.id_cad;
       orderToSave.patente_cadete = cadeteActual.patente || '';
       orderToSave.vehiculo_cadete = cadeteActual.vehiculo_cad || '';
 
-      // 1. Guardar INMEDIATAMENTE en almacenamiento local
+      // 2. Guardar INMEDIATAMENTE en almacenamiento local
       try {
         localStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(orderToSave));
         sessionStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(orderToSave));
@@ -1541,39 +1613,25 @@
         console.warn('Error guardando active_order en storage:', e);
       }
 
-      // 2. Disparar sincronizaciones en paralelo y notificar al cliente vía Realtime Broadcast
+      // 3. Pedido ya asignado en BD: marcar cadete ocupado y notificar al cliente vía Realtime Broadcast
       const syncPromises = [
-        orderToSave.id_pedido
-          ? supabase.from('Pedidos').update({ id_cadete: cadeteActual.id_cad, estado_pedido: 'asignado' }).eq('id_pedido', orderToSave.id_pedido)
-          : Promise.resolve(),
         supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad),
-        actualizarEstadoPresencia('ocupado')
+        actualizarEstadoPresencia('ocupado'),
+        // Broadcast único y completo de asignación con patente hacia el cliente. El cliente también
+        // lo detecta por BD, así que no se retrasa la redirección más de 1.5s esperándolo
+        Promise.race([
+          enviarBroadcastEfimero(`pedido-en-curso-${orderToSave.id_pedido}`, 'cambio_estado_pedido', {
+            id_pedido: orderToSave.id_pedido,
+            id_cadete: cadeteActual.id_cad,
+            patente: cadeteActual.patente || '',
+            vehiculo: cadeteActual.vehiculo_cad || '',
+            nombre_cad: cadeteActual.nombre_cad || cadeteActual.alias_cad || '',
+            estado_pedido: 'asignado',
+            timestamp: new Date().toISOString()
+          }),
+          new Promise(resolve => setTimeout(resolve, 1500))
+        ])
       ];
-
-      // Emitir broadcast único y completo de asignación con patente hacia el cliente
-      if (orderToSave.id_pedido) {
-        try {
-          const chan = supabase.channel(`pedido-en-curso-${orderToSave.id_pedido}`, { config: { broadcast: { ack: true } } });
-          chan.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-              await chan.send({
-                type: 'broadcast',
-                event: 'cambio_estado_pedido',
-                payload: {
-                  id_pedido: orderToSave.id_pedido,
-                  id_cadete: cadeteActual.id_cad,
-                  patente: cadeteActual.patente || '',
-                  vehiculo: cadeteActual.vehiculo_cad || '',
-                  nombre_cad: cadeteActual.nombre_cad || cadeteActual.alias_cad || '',
-                  estado_pedido: 'asignado',
-                  timestamp: new Date().toISOString()
-                }
-              });
-              setTimeout(() => supabase.removeChannel(chan), 1500);
-            }
-          });
-        } catch (e) { }
-      }
 
       await Promise.all(syncPromises).catch(err => console.warn('[Dashboard] Error al actualizar en Supabase:', err));
 
