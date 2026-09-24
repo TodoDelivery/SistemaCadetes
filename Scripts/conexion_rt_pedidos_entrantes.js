@@ -9,6 +9,9 @@ let geoWatchId = null;
 let cadeteSession = null;
 let currentCadetState = 'disponible';
 let currentCoords = { lat: -31.5375, lng: -68.5364 }; // San Juan (Fallback)
+// Hora (ms) del último fix GPS real; null mientras currentCoords es el fallback.
+// La app de clientes solo usa coords con coords_ts para asignar el pedido al cadete más cercano.
+let currentCoordsTs = null;
 
 /**
  * Inicia la doble suscripción en Supabase Realtime:
@@ -69,6 +72,7 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
           id_cad: idCadete,
           nombre: nombreCadete,
           coords: currentCoords,
+          coords_ts: currentCoordsTs,
           estado_cad: currentCadetState,
           patente: cadeteSession.patente || '',
           vehiculo_cad: cadeteSession.vehiculo_cad || ''
@@ -82,11 +86,13 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude
               };
+              currentCoordsTs = position.timestamp || Date.now();
               if (channelPresence && cadeteSession) {
                 await channelPresence.track({
                   id_cad: idCadete,
                   nombre: nombreCadete,
                   coords: currentCoords,
+                  coords_ts: currentCoordsTs,
                   estado_cad: currentCadetState,
                   patente: cadeteSession.patente || '',
                   vehiculo_cad: cadeteSession.vehiculo_cad || ''
@@ -221,6 +227,7 @@ export async function actualizarEstadoPresencia(nuevoEstado) {
       id_cad: idCadete,
       nombre: nombreCadete,
       coords: currentCoords,
+      coords_ts: currentCoordsTs,
       estado_cad: nuevoEstado,
       patente: cadeteSession.patente || '',
       vehiculo_cad: cadeteSession.vehiculo_cad || ''
