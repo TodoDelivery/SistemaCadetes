@@ -671,6 +671,25 @@
     let isOnline = true;
     let timerTimeout;
     let currentActiveOrder = null;
+    // Desde que toca "Aceptar" hasta que la BD responde y se redirige al viaje: no se puede tomar otra oferta.
+    // (acceptOrder limpia currentActiveOrder antes de esa respuesta; sin esto se abría y aceptaba un 2.º pedido)
+    let aceptandoPedido = false;
+
+    // Las escrituras de Cadetes.estado_cad salen de a una y en orden. Disparadas juntas (ej: 'en_confirmacion'
+    // al abrir una oferta y 'disponible' al cerrarla enseguida) podían llegar al revés y dejar al cadete libre
+    // marcado 'en_confirmacion': el motor de clientes lo toma por ocupado y deja de ofrecerle pedidos.
+    // soloSiEstaba: la escritura solo aplica si la BD tiene ese estado. Abrir y cerrar ofertas solo mueve
+    // 'disponible' <-> 'en_confirmacion', así nunca pisa el 'ocupado' de un viaje aceptado en otra pestaña.
+    let colaEstadoCad = Promise.resolve();
+    function escribirEstadoCad(estado, soloSiEstaba = null) {
+      const escritura = colaEstadoCad.then(() => {
+        let consulta = supabase.from('Cadetes').update({ estado_cad: estado }).eq('id_cad', cadeteActual.id_cad);
+        if (soloSiEstaba) consulta = consulta.eq('estado_cad', soloSiEstaba);
+        return consulta;
+      });
+      colaEstadoCad = escritura.catch(() => {});
+      return escritura;
+    }
 
     // Memoria corta de ofertas rechazadas/cerradas por este cadete: evita que un eco tardío de realtime
     // o del verificador reabra el modal. Expira sola para no bloquear pedidos futuros.
@@ -867,7 +886,7 @@
             sessionStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(dbOrder));
             // Si tiene pedido activo, su estado es 'ocupado'
             actualizarEstadoPresencia('ocupado');
-            await supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad);
+            await escribirEstadoCad('ocupado');
           } else {
             // NO hay viajes activos en la BD para este cadete
             localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
@@ -877,12 +896,13 @@
             // Con una oferta abierta en el modal no se toca nada: sigue en 'en_confirmacion' con su timer.
             // (Antes se limpiaba currentActiveOrder al volver a la pestaña: el timer rechazaba "nada",
             // el pedido quedaba colgado en este cadete y el modal se reabría en loop.)
-            if (hayOfertaAbierta()) return;
+            // Aceptando un pedido tampoco: no hay que volver a marcarlo 'disponible'.
+            if (hayOfertaAbierta() || aceptandoPedido) return;
 
             currentActiveOrder = null;
             if (isOnline) {
               actualizarEstadoPresencia('disponible');
-              await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+              await escribirEstadoCad('disponible');
             }
 
             // 2. Verificar si hay una oferta dirigida a este cadete que todavía no se mostró
@@ -952,7 +972,7 @@
 
       // Liberar cadete
       await actualizarEstadoPresencia('disponible');
-      await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+      await escribirEstadoCad('disponible');
     };
 
     // -------------------------------------------------------------------------
@@ -1037,7 +1057,7 @@
             return;
           }
 
-          if (currentActiveOrder) return; // viaje en curso
+          if (currentActiveOrder || aceptandoPedido) return; // viaje en curso o aceptando uno
 
           // 2. Oferta dirigida a este cadete que no llegó por realtime
           const { data: directos } = await supabase
@@ -1135,10 +1155,7 @@
 
         // Actualizar en base de datos Supabase
         try {
-          await supabase
-            .from('Cadetes')
-            .update({ estado_cad: 'disponible' })
-            .eq('id_cad', cadeteActual.id_cad);
+          await escribirEstadoCad('disponible');
           console.log(`[Turno] Cadete #${cadeteActual.id_cad} actualizado a 'disponible' en BD.`);
         } catch (err) {
           console.error('[Turno] Error actualizando BD al conectar:', err);
@@ -1158,10 +1175,7 @@
 
         // Actualizar en base de datos Supabase
         try {
-          await supabase
-            .from('Cadetes')
-            .update({ estado_cad: 'desconectado' })
-            .eq('id_cad', cadeteActual.id_cad);
+          await escribirEstadoCad('desconectado');
           console.log(`[Turno] Cadete #${cadeteActual.id_cad} actualizado a 'desconectado' en BD.`);
         } catch (err) {
           console.error('[Turno] Error actualizando BD al desconectar:', err);
@@ -1313,9 +1327,9 @@
         return;
       }
 
-      // Ocupado (otra oferta abierta o viaje en curso): devolverla para que el cliente pase al siguiente
-      if (currentActiveOrder) {
-        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ocupado con #${currentActiveOrder.id_pedido}: devolviendo oferta #${orderId}.`);
+      // Ocupado (otra oferta abierta, aceptando una o viaje en curso): devolverla para que el cliente pase al siguiente
+      if (currentActiveOrder || aceptandoPedido) {
+        console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ocupado (${currentActiveOrder ? `con #${currentActiveOrder.id_pedido}` : 'aceptando otro pedido'}): devolviendo oferta #${orderId}.`);
         devolverOfertaAlCliente(orderId);
         return;
       }
@@ -1382,7 +1396,7 @@
 
       // 2. SINCRONIZACIONES ASÍNCRONAS EN SEGUNDO PLANO (Sin bloquear el render)
       actualizarEstadoPresencia('en_confirmacion');
-      supabase.from('Cadetes').update({ estado_cad: 'en_confirmacion' }).eq('id_cad', cadeteActual.id_cad).then();
+      escribirEstadoCad('en_confirmacion', 'disponible');
 
       // Marcar la oferta como vista, solo si sigue dirigida a este cadete (nunca tomar un pedido ajeno).
       // Si no se actualiza ninguna fila, la oferta ya fue retirada, cancelada o reasignada: cerrar el modal
@@ -1413,7 +1427,7 @@
         localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
         sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
         if (isOnline) {
-          await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+          await escribirEstadoCad('disponible', 'en_confirmacion');
           actualizarEstadoPresencia('disponible');
         }
         alert(`El pedido #${pedidoCancelado.id_pedido} fue cancelado por el cliente.`);
@@ -1442,7 +1456,7 @@
       recordarRechazoLocal(idPedido);
 
       if (isOnline) {
-        supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad).then();
+        escribirEstadoCad('disponible', 'en_confirmacion');
         actualizarEstadoPresencia('disponible');
       }
       return true;
@@ -1470,8 +1484,8 @@
       localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
       sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
 
-      // Actualizamos estado de presencia visual y en BD SIEMPRE para asegurar que vuelve a la pool
-      await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+      // Vuelve a la pool: 'en_confirmacion' -> 'disponible' (si otra pestaña ya aceptó un viaje, queda 'ocupado')
+      await escribirEstadoCad('disponible', 'en_confirmacion');
       actualizarEstadoPresencia('disponible');
 
       if (orderToReject && orderToReject.id_pedido) {
@@ -1567,30 +1581,55 @@
       closeModal();
 
       let orderToSave = { ...currentActiveOrder };
+      aceptandoPedido = true;
       currentActiveOrder = null; // Limpiar inmediatamente
 
       // 1. Tomar el pedido con bloqueo optimista: solo si la oferta sigue siendo para ESTE cadete
       //    (el cliente pudo haberla reasignado por timeout o cancelado)
       let pedidoTomado = null;
+      let viajeEnCurso = null;
       try {
-        const { data, error } = await supabase
+        // Nunca dos viajes a la vez: con el dashboard abierto en otra pestaña pudo haber aceptado otro pedido
+        const { data: viaje, error: errViaje } = await supabase
           .from('Pedidos')
-          .update({ estado_pedido: 'asignado' })
-          .eq('id_pedido', orderToSave.id_pedido)
+          .select('id_pedido')
           .eq('id_cadete', cadeteActual.id_cad)
-          .in('estado_pedido', ['libre', 'en_confirmacion'])
-          .select()
+          .in('estado_pedido', ['asignado', 'en_camino_entrega'])
+          .limit(1)
           .maybeSingle();
-        if (error) throw error;
-        pedidoTomado = data;
+        if (errViaje) throw errViaje;
+        viajeEnCurso = viaje;
+
+        if (!viajeEnCurso) {
+          const { data, error } = await supabase
+            .from('Pedidos')
+            .update({ estado_pedido: 'asignado' })
+            .eq('id_pedido', orderToSave.id_pedido)
+            .eq('id_cadete', cadeteActual.id_cad)
+            .in('estado_pedido', ['libre', 'en_confirmacion'])
+            .select()
+            .maybeSingle();
+          if (error) throw error;
+          pedidoTomado = data;
+        }
       } catch (err) {
         console.warn('[Dashboard] Error al tomar el pedido:', err);
       }
 
+      if (!pedidoTomado && viajeEnCurso) {
+        aceptandoPedido = false;
+        if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
+        // Se devuelve para que el cliente pase al siguiente; el cadete sigue 'ocupado' con su viaje
+        await devolverOfertaAlCliente(Number(orderToSave.id_pedido));
+        alert(`Ya tenés en curso el pedido #${viajeEnCurso.id_pedido}. Terminalo antes de aceptar otro.`);
+        return;
+      }
+
       if (!pedidoTomado) {
+        aceptandoPedido = false;
         if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
         recordarRechazoLocal(orderToSave.id_pedido);
-        await supabase.from('Cadetes').update({ estado_cad: 'disponible' }).eq('id_cad', cadeteActual.id_cad);
+        await escribirEstadoCad('disponible', 'en_confirmacion');
         actualizarEstadoPresencia('disponible');
         alert(`El pedido #${orderToSave.id_pedido} ya no está disponible (se ofreció a otro cadete o fue cancelado).`);
         return;
@@ -1615,7 +1654,7 @@
 
       // 3. Pedido ya asignado en BD: marcar cadete ocupado y notificar al cliente vía Realtime Broadcast
       const syncPromises = [
-        supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', cadeteActual.id_cad),
+        escribirEstadoCad('ocupado'),
         actualizarEstadoPresencia('ocupado'),
         // Broadcast único y completo de asignación con patente hacia el cliente. El cliente también
         // lo detecta por BD, así que no se retrasa la redirección más de 1.5s esperándolo

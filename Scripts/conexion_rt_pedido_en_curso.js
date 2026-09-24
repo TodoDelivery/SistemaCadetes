@@ -7,6 +7,13 @@ let channelPedidoActivo = null;
 let geoWatchId = null;
 let pedidoActual = null;
 
+// Desde qué estados se puede avanzar a cada uno. Una pestaña vieja del mismo viaje no puede volver atrás
+// un pedido ya entregado (ni pisar uno 'rendido'): su UPDATE no encuentra la fila.
+const ESTADOS_PREVIOS = {
+  en_camino_entrega: ['asignado'],
+  entregado: ['asignado', 'en_camino_entrega']
+};
+
 /**
  * Inicia la suscripción al canal privado del pedido en curso.
  * Sincroniza:
@@ -201,15 +208,21 @@ export async function actualizarEstadoPedidoEnCurso(nuevoEstado, datosExtra = {}
       ...datosExtra
     };
 
-    const { data, error } = await supabase
+    let consulta = supabase
       .from('Pedidos')
       .update(updateData)
-      .eq('id_pedido', idPedido)
-      .select()
-      .maybeSingle();
+      .eq('id_pedido', idPedido);
+    if (pedidoActual.id_cadete != null) consulta = consulta.eq('id_cadete', pedidoActual.id_cadete);
+    if (ESTADOS_PREVIOS[nuevoEstado]) consulta = consulta.in('estado_pedido', ESTADOS_PREVIOS[nuevoEstado]);
+
+    const { data, error } = await consulta.select().maybeSingle();
 
     if (error) {
       console.warn('[RT Estado] Advertencia al actualizar en DB:', error.message);
+    } else if (!data) {
+      // El pedido ya avanzó (ej: se entregó desde otra pestaña): no se lo vuelve atrás ni se avisa al cliente
+      console.warn(`[RT Estado] Pedido #${idPedido}: no se pasa a '${nuevoEstado}', ya no está en ${(ESTADOS_PREVIOS[nuevoEstado] || []).join('/')}.`);
+      return null;
     }
 
     // 2. Notificar inmediatamente por broadcast al cliente

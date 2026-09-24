@@ -1311,14 +1311,19 @@
       await actualizarEstadoPedidoEnCurso('entregado', { tiempo_pedido: tiempoPedidoMinutos });
 
       if (pedidoActivo && pedidoActivo.id_pedido) {
+        const idCadeteDelViaje = pedidoActivo.id_cadete ?? cadeteActual?.id_cad;
         try {
-          await supabase
+          // Respaldo condicional: no pisa un pedido ya 'rendido' ni el viaje de otro cadete
+          let consulta = supabase
             .from('Pedidos')
-            .update({ 
+            .update({
               estado_pedido: 'entregado',
               tiempo_pedido: tiempoPedidoMinutos
             })
-            .eq('id_pedido', pedidoActivo.id_pedido);
+            .eq('id_pedido', pedidoActivo.id_pedido)
+            .in('estado_pedido', ['asignado', 'en_camino_entrega']);
+          if (idCadeteDelViaje != null) consulta = consulta.eq('id_cadete', idCadeteDelViaje);
+          await consulta;
         } catch (err) {
           console.warn('[DB Error al marcar entregado y tiempo_pedido]:', err);
         }
