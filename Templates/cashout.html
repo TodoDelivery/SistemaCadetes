@@ -95,7 +95,7 @@
       <div class="absolute -top-12 -right-12 w-32 h-32 bg-brand-warning/10 rounded-full blur-2xl pointer-events-none"></div>
 
       <span class="text-[11px] font-extrabold uppercase tracking-widest text-brand-warning bg-brand-warning/10 px-3 py-1 rounded-full border border-brand-warning/20 inline-block mb-3">
-        Monto Total a Rendir (40%)
+        Monto Total a Rendir (<span data-comision-empresa>40%</span>)
       </span>
 
       <div id="cashoutTotalAmount" class="text-4xl font-black text-white tracking-tight my-1">
@@ -129,7 +129,7 @@
 
       <!-- Monto a Rendir -->
       <div class="flex justify-between items-center text-xs">
-        <span class="text-brand-textMuted font-medium">Monto a rendir en la empresa (40%)</span>
+        <span class="text-brand-textMuted font-medium">Monto a rendir en la empresa (<span data-comision-empresa>40%</span>)</span>
         <span id="cashoutCompanySpan" class="font-extrabold text-brand-warning text-sm">- $0</span>
       </div>
 
@@ -137,7 +137,7 @@
       <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
         <div>
           <span class="text-xs font-bold text-white block">Tus ganancias el día de hoy</span>
-          <span class="text-[10px] text-brand-textMuted">60% del total facturado</span>
+          <span class="text-[10px] text-brand-textMuted"><span data-comision-cadete>60%</span> del total facturado</span>
         </div>
         <span id="cashoutEarningsSpan" class="text-base font-black text-brand-accent">+$0</span>
       </div>
@@ -164,6 +164,7 @@
   <!-- LÓGICA DE CIERRE & SUPABASE -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
 
     const urlParams = new URLSearchParams(window.location.search);
     const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
@@ -239,8 +240,9 @@
           totalMinutos += Number(p.tiempo_pedido) || 0;
         });
 
-        const montoRendir = Math.round(totalFacturado * 0.4);
-        const gananciaCadete = Math.round(totalFacturado * 0.6);
+        const comision = await obtenerComision();
+        pintarComision(comision);
+        const { empresa: montoRendir, cadete: gananciaCadete } = repartir(totalFacturado, comision);
         const totalEnvios = list.length;
         const horasReales = totalMinutos > 0 ? (totalMinutos / 60).toFixed(1) : (totalEnvios * 0.35).toFixed(1);
 
@@ -283,8 +285,8 @@
           `🔑 Token: #${token}\n` +
           `📦 Total Envíos a Rendir: ${totalEnvios}\n` +
           `💵 Facturación Total: $${totalFacturado.toLocaleString('es-AR')}\n` +
-          `🏢 *Efectivo a Rendir (40%): $${montoRendir.toLocaleString('es-AR')}*\n` +
-          `🛵 Ganancia Cadete (60%): $${gananciaCadete.toLocaleString('es-AR')}\n` +
+          `🏢 *Efectivo a Rendir (${comision}%): $${montoRendir.toLocaleString('es-AR')}*\n` +
+          `🛵 Ganancia Cadete (${100 - comision}%): $${gananciaCadete.toLocaleString('es-AR')}\n` +
           `📅 Fecha: ${now.toLocaleString('es-AR')}`
         );
 

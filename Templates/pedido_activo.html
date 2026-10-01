@@ -474,6 +474,7 @@
   <!-- ======================================================== -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir } from '../Scripts/comision.js';
     import {
       iniciarSuscripcionPedidoActivo,
       enviarMensajeChat,
@@ -482,6 +483,7 @@
     } from '../Scripts/conexion_rt_pedido_en_curso.js';
 
     let stage = 1; // 1: Al local, 2: Retirado / Al cliente
+    let comision = COMISION_POR_DEFECTO; // % que se rinde a la empresa (lo edita el admin)
     let orderTotal = 8500;
     let inputCashStr = "0";
     let isChatOpen = false;
@@ -648,11 +650,12 @@
       }
 
       orderTotal = Number(pedidoActivo.coste_pedido) || 8500;
+      comision = await obtenerComision();
     }
 
     function renderizarDatosPedido() {
       const storeName = pedidoActivo.inform_pedido ? pedidoActivo.inform_pedido.split('-')[0].trim() : 'Local Comercial';
-      const ganancia = Math.round(orderTotal * 0.6);
+      const ganancia = repartir(orderTotal, comision).cadete;
 
       // Paso 1: Local / Retiro
       document.getElementById('destinationTitle').innerText = storeName;

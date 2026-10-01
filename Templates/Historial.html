@@ -138,7 +138,7 @@
           <span id="statHours" class="text-base font-black text-white mt-0.5 block">0.0 hs</span>
         </div>
         <div class="border-l border-brand-border/60 pl-3">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">A Rendir (40%)</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">A Rendir (<span data-comision-empresa>40%</span>)</span>
           <span id="statTips" class="text-base font-black text-brand-warning mt-0.5 block">$0</span>
         </div>
       </div>
@@ -200,7 +200,7 @@
           <span id="modalPaymentType" class="font-bold text-brand-warning">Efectivo: $0</span>
         </div>
         <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
-          <span class="font-bold text-white">Tu Ganancia acreditada (60%):</span>
+          <span class="font-bold text-white">Tu Ganancia acreditada (<span data-comision-cadete>60%</span>):</span>
           <span id="modalEarnings" class="text-lg font-black text-brand-accent">+$0</span>
         </div>
       </div>
@@ -217,9 +217,11 @@
   <!-- ============================================== -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
 
     let currentPeriod = 'today';
     let pedidosCache = [];
+    let comision = COMISION_POR_DEFECTO; // % que se rinde a la empresa (lo edita el admin)
 
     const urlParams = new URLSearchParams(window.location.search);
     const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
@@ -313,6 +315,8 @@
         if (error) throw error;
 
         pedidosCache = pedidos || [];
+        comision = await obtenerComision();
+        pintarComision(comision);
 
         // 3. Calcular Métricas Reales
         let totalFacturado = 0;
@@ -323,10 +327,10 @@
         pedidosCache.forEach(p => {
           const costo = Number(p.coste_pedido) || 0;
           totalFacturado += costo;
-          totalGanancias += Math.round(costo * 0.6);
+          totalGanancias += repartir(costo, comision).cadete;
           totalMinutos += Number(p.tiempo_pedido) || 0;
           if (p.estado_pedido === 'entregado') {
-            totalPendienteRendir += Math.round(costo * 0.4);
+            totalPendienteRendir += repartir(costo, comision).empresa;
           }
         });
 
@@ -358,7 +362,7 @@
 
         pedidosCache.forEach(p => {
           const costo = Number(p.coste_pedido) || 0;
-          const ganancia = Math.round(costo * 0.6);
+          const ganancia = repartir(costo, comision).cadete;
           const storeName = p.inform_pedido ? p.inform_pedido.split('-')[0].trim() : 'Local Comercial';
           const fecha = new Date(p.fecha_pedido);
           const horaStr = fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -419,7 +423,7 @@
       if (!pedido) return;
 
       const costo = Number(pedido.coste_pedido) || 0;
-      const ganancia = Math.round(costo * 0.6);
+      const ganancia = repartir(costo, comision).cadete;
       const storeName = pedido.inform_pedido ? pedido.inform_pedido.split('-')[0].trim() : 'Local Comercial';
       const fecha = new Date(pedido.fecha_pedido);
       const duracionModal = pedido.tiempo_pedido ? `${pedido.tiempo_pedido} min` : '15 min';

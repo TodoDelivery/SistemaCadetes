@@ -504,7 +504,7 @@
           </div>
           <div>
             <h4 class="text-xs font-bold text-white">Efectivo en Mano a Rendir</h4>
-            <p class="text-xs text-brand-textMuted mt-0.5">Cobros a rendir (40%): <strong id="dashCashOwed"
+            <p class="text-xs text-brand-textMuted mt-0.5">Cobros a rendir (<span data-comision-empresa>40%</span>): <strong id="dashCashOwed"
                 class="text-white">$0</strong></p>
           </div>
         </div>
@@ -570,7 +570,7 @@
         <!-- Pago Estimado Cadete -->
         <div class="text-right">
           <span id="modalEarnings" class="text-2xl font-black text-brand-accent">$0</span>
-          <span class="text-[10px] text-brand-textMuted block font-bold uppercase">Tu Ganancia (60%)</span>
+          <span class="text-[10px] text-brand-textMuted block font-bold uppercase">Tu Ganancia (<span data-comision-cadete>60%</span>)</span>
         </div>
       </div>
 
@@ -681,6 +681,7 @@
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
     import {
       iniciarSuscripcionesDashboard,
       actualizarEstadoPresencia,
@@ -733,6 +734,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
 
+    let comision = COMISION_POR_DEFECTO; // % que se rinde a la empresa (lo edita el admin)
     let cadeteActual = null;
 
     if (urlCadId) {
@@ -1026,8 +1028,9 @@
             totalMinutos += (Number(p.tiempo_pedido) || 0);
           });
 
-          const totalGanancias = Math.round(totalFacturado * 0.6);
-          const totalRendir = Math.round(totalFacturado * 0.4);
+          comision = await obtenerComision();
+          pintarComision(comision);
+          const { cadete: totalGanancias, empresa: totalRendir } = repartir(totalFacturado, comision);
           const totalPedidos = list.length;
           const horasReales = totalMinutos > 0 ? (totalMinutos / 60).toFixed(1) : (totalPedidos * 0.35).toFixed(1);
 
@@ -1096,6 +1099,7 @@
 
     // Conectar suscripciones y verificar viajes activos al cargar la vista
     window.addEventListener('DOMContentLoaded', () => {
+      obtenerComision().then(c => { comision = c; pintarComision(c); });
       renderizarPerfilCadete();
       verificarPedidoActivoPendiente();
       actualizarMetricasDashboard();
@@ -1424,7 +1428,7 @@
         const info = pedido.inform_pedido || 'Pedido de Comida';
         const tipo = pedido.tipo_paquete || 'Bolsa';
         const total = pedido.coste_pedido ? Number(pedido.coste_pedido) : 8500;
-        const gananciaEstimada = Math.round(total * 0.6); // 60% para el cadete
+        const gananciaEstimada = repartir(total, comision).cadete; // lo que queda tras la comisión de la empresa
         const distMetros = pedido.distancia_m || 2300;
         const distKm = (distMetros / 1000).toFixed(1);
         const minsEst = Math.max(5, Math.round(distMetros / 200));
