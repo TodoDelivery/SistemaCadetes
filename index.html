@@ -9,6 +9,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Todo Delivery - Cadetes</title>
+  <link rel="icon" type="image/svg+xml" href="pruebas_pedidos/images/logo.svg" />
+  <link rel="apple-touch-icon" href="pruebas_pedidos/images/logo.svg" />
 
   <!-- Fuente Google Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -132,19 +134,16 @@
     <div class="flex flex-col items-center text-center relative z-10">
       <!-- Isotipo / Icono con Halo -->
       <div
-        class="relative flex items-center justify-center w-24 h-24 mb-6 rounded-3xl bg-brand-surface border border-brand-border pulse-glow">
-        <svg class="w-12 h-12 text-brand-accent transform -rotate-6" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-        </svg>
+        class="relative flex items-center justify-center w-28 h-28 mb-6 p-2 rounded-3xl bg-brand-surface/60 border border-brand-border/80 pulse-glow backdrop-blur-sm">
+        <img src="pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="w-full h-full object-contain filter drop-shadow-[0_4px_16px_rgba(255,122,0,0.35)]" />
         <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-brand-accent"></span>
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF7A00] opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#FF7A00]"></span>
         </span>
       </div>
 
       <h1 class="text-3xl font-extrabold tracking-tight text-white">
-        Todo <span class="text-brand-accent">Delivery</span>
+        Todo <span class="text-[#FF7A00]">Delivery</span>
       </h1>
       <p class="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-brand-textMuted">
         Cadetes &bull; Rider App
@@ -172,15 +171,10 @@
     <!-- Header del Login -->
     <header class="pt-6 sm:pt-10">
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <div
-            class="w-8 h-8 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-accent">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-            </svg>
-          </div>
-          <span class="font-bold text-sm tracking-tight text-white">Todo <span
-              class="text-brand-accent">Delivery</span></span>
+        <div class="flex items-center gap-2.5 shrink-0">
+          <img src="pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-9 w-auto max-w-[38px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" />
+          <span class="font-extrabold text-base tracking-tight text-white whitespace-nowrap">Todo <span
+              class="text-[#FF7A00]">Delivery</span></span>
         </div>
 
         <span
@@ -260,7 +254,7 @@
       </p>
       <button onclick="alert('Comunícate con la central de administración para reactivar tus credenciales.')"
         class="mt-1 text-xs font-semibold text-brand-accent hover:underline">
-        Contactar a Administración de Todo Delivery
+        Contactar a Administración de Todo <span class="text-[#FF7A00]">Delivery</span>
       </button>
     </footer>
   </main>

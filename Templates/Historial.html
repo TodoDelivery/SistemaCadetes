@@ -7,6 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Todo Delivery - Historial y Ganancias</title>
+  <link rel="icon" type="image/svg+xml" href="../pruebas_pedidos/images/logo.svg" />
+  <link rel="apple-touch-icon" href="../pruebas_pedidos/images/logo.svg" />
   
   <!-- Fuente Google Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76,9 +78,12 @@
     </div>
 
     <!-- Marca de la Empresa -->
-    <div class="text-right">
-      <span class="text-xs font-black tracking-tight text-white block">Todo <span class="text-brand-accent">Delivery</span></span>
-      <span class="text-[10px] text-brand-textMuted uppercase font-bold">Rider App</span>
+    <div class="flex items-center gap-2 sm:gap-2.5 shrink-0 pl-1">
+      <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-8 sm:h-9 w-auto max-w-[36px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" />
+      <div class="text-right leading-none">
+        <span class="text-xs sm:text-sm font-black tracking-tight text-white block whitespace-nowrap">Todo <span class="text-[#FF7A00]">Delivery</span></span>
+        <span class="text-[9px] sm:text-[10px] text-brand-textMuted uppercase font-bold tracking-wider block mt-0.5">Rider App</span>
+      </div>
     </div>
   </header>
 
@@ -166,12 +171,15 @@
     <div id="tripDetailContent" class="w-full max-w-md bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-6 space-y-4 transform translate-y-full sm:translate-y-0 transition-transform duration-300">
       
       <div class="flex items-start justify-between border-b border-brand-border/60 pb-3">
-        <div>
-          <span id="modalOrderTag" class="text-[10px] font-black uppercase text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded border border-brand-accent/20">
-            ORDEN #---
-          </span>
-          <h3 id="modalStoreName" class="text-lg font-black text-white mt-1">Local Comercial</h3>
-          <p id="modalAddress" class="text-xs text-brand-textMuted mt-0.5">Dirección de Entrega</p>
+        <div class="flex items-center gap-2.5">
+          <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-9 w-auto max-w-[36px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" />
+          <div>
+            <span id="modalOrderTag" class="text-[10px] font-black uppercase text-[#FF7A00] bg-[#FF7A00]/10 px-2 py-0.5 rounded border border-[#FF7A00]/20">
+              ORDEN #---
+            </span>
+            <h3 id="modalStoreName" class="text-lg font-black text-white mt-1">Local Comercial</h3>
+            <p id="modalAddress" class="text-xs text-brand-textMuted mt-0.5">Dirección de Entrega</p>
+          </div>
         </div>
         <button onclick="closeDetailModal()" class="w-8 h-8 rounded-full bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-textMuted hover:text-white">
           &times;

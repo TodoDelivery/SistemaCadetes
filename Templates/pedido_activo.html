@@ -7,6 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Todo Delivery - Modo Ruta & Cobro</title>
+  <link rel="icon" type="image/svg+xml" href="../pruebas_pedidos/images/logo.svg" />
+  <link rel="apple-touch-icon" href="../pruebas_pedidos/images/logo.svg" />
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -135,7 +137,7 @@
       </button>
 
       <!-- Banner de Navegación Superior -->
-      <header class="relative z-10 mx-3 mt-3 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-3xl p-4 shadow-2xl flex items-center gap-4">
+      <header class="relative z-10 mx-3 mt-3 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-3xl p-4 shadow-2xl flex items-center gap-3">
         <div id="navManeuverBox" class="w-16 h-16 rounded-2xl bg-brand-accent flex items-center justify-center text-brand-black shrink-0 shadow-lg">
           <svg id="navManeuverIcon" class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
@@ -147,6 +149,10 @@
             <span id="navEstTime" class="text-xs font-bold text-brand-accent uppercase tracking-wider">Calculando ruta...</span>
           </div>
           <p id="navStreet" class="text-sm font-extrabold text-brand-textMuted truncate mt-0.5">Iniciando navegación GPS...</p>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0 pl-1">
+          <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-8 sm:h-9 w-auto max-w-[34px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" title="Todo Delivery" />
+          <span class="hidden sm:inline-block text-[11px] font-black text-white whitespace-nowrap">TD <span class="text-[#FF7A00]">Ruta</span></span>
         </div>
       </header>
 
@@ -234,9 +240,12 @@
           </svg>
         </button>
 
-        <div class="text-center">
-          <h1 class="text-sm font-extrabold text-white">Finalizar Entrega</h1>
-          <span class="text-[10px] text-brand-warning font-bold uppercase tracking-wider">Paso de Cobro</span>
+        <div class="flex items-center gap-2 shrink-0">
+          <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-8 sm:h-9 w-auto max-w-[34px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" />
+          <div class="text-left leading-none">
+            <h1 class="text-xs sm:text-sm font-extrabold text-white whitespace-nowrap">Finalizar Entrega</h1>
+            <span class="text-[9px] text-[#FF7A00] font-bold uppercase tracking-wider block mt-0.5">Todo <span class="text-[#FF7A00]">Delivery</span></span>
+          </div>
         </div>
 
         <!-- Botón Reportar Problema -->
@@ -353,14 +362,10 @@
         
         <div class="flex items-start justify-between border-b border-brand-border/60 pb-3">
           <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-brand-danger/20 border border-brand-danger/30 flex items-center justify-center text-brand-danger">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-              </svg>
-            </div>
+            <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-9 w-auto max-w-[36px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" />
             <div>
               <h3 class="text-sm font-extrabold text-white">Reportar Incidencia</h3>
-              <p id="incidentModalOrderId" class="text-[11px] text-brand-textMuted">Orden #4820 &bull; Todo Delivery Central</p>
+              <p id="incidentModalOrderId" class="text-[11px] text-brand-textMuted">Orden #4820 &bull; Todo <span class="text-[#FF7A00] font-bold">Delivery</span> Central</p>
             </div>
           </div>
           <button onclick="closeIncidentModal()" class="w-8 h-8 rounded-full bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-textMuted hover:text-white">

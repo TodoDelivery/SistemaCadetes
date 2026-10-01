@@ -7,6 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Todo Delivery - Cierre de Turno</title>
+  <link rel="icon" type="image/svg+xml" href="../pruebas_pedidos/images/logo.svg" />
+  <link rel="apple-touch-icon" href="../pruebas_pedidos/images/logo.svg" />
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,9 +75,15 @@
       </div>
     </div>
 
-    <span id="cashoutStatusBadge" class="px-2.5 py-1 rounded-lg text-[10px] font-black bg-brand-warning/15 text-brand-warning border border-brand-warning/30 uppercase tracking-wide">
-      Pendiente
-    </span>
+    <div class="flex items-center gap-2 sm:gap-2.5 shrink-0 pl-1">
+      <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-8 sm:h-9 w-auto max-w-[36px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" />
+      <div class="text-right leading-none">
+        <span class="text-xs sm:text-sm font-black tracking-tight text-white block whitespace-nowrap">Todo <span class="text-[#FF7A00]">Delivery</span></span>
+        <span id="cashoutStatusBadge" class="inline-block mt-0.5 px-2 py-0.5 rounded text-[9px] font-black bg-brand-warning/15 text-brand-warning border border-brand-warning/30 uppercase tracking-wider">
+          Pendiente
+        </span>
+      </div>
+    </div>
   </header>
 
   <main class="p-5 space-y-5">
@@ -95,7 +103,7 @@
       </div>
 
       <p class="text-xs text-brand-textMuted max-w-[280px] mx-auto mt-2 leading-relaxed">
-        Efectivo a entregar a la administración central de <strong class="text-white">Todo Delivery</strong>.
+        Dinero a entregar a la administración central de <strong class="text-white">Todo <span class="text-[#FF7A00]">Delivery</span></strong>.
       </p>
     </section>
 
@@ -136,47 +144,6 @@
     </section>
 
     <!-- ============================================== -->
-    <!-- 4. QR DE VALIDACIÓN PARA LA ADMINISTRACIÓN     -->
-    <!-- ============================================== -->
-    <section class="bg-brand-surface border border-brand-border rounded-2xl p-5 text-center space-y-3">
-      <h3 class="text-xs font-bold text-white uppercase tracking-wide">Código de Cierre Rápido</h3>
-      <p class="text-[11px] text-brand-textMuted">
-        Muestra este código o token a la administración para conciliar la caja al instante.
-      </p>
-
-      <div class="w-36 h-36 mx-auto bg-white p-2.5 rounded-2xl flex items-center justify-center shadow-lg shadow-black/50">
-        <svg class="w-full h-full text-black" viewBox="0 0 100 100" fill="currentColor">
-          <rect x="0" y="0" width="30" height="30" />
-          <rect x="5" y="5" width="20" height="20" fill="white" />
-          <rect x="10" y="10" width="10" height="10" />
-
-          <rect x="70" y="0" width="30" height="30" />
-          <rect x="75" y="5" width="20" height="20" fill="white" />
-          <rect x="80" y="10" width="10" height="10" />
-
-          <rect x="0" y="70" width="30" height="30" />
-          <rect x="5" y="75" width="20" height="20" fill="white" />
-          <rect x="10" y="80" width="10" height="10" />
-
-          <rect x="40" y="10" width="10" height="20" />
-          <rect x="55" y="5" width="10" height="10" />
-          <rect x="35" y="35" width="30" height="30" />
-          <rect x="42" y="42" width="16" height="16" fill="white" />
-          <rect x="47" y="47" width="6" height="6" />
-
-          <rect x="70" y="40" width="10" height="15" />
-          <rect x="85" y="45" width="15" height="25" />
-          <rect x="40" y="75" width="20" height="10" />
-          <rect x="65" y="80" width="15" height="15" />
-        </svg>
-      </div>
-
-      <span id="cashoutToken" class="inline-block text-[11px] font-mono text-brand-textMuted tracking-widest bg-brand-surfaceLight px-3 py-1 rounded-md border border-brand-border">
-        TOKEN: #TD-CARGANDO
-      </span>
-    </section>
-
-    <!-- ============================================== -->
     <!-- 5. ACCIONES DE CIERRE Y REPORTE                -->
     <!-- ============================================== -->
     <div class="space-y-2.5 pt-2">
@@ -192,19 +159,6 @@
         </svg>
         Enviar Reporte por WhatsApp
       </a>
-
-      <!-- Botón de Confirmación y Cierre de Sesión -->
-      <button 
-        onclick="confirmCashout()" 
-        class="w-full py-4 px-5 rounded-2xl bg-brand-accent text-brand-bg font-black text-xs uppercase tracking-wider hover:bg-brand-accentHover active:scale-[0.98] transition-all shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-2"
-      >
-        <span>Confirmar Rendición y Salir</span>
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-        </svg>
-      </button>
-    </div>
-
   </main>
 
   <!-- LÓGICA DE CIERRE & SUPABASE -->
