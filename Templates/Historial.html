@@ -64,30 +64,30 @@
   <!-- ============================================== -->
   <!-- 1. HEADER                                      -->
   <!-- ============================================== -->
-  <header class="p-5 pt-7 flex items-center justify-between border-b border-brand-border/60 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-30">
-    <div class="flex items-center gap-3">
-      <button onclick="window.history.back()" class="w-10 h-10 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-textMuted active:scale-95 transition-transform">
+  <header class="px-4 sm:px-5 pb-4 pt-6 sm:pt-7 flex items-center justify-between gap-2 border-b border-brand-border/60 sticky top-0 bg-brand-bg/95 backdrop-blur-md z-30">
+    <div class="flex items-center gap-3 min-w-0">
+      <button onclick="window.history.back()" aria-label="Volver" class="w-10 h-10 shrink-0 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-textMuted active:scale-95 transition-transform">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
         </svg>
       </button>
-      <div>
-        <h1 class="text-base font-extrabold text-white">Historial & Ganancias</h1>
-        <p class="text-xs text-brand-textMuted mt-0.5">Auditoría de viajes completados</p>
+      <div class="min-w-0">
+        <h1 class="text-base font-extrabold text-white leading-tight truncate">Historial & Ganancias</h1>
+        <p class="text-xs text-brand-textMuted mt-0.5 truncate">Auditoría de viajes completados</p>
       </div>
     </div>
 
     <!-- Marca de la Empresa -->
     <div class="flex items-center gap-2 sm:gap-2.5 shrink-0 pl-1">
       <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-8 sm:h-9 w-auto max-w-[36px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" />
-      <div class="text-right leading-none">
+      <div class="hidden min-[400px]:block text-right leading-none">
         <span class="text-xs sm:text-sm font-black tracking-tight text-white block whitespace-nowrap">Todo <span class="text-[#FF7A00]">Delivery</span></span>
         <span class="text-[9px] sm:text-[10px] text-brand-textMuted uppercase font-bold tracking-wider block mt-0.5">Rider App</span>
       </div>
     </div>
   </header>
 
-  <main class="p-5 space-y-5">
+  <main class="p-4 sm:p-5 space-y-4 sm:space-y-5">
 
     <!-- ============================================== -->
     <!-- 2. SELECTOR DE PERÍODOS (TABS)                 -->
@@ -168,7 +168,7 @@
   <!-- 5. MODAL DETALLE DE VIAJE SELECCIONADO         -->
   <!-- ============================================== -->
   <div id="tripDetailModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-    <div id="tripDetailContent" class="w-full max-w-md bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-6 space-y-4 transform translate-y-full sm:translate-y-0 transition-transform duration-300">
+    <div id="tripDetailContent" class="w-full max-w-md max-h-[100dvh] overflow-y-auto bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4 transform translate-y-full sm:translate-y-0 transition-transform duration-300">
       
       <div class="flex items-start justify-between border-b border-brand-border/60 pb-3">
         <div class="flex items-center gap-2.5">
@@ -181,23 +181,23 @@
             <p id="modalAddress" class="text-xs text-brand-textMuted mt-0.5">Dirección de Entrega</p>
           </div>
         </div>
-        <button onclick="closeDetailModal()" class="w-8 h-8 rounded-full bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-textMuted hover:text-white">
+        <button onclick="closeDetailModal()" aria-label="Cerrar" class="w-10 h-10 shrink-0 rounded-full bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-textMuted hover:text-white">
           &times;
         </button>
       </div>
 
       <div class="space-y-2.5 text-xs">
-        <div class="flex justify-between">
+        <div class="flex justify-between gap-3">
           <span class="text-brand-textMuted font-medium">Hora de registro:</span>
-          <span id="modalTime" class="font-bold text-white">--:--</span>
+          <span id="modalTime" class="font-bold text-white text-right">--:--</span>
         </div>
-        <div class="flex justify-between">
+        <div class="flex justify-between gap-3">
           <span class="text-brand-textMuted font-medium">Paquete / Detalle:</span>
-          <span id="modalDistance" class="font-bold text-white">--</span>
+          <span id="modalDistance" class="font-bold text-white text-right">--</span>
         </div>
-        <div class="flex justify-between">
+        <div class="flex justify-between gap-3">
           <span class="text-brand-textMuted font-medium">Cobrado al cliente:</span>
-          <span id="modalPaymentType" class="font-bold text-brand-warning">Efectivo: $0</span>
+          <span id="modalPaymentType" class="font-bold text-brand-warning text-right">Efectivo: $0</span>
         </div>
         <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
           <span class="font-bold text-white">Tu Ganancia acreditada (<span data-comision-cadete>60%</span>):</span>
@@ -390,7 +390,7 @@
                   <span class="text-[10px] font-black text-brand-textMuted shrink-0">#${p.id_pedido}</span>
                   ${statusBadge}
                 </div>
-                <p class="text-xs text-brand-textMuted mt-0.5 truncate">
+                <p class="text-xs text-brand-textMuted mt-0.5 leading-snug">
                   ${fechaStr} ${horaStr} &bull; <span class="text-white font-medium">⏱️ ${duracionStr}</span> &bull; <strong class="text-brand-warning">Cobrado $${costo.toLocaleString('es-AR')}</strong>
                 </p>
               </div>

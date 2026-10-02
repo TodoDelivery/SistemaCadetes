@@ -2,8 +2,10 @@
 // CONEXIÓN REALTIME: PEDIDO EN CURSO (CANAL PRIVADO CADETE <-> CLIENTE)
 // =========================================================================
 import { supabase } from './conexion_supabase.js';
+import { crearHistorialChat } from './chat_pedido.js';
 
 let channelPedidoActivo = null;
+let historialChat = null; // chat del pedido: en vivo + guardado en Pedidos.Chat_pedido
 let geoWatchId = null;
 let pedidoActual = null;
 
@@ -18,11 +20,14 @@ const ESTADOS_PREVIOS = {
  * Inicia la suscripción al canal privado del pedido en curso.
  * Sincroniza:
  * 1. Transmisión de ubicación GPS del cadete en vivo (Cadete -> Cliente).
- * 2. Chat y mensajes en tiempo real (Cadete <-> Cliente).
+ * 2. Chat en tiempo real (Cadete <-> Cliente), guardado además en Pedidos.Chat_pedido.
  * 3. Actualización y escucha de estados del pedido (postgres_changes y broadcast).
  * 
  * @param {Object} pedido - Objeto con los datos del pedido (id_pedido, id_cadete, id_cliente, etc.)
- * @param {Object} callbacks - Callbacks para eventos: onMensaje, onCambioEstado, onUbicacion
+ * @param {Object} callbacks - Callbacks para eventos:
+ *   onChat(lista): cambió el chat (historial, mensaje propio o del cliente); la lista viene completa y ordenada
+ *   onMensaje(mensaje): llegó un mensaje nuevo del cliente (para avisar)
+ *   onCambioEstado(estado)
  */
 export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
   if (!pedido || !pedido.id_pedido) {
@@ -37,6 +42,28 @@ export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
 
   console.log(`[RT Pedido Activo] Conectando canal privado para Pedido #${idPedido} (Cadete: ${idCadete} <-> Cliente: ${idCliente})`);
 
+  // Historial del chat: arranca con lo que ya estaba guardado en el pedido
+  if (historialChat) historialChat.cerrar();
+  historialChat = crearHistorialChat({
+    idPedido,
+    remitente: 'cadete',
+    idEmisor: idCadete,
+    filtro: idCadete != null ? { id_cadete: idCadete } : {},
+    inicial: pedido.Chat_pedido,
+    alCambiar: (lista) => {
+      if (typeof callbacks.onChat === 'function') callbacks.onChat(lista);
+    },
+    alRecibir: (nuevos) => {
+      nuevos.forEach((mensaje) => {
+        if (typeof callbacks.onMensaje === 'function') callbacks.onMensaje(mensaje);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('nuevoMensajeChat', { detail: mensaje }));
+        }
+      });
+    }
+  });
+  if (typeof callbacks.onChat === 'function') callbacks.onChat(historialChat.lista());
+
   // Canal privado único por pedido
   channelPedidoActivo = supabase.channel(`pedido-en-curso-${idPedido}`, {
     config: { broadcast: { ack: true } }
@@ -48,13 +75,8 @@ export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
     // ---------------------------------------------------------------------
     .on('broadcast', { event: 'mensaje_chat' }, ({ payload }) => {
       console.log('[RT Chat] Mensaje recibido:', payload);
-      // Notificar si el mensaje proviene del cliente o del sistema
-      if (typeof callbacks.onMensaje === 'function') {
-        callbacks.onMensaje(payload);
-      }
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('nuevoMensajeChat', { detail: payload }));
-      }
+      // El historial descarta repetidos y avisa por onChat / onMensaje
+      historialChat?.registrar(payload);
     })
 
     // ---------------------------------------------------------------------
@@ -76,6 +98,8 @@ export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
       },
       (payload) => {
         console.log('[RT DB Pedido] Actualización en tabla Pedidos:', payload.new);
+        // Mensajes guardados por el cliente que no llegaron en vivo
+        if (payload.new) historialChat?.fusionar(payload.new.Chat_pedido);
         if (typeof callbacks.onCambioEstado === 'function') {
           callbacks.onCambioEstado(payload.new);
         }
@@ -88,6 +112,9 @@ export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         console.log(`[RT Pedido Activo] Canal pedido-en-curso-${idPedido} conectado.`);
+
+        // Al conectar o reconectar: traer lo que se guardó mientras no había canal
+        historialChat?.sincronizar();
 
         // Notificar presencia y patente inicial del cadete al cliente
         const patente = pedidoActual?.patente_cadete || pedidoActual?.patente || '';
@@ -159,35 +186,42 @@ function iniciarTransmisionGPS(idPedido, idCadete) {
 }
 
 /**
- * Envía un mensaje de chat al cliente a través del canal Realtime
- * 
+ * Envía un mensaje de chat al cliente: primero en vivo por el canal Realtime y después lo guarda en
+ * Pedidos.Chat_pedido. Si el cliente no está conectado, lo lee al volver a abrir el pedido.
+ *
  * @param {string} texto - Contenido del mensaje
- * @returns {Promise<Object>} El objeto del mensaje enviado
+ * @returns {Promise<Object|null>} El mensaje, con `enviado: false` si no salió ni en vivo ni a la BD
  */
 export async function enviarMensajeChat(texto) {
-  if (!channelPedidoActivo || !pedidoActual) {
+  if (!channelPedidoActivo || !pedidoActual || !historialChat) {
     console.error('[RT Chat] No hay un canal de pedido activo para enviar el mensaje.');
     return null;
   }
+  if (!texto || !texto.trim()) return null;
 
-  const mensaje = {
-    id_mensaje: `msg_${Date.now()}`,
-    id_pedido: pedidoActual.id_pedido,
-    id_emisor: pedidoActual.id_cadete,
-    id_receptor: pedidoActual.id_cliente,
-    remitente: 'cadete',
-    texto: texto.trim(),
-    hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    timestamp: new Date().toISOString()
-  };
+  const mensaje = historialChat.crearMensaje(texto, pedidoActual.id_cliente); // se pinta por onChat
 
-  await channelPedidoActivo.send({
-    type: 'broadcast',
-    event: 'mensaje_chat',
-    payload: mensaje
-  });
+  let enVivo = false;
+  try {
+    enVivo = (await channelPedidoActivo.send({
+      type: 'broadcast',
+      event: 'mensaje_chat',
+      payload: mensaje
+    })) === 'ok';
+  } catch (err) {
+    console.warn('[RT Chat] No se pudo enviar el mensaje en vivo:', err);
+  }
+  const guardado = await historialChat?.sincronizar();
 
-  return mensaje;
+  return { ...mensaje, enviado: Boolean(enVivo || guardado) };
+}
+
+/**
+ * true si el mensaje ya está guardado en Pedidos.Chat_pedido
+ * @param {string} idMensaje
+ */
+export function mensajeChatGuardado(idMensaje) {
+  return Boolean(historialChat?.estaGuardado(idMensaje));
 }
 
 /**
@@ -268,6 +302,11 @@ export async function desconectarPedidoActivo() {
     geoWatchId = null;
   }
 
+  if (historialChat) {
+    historialChat.cerrar();
+    historialChat = null;
+  }
+
   if (channelPedidoActivo) {
     await supabase.removeChannel(channelPedidoActivo);
     channelPedidoActivo = null;
@@ -281,6 +320,7 @@ export async function desconectarPedidoActivo() {
 if (typeof window !== 'undefined') {
   window.iniciarSuscripcionPedidoActivo = iniciarSuscripcionPedidoActivo;
   window.enviarMensajeChat = enviarMensajeChat;
+  window.mensajeChatGuardado = mensajeChatGuardado;
   window.actualizarEstadoPedidoEnCurso = actualizarEstadoPedidoEnCurso;
   window.actualizarDatosCadetePedidoActivo = actualizarDatosCadetePedidoActivo;
   window.desconectarPedidoActivo = desconectarPedidoActivo;
@@ -289,6 +329,7 @@ if (typeof window !== 'undefined') {
 export default {
   iniciarSuscripcionPedidoActivo,
   enviarMensajeChat,
+  mensajeChatGuardado,
   actualizarEstadoPedidoEnCurso,
   actualizarDatosCadetePedidoActivo,
   desconectarPedidoActivo

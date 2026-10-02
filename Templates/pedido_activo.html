@@ -61,7 +61,7 @@
       color: #FFFFFF;
       overflow-x: hidden;
       min-height: 100dvh;
-      width: 100vw;
+      width: 100%;
     }
 
     .leaflet-container {
@@ -124,18 +124,6 @@
       <!-- Fondo Mapa Real Interactivo (OpenStreetMap Dark Mode vía CSS) -->
       <div id="liveMap" class="absolute inset-0 z-0 w-full h-full"></div>
 
-      <!-- Botón Recentrar GPS -->
-      <button 
-        type="button"
-        onclick="recenterMap()" 
-        class="z-20 absolute right-4 bottom-72 w-12 h-12 rounded-2xl bg-brand-surface/90 border border-brand-border backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform shadow-xl hover:border-brand-accent/50" 
-        title="Centrar mi GPS"
-      >
-        <svg class="w-6 h-6 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-          <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-        </svg>
-      </button>
-
       <!-- Banner de Navegación Superior -->
       <header class="relative z-10 mx-3 mt-3 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-3xl p-4 shadow-2xl flex items-center gap-3">
         <div id="navManeuverBox" class="w-16 h-16 rounded-2xl bg-brand-accent flex items-center justify-center text-brand-black shrink-0 shadow-lg">
@@ -157,28 +145,40 @@
       </header>
 
       <!-- Bottom Sheet de Operación -->
-      <footer class="relative z-10 bg-brand-surface/95 backdrop-blur-2xl border-t border-brand-border rounded-t-[32px] p-5 pb-7 shadow-2xl space-y-4 max-w-md mx-auto w-full">
+      <footer class="relative z-10 bg-brand-surface/95 backdrop-blur-2xl border-t border-brand-border rounded-t-[32px] p-4 sm:p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl space-y-3.5 sm:space-y-4 max-w-md mx-auto w-full">
+        <!-- Botón Recentrar GPS: pegado arriba de la hoja, sea cual sea su alto -->
+        <button
+          type="button"
+          onclick="recenterMap()"
+          class="absolute right-4 -top-16 w-12 h-12 rounded-2xl bg-brand-surface/90 border border-brand-border backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform shadow-xl hover:border-brand-accent/50"
+          title="Centrar mi GPS"
+        >
+          <svg class="w-6 h-6 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+          </svg>
+        </button>
+
         <div class="w-12 h-1 bg-brand-border rounded-full mx-auto -mt-1 mb-2"></div>
 
-        <div class="flex items-center justify-between">
-          <div>
-            <span id="phaseTag" class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <span id="phaseTag" class="inline-block whitespace-nowrap text-[10px] font-black uppercase tracking-wider min-[360px]:tracking-widest px-2.5 py-1 rounded-md bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
               PASO 1 DE 2 &bull; RETIRO
             </span>
-            <h2 id="destinationTitle" class="text-xl font-black text-white mt-1.5 tracking-tight">Empanadas Don Luis</h2>
+            <h2 id="destinationTitle" class="text-lg sm:text-xl font-black text-white mt-1.5 tracking-tight leading-tight break-words">Empanadas Don Luis</h2>
             <p id="orderIdText" class="text-xs font-bold text-brand-textMuted mt-0.5">Orden #4820 &bull; 2 ítems</p>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 shrink-0">
             <!-- Botón Reportar Problema Rápido -->
-            <button onclick="openIncidentModal()" class="w-12 h-12 rounded-2xl bg-brand-surfaceLight border border-brand-danger/40 flex items-center justify-center text-brand-danger active:scale-90 transition-transform" title="Reportar Incidencia">
+            <button onclick="openIncidentModal()" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-brand-surfaceLight border border-brand-danger/40 flex items-center justify-center text-brand-danger active:scale-90 transition-transform" title="Reportar Incidencia">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
               </svg>
             </button>
 
             <!-- Botón Chat con el Cliente en Tiempo Real -->
-            <button onclick="openChatModal()" class="relative w-12 h-12 rounded-2xl bg-brand-surfaceLight border border-brand-accent/40 flex items-center justify-center text-brand-accent active:scale-90 transition-transform shadow-lg shadow-brand-accent/10" title="Chat con Cliente">
+            <button onclick="openChatModal()" class="relative w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-brand-surfaceLight border border-brand-accent/40 flex items-center justify-center text-brand-accent active:scale-90 transition-transform shadow-lg shadow-brand-accent/10" title="Chat con Cliente">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
               </svg>
@@ -186,7 +186,7 @@
             </button>
 
             <!-- Botón Llamar -->
-            <a id="clientPhoneLink" href="tel:549264000000" class="w-12 h-12 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent active:scale-90 transition-transform" title="Llamar">
+            <a id="clientPhoneLink" href="tel:549264000000" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent active:scale-90 transition-transform" title="Llamar">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
               </svg>
@@ -194,12 +194,12 @@
           </div>
         </div>
 
-        <div id="cashBanner" class="p-3.5 bg-brand-surfaceLight rounded-2xl border border-brand-warning/30 flex items-center justify-between">
+        <div id="cashBanner" class="p-3.5 bg-brand-surfaceLight rounded-2xl border border-brand-warning/30 flex items-center justify-between gap-2 flex-wrap">
           <div class="flex items-center gap-2.5">
-            <span class="w-2.5 h-2.5 rounded-full bg-brand-warning"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-brand-warning shrink-0"></span>
             <span class="text-xs font-bold text-brand-textMuted uppercase tracking-wide">Cobro en Destino:</span>
           </div>
-          <span class="text-sm font-black text-brand-warning tracking-tight">$8.500 EFECTIVO</span>
+          <span id="cashBannerAmount" class="text-sm font-black text-brand-warning tracking-tight whitespace-nowrap">$8.500 EFECTIVO</span>
         </div>
 
         <!-- Botón Deslizante con Rastro -->
@@ -207,13 +207,13 @@
           <div id="swipeFill" class="absolute left-0 top-0 bottom-0 w-0 bg-brand-accent rounded-2xl pointer-events-none transition-none"></div>
 
           <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span id="swipeLabelBase" class="text-xs font-black tracking-widest text-brand-textMuted/70 uppercase pl-8">
+            <span id="swipeLabelBase" class="text-[11px] sm:text-xs leading-tight font-black tracking-wider sm:tracking-widest text-center text-brand-textMuted/70 uppercase pl-[4.5rem] pr-3">
               Deslizar al retirar pedido &gt;&gt;
             </span>
           </div>
 
           <div id="swipeLabelClip" class="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style="clip-path: inset(0 100% 0 0);">
-            <span id="swipeLabelActive" class="text-xs font-black tracking-widest text-black uppercase pl-8">
+            <span id="swipeLabelActive" class="text-[11px] sm:text-xs leading-tight font-black tracking-wider sm:tracking-widest text-center text-black uppercase pl-[4.5rem] pr-3">
               Deslizar al retirar pedido &gt;&gt;
             </span>
           </div>
@@ -230,10 +230,10 @@
     <!-- ======================================================== -->
     <!-- TEMPLATE 2: PANTALLA COMPLETA DE COBRO Y CIERRE DE VIAJE -->
     <!-- ======================================================== -->
-    <main id="view-checkout" class="view-screen flex-col flex-1 min-h-[100dvh] bg-brand-bg p-5 justify-between">
+    <main id="view-checkout" class="view-screen flex-col flex-1 min-h-[100dvh] bg-brand-bg p-4 sm:p-5 pb-[max(1rem,env(safe-area-inset-bottom))] justify-between">
       
       <!-- Header Superior -->
-      <header class="pt-2 flex items-center justify-between border-b border-brand-border/60 pb-3">
+      <header class="pt-2 flex items-center justify-between gap-2 border-b border-brand-border/60 pb-3">
         <button onclick="switchScreen('view-route')" class="w-10 h-10 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center text-brand-textMuted active:scale-95 transition-transform">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
@@ -271,17 +271,17 @@
 
         <!-- Datos del Cliente -->
         <section class="bg-brand-surface border border-brand-border rounded-2xl p-4 space-y-1.5 text-xs">
-          <div class="flex justify-between items-center">
-            <span class="text-brand-textMuted">Cliente:</span>
-            <span id="checkoutClientName" class="font-extrabold text-white">Lucas Benítez</span>
+          <div class="flex justify-between items-start gap-3">
+            <span class="text-brand-textMuted shrink-0">Cliente:</span>
+            <span id="checkoutClientName" class="font-extrabold text-white text-right break-words min-w-0">Lucas Benítez</span>
           </div>
-          <div class="flex justify-between items-center">
-            <span class="text-brand-textMuted">Dirección:</span>
-            <span id="checkoutClientAddress" class="font-bold text-white">Calle San Martín 1234, 4° B</span>
+          <div class="flex justify-between items-start gap-3">
+            <span class="text-brand-textMuted shrink-0">Dirección:</span>
+            <span id="checkoutClientAddress" class="font-bold text-white text-right break-words min-w-0">Calle San Martín 1234, 4° B</span>
           </div>
-          <div class="flex justify-between items-center">
-            <span class="text-brand-textMuted">Pedido:</span>
-            <span id="checkoutOrderDetails" class="font-medium text-brand-textMuted">#4820 (1x Docena Empanadas + 1x Coca-Cola)</span>
+          <div class="flex justify-between items-start gap-3">
+            <span class="text-brand-textMuted shrink-0">Pedido:</span>
+            <span id="checkoutOrderDetails" class="font-medium text-brand-textMuted text-right break-words min-w-0">#4820 (1x Docena Empanadas + 1x Coca-Cola)</span>
           </div>
         </section>
 
@@ -358,7 +358,7 @@
     <!-- MODAL DE REPORTE DE PROBLEMAS / INCIDENCIAS EN RUTA      -->
     <!-- ======================================================== -->
     <div id="incidentModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-      <div id="incidentModalContent" class="w-full max-w-md bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-6 space-y-4 transform translate-y-full sm:translate-y-0 transition-transform duration-300">
+      <div id="incidentModalContent" class="w-full max-w-md max-h-[100dvh] overflow-y-auto bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4 transform translate-y-full sm:translate-y-0 transition-transform duration-300">
         
         <div class="flex items-start justify-between border-b border-brand-border/60 pb-3">
           <div class="flex items-center gap-2.5">
@@ -406,19 +406,19 @@
         
         <!-- Header del Chat -->
         <div class="p-4 border-b border-brand-border/60 flex items-center justify-between bg-brand-surfaceLight/50">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent font-extrabold text-xs">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent font-extrabold text-xs shrink-0">
               <span id="chatClientInitials">CL</span>
             </div>
-            <div>
-              <h3 id="chatClientName" class="text-sm font-extrabold text-white">Lucas Benítez (Cliente)</h3>
+            <div class="min-w-0">
+              <h3 id="chatClientName" class="text-sm font-extrabold text-white truncate">Lucas Benítez (Cliente)</h3>
               <p class="text-[10px] text-brand-accent flex items-center gap-1 font-bold">
                 <span class="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse"></span>
-                Canal Realtime Activo
+                Chat en vivo &bull; queda guardado en el pedido
               </p>
             </div>
           </div>
-          <button onclick="closeChatModal()" class="w-8 h-8 rounded-full bg-brand-surface border border-brand-border flex items-center justify-center text-brand-textMuted hover:text-white">
+          <button onclick="closeChatModal()" aria-label="Cerrar chat" class="w-10 h-10 rounded-full bg-brand-surface border border-brand-border flex items-center justify-center text-lg text-brand-textMuted hover:text-white shrink-0">
             &times;
           </button>
         </div>
@@ -434,25 +434,25 @@
 
         <!-- Respuestas Rápidas -->
         <div class="px-3 py-1.5 bg-brand-surfaceLight/30 border-t border-brand-border/40 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <button onclick="sendQuickReply('¡Hola! Ya estoy en camino con tu pedido 🛵')" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
+          <button onclick="sendQuickReply('¡Hola! Ya estoy en camino con tu pedido 🛵')" class="whitespace-nowrap px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
             🛵 En camino
           </button>
-          <button onclick="sendQuickReply('¡Ya estoy en la puerta! 📍')" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
+          <button onclick="sendQuickReply('¡Ya estoy en la puerta! 📍')" class="whitespace-nowrap px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
             📍 En la puerta
           </button>
-          <button onclick="sendQuickReply('Esperando que preparen el pedido ⏳')" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
+          <button onclick="sendQuickReply('Esperando que preparen el pedido ⏳')" class="whitespace-nowrap px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
             ⏳ Esperando pedido
           </button>
         </div>
 
         <!-- Input y Botón de Envío -->
-        <form onsubmit="handleSendChat(event)" class="p-3 border-t border-brand-border/60 bg-brand-surface flex items-center gap-2">
+        <form onsubmit="handleSendChat(event)" class="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-brand-border/60 bg-brand-surface flex items-center gap-2">
           <input 
             id="chatInput" 
             type="text" 
             placeholder="Escribe un mensaje al cliente..." 
             autocomplete="off"
-            class="flex-1 px-4 py-3 bg-brand-surfaceLight border border-brand-border rounded-xl text-white placeholder-brand-textMuted/50 text-xs font-medium focus:outline-none focus:border-brand-accent"
+            class="flex-1 min-w-0 px-4 py-3 bg-brand-surfaceLight border border-brand-border rounded-xl text-white placeholder-brand-textMuted/50 text-sm font-medium focus:outline-none focus:border-brand-accent"
           />
           <button 
             type="submit" 
@@ -478,6 +478,7 @@
     import {
       iniciarSuscripcionPedidoActivo,
       enviarMensajeChat,
+      mensajeChatGuardado,
       actualizarEstadoPedidoEnCurso,
       desconectarPedidoActivo
     } from '../Scripts/conexion_rt_pedido_en_curso.js';
@@ -487,6 +488,10 @@
     let orderTotal = 8500;
     let inputCashStr = "0";
     let isChatOpen = false;
+    const chatBubbles = new Map();   // id_mensaje -> { row, timeLabel, hora }
+    const chatNoEnviados = new Set(); // mensajes propios que no salieron ni en vivo ni a la BD
+    let chatMensajes = [];           // última lista completa del chat
+    let chatVistoHasta = '';         // timestamp del último mensaje del cliente que el cadete ya vio
 
     // Mapa Leaflet y Capas
     let map = null;
@@ -569,8 +574,10 @@
       iniciarRastreoGPSYMapa();
 
       // 5. Iniciar suscripción Realtime (Canal privado de chat y estado)
+      chatVistoHasta = localStorage.getItem(`chat_visto_${pedidoActivo.id_pedido}`) || '';
       iniciarSuscripcionPedidoActivo(pedidoActivo, {
-        onMensaje: (msg) => renderizarMensajeEntrante(msg),
+        onChat: (lista) => renderizarChat(lista),
+        onMensaje: (msg) => avisarMensajeEntrante(msg),
         onCambioEstado: async (estadoObj) => {
           console.log('Estado actualizado por RT:', estadoObj);
           const st = typeof estadoObj === 'string' ? estadoObj : estadoObj?.estado_pedido;
@@ -661,7 +668,7 @@
       document.getElementById('destinationTitle').innerText = storeName;
       const tagPatente = pedidoActivo.patente_cadete ? ` • Pat: [${pedidoActivo.patente_cadete}]` : '';
       document.getElementById('orderIdText').innerText = `Orden #${pedidoActivo.id_pedido} • ${pedidoActivo.tipo_paquete || 'Pedido'}${tagPatente}`;
-      document.getElementById('cashBanner').querySelector('span:last-child').innerText = `$${orderTotal.toLocaleString('es-AR')} EFECTIVO`;
+      document.getElementById('cashBannerAmount').innerText = `$${orderTotal.toLocaleString('es-AR')} EFECTIVO`;
 
       // Teléfono del cliente
       const phoneLink = document.getElementById('clientPhoneLink');
@@ -1113,7 +1120,7 @@
         actualizarEstadoPedidoEnCurso('en_camino_entrega');
 
         document.getElementById('phaseTag').innerText = 'PASO 2 DE 2 • ENTREGA';
-        document.getElementById('phaseTag').className = 'text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md bg-brand-warning/15 text-brand-warning border border-brand-warning/30';
+        document.getElementById('phaseTag').className = 'inline-block whitespace-nowrap text-[10px] font-black uppercase tracking-wider min-[360px]:tracking-widest px-2.5 py-1 rounded-md bg-brand-warning/15 text-brand-warning border border-brand-warning/30';
         document.getElementById('destinationTitle').innerText = pedidoActivo.cliente_nombre ? `${pedidoActivo.cliente_nombre} (Cliente)` : 'Cliente Destino';
         document.getElementById('orderIdText').innerText = `Entregar a ${pedidoActivo.cliente_nombre || 'Cliente'}`;
         
@@ -1139,12 +1146,10 @@
       isChatOpen = true;
       const modal = document.getElementById('chatModal');
       const content = document.getElementById('chatModalContent');
-      const unreadDot = document.getElementById('chatUnreadDot');
-
-      if (unreadDot) unreadDot.classList.add('hidden');
 
       modal.classList.remove('opacity-0', 'pointer-events-none');
       content.classList.remove('translate-y-full');
+      actualizarNoLeidosChat();
       scrollChatToBottom();
     };
 
@@ -1164,61 +1169,95 @@
       if (!text) return;
 
       input.value = '';
-
-      // Renderizar mensaje propio inmediatamente
-      appendMessageToUI({
-        remitente: 'cadete',
-        texto: text,
-        hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      });
-
-      // Enviar por Supabase Realtime
-      await enviarMensajeChat(text);
+      await enviarYMarcar(text);
     };
 
     window.sendQuickReply = async function(text) {
-      appendMessageToUI({
-        remitente: 'cadete',
-        texto: text,
-        hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      });
-
-      await enviarMensajeChat(text);
+      await enviarYMarcar(text);
     };
 
-    function renderizarMensajeEntrante(msg) {
-      if (!msg || !msg.texto) return;
-      if (msg.remitente === 'cadete') return;
-
-      appendMessageToUI(msg);
-
-      if (!isChatOpen) {
-        const unreadDot = document.getElementById('chatUnreadDot');
-        if (unreadDot) unreadDot.classList.remove('hidden');
-        if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
+    // El mensaje se pinta solo (onChat). Va primero por Realtime y después queda guardado en el pedido
+    async function enviarYMarcar(text) {
+      const mensaje = await enviarMensajeChat(text);
+      if (mensaje && !mensaje.enviado && !mensajeChatGuardado(mensaje.id_mensaje)) {
+        chatNoEnviados.add(mensaje.id_mensaje);
+        renderizarChat(chatMensajes);
       }
     }
 
-    function appendMessageToUI(msg) {
+    // Pinta los mensajes que faltan en pantalla, cada uno en su lugar según la hora en que se envió
+    function renderizarChat(lista) {
+      chatMensajes = lista;
       const list = document.getElementById('chatMessagesList');
+      let agregados = 0;
+
+      lista.forEach((msg, i) => {
+        if (chatBubbles.has(msg.id_mensaje)) return;
+        const bubble = crearBurbujaChat(msg);
+        const siguiente = lista.slice(i + 1).map(m => chatBubbles.get(m.id_mensaje)?.row).find(Boolean);
+        list.insertBefore(bubble.row, siguiente || null);
+        chatBubbles.set(msg.id_mensaje, bubble);
+        agregados++;
+      });
+
+      // Los que habían fallado se siguen reintentando: al guardarse se les saca el aviso
+      for (const id of chatNoEnviados) {
+        const bubble = chatBubbles.get(id);
+        const guardado = mensajeChatGuardado(id);
+        if (guardado) chatNoEnviados.delete(id);
+        if (!bubble) continue;
+        bubble.timeLabel.textContent = guardado ? bubble.hora : `${bubble.hora} · No enviado`;
+        bubble.timeLabel.classList.toggle('text-brand-danger', !guardado);
+        bubble.timeLabel.classList.toggle('text-brand-textMuted', guardado);
+      }
+
+      if (agregados) scrollChatToBottom();
+      actualizarNoLeidosChat();
+    }
+
+    // El texto se inserta como texto plano (textContent): nunca como HTML
+    function crearBurbujaChat(msg) {
       const isMine = msg.remitente === 'cadete';
+      const hora = msg.hora || 'Ahora';
+
+      const row = document.createElement('div');
+      row.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} space-y-1`;
 
       const bubble = document.createElement('div');
-      bubble.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} space-y-1`;
+      bubble.className = `max-w-[80%] p-3 rounded-2xl ${
+        isMine
+          ? 'bg-brand-accent text-brand-black rounded-tr-sm font-bold'
+          : 'bg-brand-surfaceLight border border-brand-border text-white rounded-tl-sm'
+      }`;
 
-      bubble.innerHTML = `
-        <div class="max-w-[80%] p-3 rounded-2xl ${
-          isMine
-            ? 'bg-brand-accent text-brand-black rounded-tr-sm font-bold'
-            : 'bg-brand-surfaceLight border border-brand-border text-white rounded-tl-sm'
-        }">
-          <p class="leading-relaxed">${msg.texto}</p>
-        </div>
-        <span class="text-[10px] text-brand-textMuted px-1">${msg.hora || 'Ahora'}</span>
-      `;
+      const text = document.createElement('p');
+      text.className = 'leading-relaxed break-words whitespace-pre-wrap';
+      text.textContent = String(msg.texto ?? '');
+      bubble.appendChild(text);
 
-      list.appendChild(bubble);
-      scrollChatToBottom();
+      const timeLabel = document.createElement('span');
+      timeLabel.className = 'text-[10px] text-brand-textMuted px-1';
+      timeLabel.textContent = hora;
+
+      row.append(bubble, timeLabel);
+      return { row, timeLabel, hora };
+    }
+
+    // Punto de no leídos: mensajes del cliente posteriores al último visto (se recuerda entre visitas)
+    function actualizarNoLeidosChat() {
+      const ultimo = chatMensajes.filter(m => m.remitente !== 'cadete').at(-1)?.timestamp || '';
+
+      if (isChatOpen && ultimo > chatVistoHasta) {
+        chatVistoHasta = ultimo;
+        localStorage.setItem(`chat_visto_${pedidoActivo.id_pedido}`, ultimo);
+      }
+      const unreadDot = document.getElementById('chatUnreadDot');
+      if (unreadDot) unreadDot.classList.toggle('hidden', !(ultimo > chatVistoHasta));
+    }
+
+    function avisarMensajeEntrante(msg) {
+      if (!msg || isChatOpen) return;
+      if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
     }
 
     function scrollChatToBottom() {
@@ -1363,7 +1402,7 @@
       // Limpieza exhaustiva de cualquier clave residual de pedidos o rechazos
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const k = localStorage.key(i);
-        if (k && (k.startsWith('rejected_orders_') || k.startsWith('active_order_') || k.startsWith('order_start_time_'))) {
+        if (k && (k.startsWith('rejected_orders_') || k.startsWith('active_order_') || k.startsWith('order_start_time_') || k.startsWith('chat_visto_'))) {
           localStorage.removeItem(k);
         }
       }
