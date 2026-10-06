@@ -13,6 +13,17 @@ let currentCoords = { lat: -31.5375, lng: -68.5364 }; // San Juan (Fallback)
 // La app de clientes solo usa coords con coords_ts para asignar el pedido al cadete más cercano.
 let currentCoordsTs = null;
 
+// Reconexión: si el canal se cae (red, pantalla bloqueada, pestaña en segundo plano) el cadete tiene que
+// volver a anunciarse solo; si no, sigue "conectado" en su pantalla pero invisible para el admin y el motor.
+let quiereConexion = false;      // true entre iniciar y desconectar a propósito
+let generacion = 0;              // invalida los estados de canales viejos (ej: el CLOSED de uno que se está reemplazando)
+let ultimoCadete = null;
+let ultimoCallback = null;
+let temporizadorReconexion = null;
+let intentosReconexion = 0;
+let temporizadorLatido = null;
+const LATIDO_PRESENCIA_MS = 15000;
+
 /**
  * Inicia la doble suscripción en Supabase Realtime:
  * 1. Canal 'cadetes-disponibles' (Presence): Transmite conexión, estado y ubicación GPS al backend.
@@ -28,8 +39,13 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
   }
 
   // 1. Limpiar suscripciones previas si ya existían para garantizar reconexión limpia
-  await desconectarSuscripcionesDashboard();
+  const miGeneracion = ++generacion;
+  await limpiarSuscripciones();
+  if (miGeneracion !== generacion) return; // otra llamada más nueva tomó el control mientras se limpiaba
 
+  quiereConexion = true;
+  ultimoCadete = cadete;
+  ultimoCallback = onNuevoPedido;
   cadeteSession = cadete;
   currentCadetState = cadete.estado_cad || 'disponible';
   const idCadete = Number(cadete.id_cad);
@@ -66,6 +82,10 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       console.log(`[Realtime Presence] Estado suscripción "cadetes-disponibles": ${status}`);
       if (status === 'SUBSCRIBED') {
         console.log(`[Realtime Presence] Cadete #${idCadete} conectado exitosamente a "cadetes-disponibles"`);
+
+        if (miGeneracion !== generacion) return;
+        intentosReconexion = 0;
+        iniciarLatidoPresencia();
 
         // Transmisión inicial de presencia, estado, patente y ubicación
         await channelPresence.track({
@@ -105,6 +125,7 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
         }
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         console.warn(`[Realtime Presence] Canal de presencia en estado ${status}:`, err);
+        if (miGeneracion === generacion) programarReconexion();
       }
     });
 
@@ -202,6 +223,7 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
         console.log(`[Realtime Pedidos] Escuchando asignaciones para cadete #${idCadete}`);
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         console.warn(`[Realtime Pedidos] Canal de pedidos en estado ${status}:`, err);
+        if (miGeneracion === generacion) programarReconexion();
       }
     });
 
@@ -266,6 +288,56 @@ function procesarNuevoPedido(pedido, callback) {
  * Desconecta los canales y detiene el rastreo de GPS de forma limpia
  */
 export async function desconectarSuscripcionesDashboard() {
+  quiereConexion = false;
+  generacion++;
+  await limpiarSuscripciones();
+}
+
+function programarReconexion() {
+  if (!quiereConexion || temporizadorReconexion || !ultimoCadete) return;
+  const espera = Math.min(1000 * 2 ** intentosReconexion, 15000);
+  intentosReconexion++;
+  console.warn(`[Realtime] Reconectando presencia en ${espera} ms (intento ${intentosReconexion})...`);
+  temporizadorReconexion = setTimeout(() => {
+    temporizadorReconexion = null;
+    if (quiereConexion && ultimoCadete) iniciarSuscripcionesDashboard(ultimoCadete, ultimoCallback);
+  }, espera);
+}
+
+// Cada pocos segundos se vuelve a publicar la presencia: si el servidor la perdió (reconexión del socket,
+// pestaña dormida) se recupera sola, y si el canal ya no está unido se rehace entero.
+function iniciarLatidoPresencia() {
+  if (temporizadorLatido) clearInterval(temporizadorLatido);
+  temporizadorLatido = setInterval(verificarPresencia, LATIDO_PRESENCIA_MS);
+}
+
+async function verificarPresencia() {
+  if (!quiereConexion || !ultimoCadete) return;
+  if (!channelPresence || channelPresence.state !== 'joined') {
+    programarReconexion();
+    return;
+  }
+  try {
+    await actualizarEstadoPresencia(currentCadetState);
+  } catch (e) {
+    programarReconexion();
+  }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') verificarPresencia();
+  });
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', verificarPresencia);
+  window.addEventListener('pageshow', verificarPresencia);
+}
+
+async function limpiarSuscripciones() {
+  if (temporizadorLatido) { clearInterval(temporizadorLatido); temporizadorLatido = null; }
+  if (temporizadorReconexion) { clearTimeout(temporizadorReconexion); temporizadorReconexion = null; }
+
   if (geoWatchId !== null && 'geolocation' in navigator) {
     navigator.geolocation.clearWatch(geoWatchId);
     geoWatchId = null;
