@@ -23,6 +23,7 @@ let temporizadorReconexion = null;
 let intentosReconexion = 0;
 let temporizadorLatido = null;
 const LATIDO_PRESENCIA_MS = 15000;
+const REINTENTO_RECONEXION_MS = 200; // espera fija entre reintentos de presencia (sin backoff)
 
 /**
  * Inicia la doble suscripción en Supabase Realtime:
@@ -295,7 +296,7 @@ export async function desconectarSuscripcionesDashboard() {
 
 function programarReconexion() {
   if (!quiereConexion || temporizadorReconexion || !ultimoCadete) return;
-  const espera = Math.min(1000 * 2 ** intentosReconexion, 15000);
+  const espera = REINTENTO_RECONEXION_MS;
   intentosReconexion++;
   console.warn(`[Realtime] Reconectando presencia en ${espera} ms (intento ${intentosReconexion})...`);
   temporizadorReconexion = setTimeout(() => {

@@ -165,6 +165,8 @@
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
     import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
+    import { iniciarAvisoPedidoEntrante, detenerAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
+    import { mostrarPantallaCarga } from '../Scripts/pantalla_carga.js';
 
     const urlParams = new URLSearchParams(window.location.search);
     const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
@@ -205,6 +207,7 @@
     };
 
     window.addEventListener('DOMContentLoaded', async () => {
+      iniciarAvisoPedidoEntrante(cadeteActual);
       await calcularRendicionDiaria();
     });
 
@@ -305,6 +308,8 @@
 
       if (confirm(`¿Confirmas la rendición de $${summaryData.montoRendir.toLocaleString('es-AR')} con Token #${summaryData.token}?\n\nLos pedidos pendientes se marcarán como 'rendidos' y se cerrará tu sesión de cadete.`)) {
         if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
+        mostrarPantallaCarga('Cerrando sesión...');
+        try { await detenerAvisoPedidoEntrante(); } catch (e) { }
 
         try {
           const hoyInicio = new Date();

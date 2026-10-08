@@ -218,6 +218,7 @@
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
     import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
+    import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
 
     let currentPeriod = 'today';
     let pedidosCache = [];
@@ -254,6 +255,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      iniciarAvisoPedidoEntrante(cadeteActual);
       cargarHistorial('today');
     });
 

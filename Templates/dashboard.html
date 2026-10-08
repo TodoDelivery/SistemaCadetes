@@ -687,6 +687,7 @@
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
     import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
+    import { mostrarPantallaCarga } from '../Scripts/pantalla_carga.js';
     import {
       iniciarSuscripcionesDashboard,
       actualizarEstadoPresencia,
@@ -1220,6 +1221,8 @@
     window.cerrarSesion = async function () {
       const confirmar = confirm("¿Estás seguro de que deseas cerrar sesión? Tu estado pasará a desconectado.");
       if (!confirmar) return;
+
+      mostrarPantallaCarga('Cerrando sesión...');
 
       try {
         // 1. Notificar desconexión igual que en 'Finalizar Turno'
