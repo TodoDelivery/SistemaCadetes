@@ -14,6 +14,12 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         params: {
             eventsPerSecond: 10,
         },
+        // El latido del socket corre en un Web Worker: el navegador no lo frena con la pestaña en segundo plano
+        // (los temporizadores normales se estrangulan y el servidor cierra el socket por falta de latido)
+        worker: true,
+        heartbeatIntervalMs: 15000,
+        // Reintentos del socket más rápidos que el valor por defecto (1s, 2s, 5s, 10s)
+        reconnectAfterMs: (intento) => [200, 500, 1000, 2000][intento - 1] || 3000,
     },
 });
 

@@ -24,6 +24,9 @@ let intentosReconexion = 0;
 let temporizadorLatido = null;
 const LATIDO_PRESENCIA_MS = 15000;
 const REINTENTO_RECONEXION_MS = 200; // espera fija entre reintentos de presencia (sin backoff)
+const MIN_TRACK_GPS_MS = 4000;       // separación mínima entre publicaciones de presencia causadas por el GPS
+let ultimoTrackGpsMs = 0;
+let wakeLock = null;                 // mantiene la pantalla encendida mientras el cadete está en turno
 
 /**
  * Inicia la doble suscripción en Supabase Realtime:
@@ -45,6 +48,7 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
   if (miGeneracion !== generacion) return; // otra llamada más nueva tomó el control mientras se limpiaba
 
   quiereConexion = true;
+  pedirPantallaEncendida();
   ultimoCadete = cadete;
   ultimoCallback = onNuevoPedido;
   cadeteSession = cadete;
@@ -108,6 +112,10 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
                 lng: position.coords.longitude
               };
               currentCoordsTs = position.timestamp || Date.now();
+              // El GPS puede disparar varias lecturas por segundo: publicar todas satura el límite de mensajes
+              // del canal y el servidor lo cierra. Las coords quedan en memoria y el latido publica la última.
+              if (Date.now() - ultimoTrackGpsMs < MIN_TRACK_GPS_MS) return;
+              ultimoTrackGpsMs = Date.now();
               if (channelPresence && cadeteSession) {
                 await channelPresence.track({
                   id_cad: idCadete,
@@ -291,6 +299,7 @@ function procesarNuevoPedido(pedido, callback) {
 export async function desconectarSuscripcionesDashboard() {
   quiereConexion = false;
   generacion++;
+  soltarPantallaEncendida();
   await limpiarSuscripciones();
 }
 
@@ -301,8 +310,34 @@ function programarReconexion() {
   console.warn(`[Realtime] Reconectando presencia en ${espera} ms (intento ${intentosReconexion})...`);
   temporizadorReconexion = setTimeout(() => {
     temporizadorReconexion = null;
-    if (quiereConexion && ultimoCadete) iniciarSuscripcionesDashboard(ultimoCadete, ultimoCallback);
+    if (!quiereConexion || !ultimoCadete) return;
+    // Ante una caída de red el cliente de Supabase reintenta unirse solo: si ya lo logró no se rehace nada
+    // (rehacerlo cortaba esa reconexión y dejaba al cadete invisible un rato más)
+    if (canalesUnidos()) {
+      intentosReconexion = 0;
+      return;
+    }
+    iniciarSuscripcionesDashboard(ultimoCadete, ultimoCallback);
   }, espera);
+}
+
+function canalesUnidos() {
+  return Boolean(channelPresence && channelPedidos
+    && channelPresence.state === 'joined' && channelPedidos.state === 'joined');
+}
+
+// En el celular, con la pantalla apagada el sistema congela la página y el socket se cae: se pide mantenerla
+// encendida mientras hay turno. El permiso se pierde al ocultar la pestaña, por eso se vuelve a pedir al volver.
+async function pedirPantallaEncendida() {
+  if (!quiereConexion || wakeLock || typeof navigator === 'undefined' || !navigator.wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) { /* sin permiso o sin soporte: no es crítico */ }
+}
+
+function soltarPantallaEncendida() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
 }
 
 // Cada pocos segundos se vuelve a publicar la presencia: si el servidor la perdió (reconexión del socket,
@@ -314,7 +349,8 @@ function iniciarLatidoPresencia() {
 
 async function verificarPresencia() {
   if (!quiereConexion || !ultimoCadete) return;
-  if (!channelPresence || channelPresence.state !== 'joined') {
+  // También el canal de pedidos: si solo ese se cae, el cadete figura conectado pero no recibe ofertas
+  if (!canalesUnidos()) {
     programarReconexion();
     return;
   }
@@ -327,7 +363,10 @@ async function verificarPresencia() {
 
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') verificarPresencia();
+    if (document.visibilityState === 'visible') {
+      pedirPantallaEncendida();
+      verificarPresencia();
+    }
   });
 }
 if (typeof window !== 'undefined') {
