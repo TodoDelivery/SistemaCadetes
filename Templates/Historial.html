@@ -99,18 +99,24 @@
   <main class="p-4 sm:p-5 space-y-4 sm:space-y-5">
 
     <!-- ============================================== -->
-    <!-- 2. SELECTOR DE PERÍODOS (TABS)                 -->
+    <!-- 2. FILTRO POR FECHAS (CALENDARIO)              -->
     <!-- ============================================== -->
-    <nav class="grid grid-cols-3 gap-1.5 p-1 bg-brand-surface border border-brand-border rounded-2xl">
-      <button id="tab-today" onclick="setPeriod('today')" class="py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all bg-brand-accent text-brand-bg shadow-sm">
-        Hoy
-      </button>
-      <button id="tab-week" onclick="setPeriod('week')" class="py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all text-brand-textMuted hover:text-white">
-        Semana
-      </button>
-      <button id="tab-month" onclick="setPeriod('month')" class="py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all text-brand-textMuted hover:text-white">
-        Mes
-      </button>
+    <nav class="p-3 bg-brand-surface border border-brand-border rounded-2xl space-y-2.5" aria-label="Filtrar por fechas">
+      <div class="grid grid-cols-2 gap-2">
+        <label class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted">
+          Desde
+          <input type="date" id="filtroDesde" onchange="cambiarFechas()" class="mt-1 w-full h-11 px-3 rounded-xl bg-brand-surfaceLight border border-brand-border text-white text-sm font-bold focus:outline-none focus:border-brand-accent [color-scheme:dark]" />
+        </label>
+        <label class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted">
+          Hasta
+          <input type="date" id="filtroHasta" onchange="cambiarFechas()" class="mt-1 w-full h-11 px-3 rounded-xl bg-brand-surfaceLight border border-brand-border text-white text-sm font-bold focus:outline-none focus:border-brand-accent [color-scheme:dark]" />
+        </label>
+      </div>
+      <div class="grid grid-cols-3 gap-1.5">
+        <button onclick="atajoFechas('today')" class="py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider bg-brand-surfaceLight border border-brand-border text-brand-textMuted hover:text-white active:scale-[0.98] transition-all">Hoy</button>
+        <button onclick="atajoFechas('week')" class="py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider bg-brand-surfaceLight border border-brand-border text-brand-textMuted hover:text-white active:scale-[0.98] transition-all">7 días</button>
+        <button onclick="atajoFechas('month')" class="py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider bg-brand-surfaceLight border border-brand-border text-brand-textMuted hover:text-white active:scale-[0.98] transition-all">Este mes</button>
+      </div>
     </nav>
 
     <!-- ============================================== -->
@@ -235,7 +241,11 @@
     import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
 
-    let currentPeriod = 'today';
+    // Rango elegido en el calendario ('YYYY-MM-DD' en hora local). Arranca en el día de hoy.
+    const fechaLocalISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const fechaLegible = (iso) => iso.split('-').reverse().join('/');
+    let fechaDesde = fechaLocalISO(new Date());
+    let fechaHasta = fechaDesde;
     let pedidosCache = [];
     let comision = COMISION_POR_DEFECTO; // % que se rinde a la empresa (lo edita el admin)
 
@@ -272,46 +282,47 @@
     window.addEventListener('DOMContentLoaded', () => {
       iniciarAvisoPedidoEntrante(cadeteActual);
       // Carga el historial al entrar y lo recalcula si el admin cambia la comisión en Ajustes
-      seguirComision(() => cargarHistorial(currentPeriod));
+      seguirComision(() => cargarHistorial());
     });
 
-    window.setPeriod = function(period) {
-      currentPeriod = period;
+    function aplicarFechas(desde, hasta) {
+      const hoy = fechaLocalISO(new Date());
+      desde = desde || hasta || hoy;
+      hasta = hasta || desde;
+      if (desde > hasta) [desde, hasta] = [hasta, desde]; // al revés: se ordenan en vez de mostrar un rango vacío
+      fechaDesde = desde;
+      fechaHasta = hasta;
+      cargarHistorial();
+    }
 
-      // Alternar clases activas en botones
-      ['today', 'week', 'month'].forEach(p => {
-        const btn = document.getElementById(`tab-${p}`);
-        if (p === period) {
-          btn.className = "py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all bg-brand-accent text-brand-bg shadow-sm";
-        } else {
-          btn.className = "py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all text-brand-textMuted hover:text-white";
-        }
-      });
+    // El botón "Reintentar" llama por onclick: dentro de un módulo la función no es global
+    window.cargarHistorial = () => cargarHistorial();
 
-      cargarHistorial(period);
+    window.cambiarFechas = function() {
+      aplicarFechas(document.getElementById('filtroDesde').value, document.getElementById('filtroHasta').value);
     };
 
-    async function cargarHistorial(period) {
+    window.atajoFechas = function(atajo) {
+      const hoy = new Date();
+      let desde = hoy;
+      if (atajo === 'week') desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 6);
+      if (atajo === 'month') desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      aplicarFechas(fechaLocalISO(desde), fechaLocalISO(hoy));
+    };
+
+    async function cargarHistorial() {
       const tripsContainer = document.getElementById('tripsContainer');
       const periodLabel = document.getElementById('periodLabel');
 
-      // 1. Calcular fecha de inicio según período
-      const now = new Date();
-      let startDate = new Date();
-
-      if (period === 'today') {
-        startDate.setHours(0, 0, 0, 0);
-        const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-        periodLabel.innerText = `Turno Hoy • ${dias[now.getDay()]}`;
-      } else if (period === 'week') {
-        startDate.setDate(now.getDate() - 7);
-        startDate.setHours(0, 0, 0, 0);
-        periodLabel.innerText = `Últimos 7 Días`;
-      } else if (period === 'month') {
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-        const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        periodLabel.innerText = `Mes de ${meses[now.getMonth()]} ${now.getFullYear()}`;
-      }
+      // 1. Rango de días completos en hora local
+      document.getElementById('filtroDesde').value = fechaDesde;
+      document.getElementById('filtroHasta').value = fechaHasta;
+      const startDate = new Date(`${fechaDesde}T00:00:00`);
+      const endDate = new Date(`${fechaHasta}T23:59:59.999`);
+      const esHoy = fechaDesde === fechaHasta && fechaDesde === fechaLocalISO(new Date());
+      periodLabel.innerText = esHoy
+        ? 'Turno de hoy'
+        : fechaDesde === fechaHasta ? fechaLegible(fechaDesde) : `${fechaLegible(fechaDesde)} al ${fechaLegible(fechaHasta)}`;
 
       tripsContainer.innerHTML = `
         <div class="bg-brand-surface border border-brand-border rounded-2xl p-8 text-center">
@@ -328,6 +339,7 @@
           .eq('id_cadete', cadeteActual.id_cad)
           .in('estado_pedido', ['entregado', 'rendido'])
           .gte('fecha_pedido', startDate.toISOString())
+          .lte('fecha_pedido', endDate.toISOString())
           .order('fecha_pedido', { ascending: false });
 
         if (error) throw error;
@@ -426,7 +438,7 @@
         tripsContainer.innerHTML = `
           <div class="bg-brand-surface border border-brand-danger/40 rounded-2xl p-6 text-center">
             <p class="text-xs text-brand-danger font-bold">Error al consultar la base de datos.</p>
-            <button onclick="cargarHistorial('${period}')" class="mt-3 px-4 py-2 bg-brand-surfaceLight text-xs text-white rounded-xl border border-brand-border">
+            <button onclick="cargarHistorial()" class="mt-3 px-4 py-2 bg-brand-surfaceLight text-xs text-white rounded-xl border border-brand-border">
               Reintentar
             </button>
           </div>
