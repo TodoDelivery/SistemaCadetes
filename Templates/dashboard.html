@@ -408,10 +408,10 @@
         <span id="statusBadge"
           class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-bold uppercase tracking-wider mb-4">
           <span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span>
-          Conectado - Recibiendo Pedidos
+          Conectando...
         </span>
 
-        <h2 id="statusTitle" class="text-2xl font-extrabold text-white tracking-tight">Estás en Turno Activo</h2>
+        <h2 id="statusTitle" class="text-2xl font-extrabold text-white tracking-tight">Conectando tu turno</h2>
         <p id="statusDesc" class="text-xs text-brand-textMuted mt-1 max-w-[250px] leading-relaxed">
           Mantén la app abierta. Los pedidos cercanos asignados por el sistema aparecerán en tu pantalla.
         </p>
@@ -504,7 +504,7 @@
           </div>
           <div>
             <h4 class="text-xs font-bold text-white">Efectivo en Mano a Rendir</h4>
-            <p class="text-xs text-brand-textMuted mt-0.5">Cobros a rendir (<span data-comision-empresa>40%</span>): <strong id="dashCashOwed"
+            <p class="text-xs text-brand-textMuted mt-0.5">Cobros a rendir (<span data-comision-empresa>—</span>): <strong id="dashCashOwed"
                 class="text-white">$0</strong></p>
           </div>
         </div>
@@ -573,7 +573,7 @@
         <!-- Pago Estimado Cadete -->
         <div class="text-right shrink-0">
           <span id="modalEarnings" class="text-2xl font-black text-brand-accent whitespace-nowrap">$0</span>
-          <span class="text-[10px] text-brand-textMuted block font-bold uppercase">Tu Ganancia (<span data-comision-cadete>60%</span>)</span>
+          <span class="text-[10px] text-brand-textMuted block font-bold uppercase">Tu Ganancia (<span data-comision-cadete>—</span>)</span>
         </div>
       </div>
 
@@ -686,7 +686,7 @@
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { mostrarPantallaCarga } from '../Scripts/pantalla_carga.js';
     import {
       iniciarSuscripcionesDashboard,
@@ -824,14 +824,18 @@
 
         renderizarPerfilCadete();
 
+        // Primero se fija el estado real en la BD ('ocupado' si tiene un viaje, si no 'disponible') y recién
+        // después se anuncia la presencia. Antes se conectaba con el estado viejo de la BD (ej: 'desconectado'
+        // del cierre de sesión anterior): la pantalla decía "Conectado" pero el motor de asignación no lo veía.
+        await verificarPedidoActivoPendiente();
+
         // Si está en línea, conectar suscripciones en tiempo real
         if (isOnline) {
           await iniciarSuscripcionesDashboard(cadeteActual, (pedido) => {
             triggerIncomingOrderModal(pedido);
           });
+          window.actualizarUIEstadoServicio(true);
         }
-
-        await verificarPedidoActivoPendiente();
       } catch (e) {
         console.warn('Error al verificar perfil en BD:', e);
       }
@@ -912,6 +916,7 @@
             localStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(dbOrder));
             sessionStorage.setItem(`active_order_${cadeteActual.id_cad}`, JSON.stringify(dbOrder));
             // Si tiene pedido activo, su estado es 'ocupado'
+            cadeteActual.estado_cad = 'ocupado';
             actualizarEstadoPresencia('ocupado');
             await escribirEstadoCad('ocupado');
           } else {
@@ -928,6 +933,7 @@
 
             currentActiveOrder = null;
             if (isOnline) {
+              cadeteActual.estado_cad = 'disponible';
               actualizarEstadoPresencia('disponible');
               await escribirEstadoCad('disponible');
             }
@@ -1105,7 +1111,8 @@
 
     // Conectar suscripciones y verificar viajes activos al cargar la vista
     window.addEventListener('DOMContentLoaded', () => {
-      obtenerComision().then(c => { comision = c; pintarComision(c); });
+      // Si el admin cambia la comisión en Ajustes, los textos y las métricas se actualizan sin recargar
+      seguirComision(c => { comision = c; actualizarMetricasDashboard(); });
       renderizarPerfilCadete();
       verificarPedidoActivoPendiente();
       actualizarMetricasDashboard();

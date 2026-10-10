@@ -58,6 +58,15 @@
       min-height: 100dvh;
     }
   </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    .leaflet-container { background: #090B10 !important; font-family: inherit; }
+    /* Mismo modo oscuro de mosaicos que en el viaje activo */
+    .leaflet-tile { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important; }
+    .leaflet-control-attribution { font-size: 9px; background: rgba(0,0,0,.5) !important; color: #888 !important; }
+    .leaflet-control-attribution a { color: #aaa !important; }
+  </style>
 </head>
 <body class="flex flex-col min-h-[100dvh] max-w-md mx-auto bg-brand-bg relative pb-10">
 
@@ -138,7 +147,7 @@
           <span id="statHours" class="text-base font-black text-white mt-0.5 block">0.0 hs</span>
         </div>
         <div class="border-l border-brand-border/60 pl-3">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">A Rendir (<span data-comision-empresa>40%</span>)</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-brand-textMuted block">Pendiente a rendir (<span data-comision-empresa>—</span>)</span>
           <span id="statTips" class="text-base font-black text-brand-warning mt-0.5 block">$0</span>
         </div>
       </div>
@@ -186,6 +195,12 @@
         </button>
       </div>
 
+      <!-- Recorrido del pedido: retiro -> entrega por calles -->
+      <div>
+        <div id="modalRouteMap" class="h-48 w-full rounded-2xl overflow-hidden border border-brand-border bg-brand-surfaceLight"></div>
+        <p id="modalRouteInfo" class="text-[11px] text-brand-textMuted mt-1.5">Cargando recorrido...</p>
+      </div>
+
       <div class="space-y-2.5 text-xs">
         <div class="flex justify-between gap-3">
           <span class="text-brand-textMuted font-medium">Hora de registro:</span>
@@ -200,7 +215,7 @@
           <span id="modalPaymentType" class="font-bold text-brand-warning text-right">Efectivo: $0</span>
         </div>
         <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
-          <span class="font-bold text-white">Tu Ganancia acreditada (<span data-comision-cadete>60%</span>):</span>
+          <span class="font-bold text-white">Tu Ganancia acreditada (<span data-comision-cadete>—</span>):</span>
           <span id="modalEarnings" class="text-lg font-black text-brand-accent">+$0</span>
         </div>
       </div>
@@ -217,7 +232,7 @@
   <!-- ============================================== -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
 
     let currentPeriod = 'today';
@@ -256,7 +271,8 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       iniciarAvisoPedidoEntrante(cadeteActual);
-      cargarHistorial('today');
+      // Carga el historial al entrar y lo recalcula si el admin cambia la comisión en Ajustes
+      seguirComision(() => cargarHistorial(currentPeriod));
     });
 
     window.setPeriod = function(period) {
@@ -343,7 +359,6 @@
         document.getElementById('statTripCount').innerText = `${totalViajes}`;
         document.getElementById('statHours').innerText = `${horasReales} hs`;
         document.getElementById('statTips').innerText = `$${totalPendienteRendir.toLocaleString('es-AR')}`;
-        document.getElementById('statTips').previousElementSibling.innerText = 'PENDIENTE A RENDIR';
         document.getElementById('listCountLabel').innerText = `${totalViajes} entregas registradas`;
 
         // 4. Renderizar Tarjetas de Viajes Reales
@@ -451,7 +466,75 @@
       content.classList.remove('translate-y-full');
 
       if ("vibrate" in navigator) navigator.vibrate(30);
+
+      // El mapa necesita que el modal ya tenga tamaño: se dibuja cuando terminó de abrirse
+      setTimeout(() => dibujarRecorrido(pedido), 320);
     };
+
+    // -------------------------------------------------------------------------
+    // RECORRIDO DEL PEDIDO (retiro -> entrega)
+    // -------------------------------------------------------------------------
+    // No se guarda el rastro GPS real del viaje: se muestra la ruta por calles entre el retiro y la entrega.
+    let mapaRecorrido = null;
+    let capaRecorrido = null;
+    let recorridoPedidoId = null;
+
+    async function rutaPorCalles(origen, destino) {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${origen[1]},${origen[0]};${destino[1]},${destino[0]}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const ruta = (await res.json())?.routes?.[0];
+          if (ruta) return { puntos: ruta.geometry.coordinates.map(c => [c[1], c[0]]), metros: ruta.distance, porCalles: true };
+        }
+      } catch (err) {
+        console.warn('[Recorrido] No se pudo calcular la ruta por calles, se muestra línea recta:', err);
+      }
+      return { puntos: [origen, destino], metros: L.latLng(origen).distanceTo(L.latLng(destino)), porCalles: false };
+    }
+
+    async function dibujarRecorrido(pedido) {
+      const info = document.getElementById('modalRouteInfo');
+      const contenedor = document.getElementById('modalRouteMap');
+      const origen = [Number(pedido.latitud_org), Number(pedido.longitud_org)];
+      const destino = [Number(pedido.latitud_dest), Number(pedido.longitud_dest)];
+      const hayCoords = [pedido.latitud_org, pedido.longitud_org, pedido.latitud_dest, pedido.longitud_dest].every(v => v != null)
+        && [...origen, ...destino].every(Number.isFinite);
+
+      if (!hayCoords || typeof L === 'undefined') {
+        contenedor.classList.add('hidden');
+        info.innerText = hayCoords ? 'No se pudo cargar el mapa.' : 'Este pedido no tiene ubicaciones guardadas.';
+        return;
+      }
+      contenedor.classList.remove('hidden');
+      info.innerText = 'Cargando recorrido...';
+      recorridoPedidoId = pedido.id_pedido;
+
+      if (!mapaRecorrido) {
+        mapaRecorrido = L.map(contenedor, { zoomControl: false });
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(mapaRecorrido);
+        capaRecorrido = L.layerGroup().addTo(mapaRecorrido);
+      }
+      mapaRecorrido.invalidateSize();
+      capaRecorrido.clearLayers();
+
+      const punto = (coords, color, texto) => L.circleMarker(coords, { radius: 7, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 })
+        .bindTooltip(texto).addTo(capaRecorrido);
+      punto(origen, '#FFB800', 'Retiro');
+      punto(destino, '#00E58F', 'Entrega');
+      mapaRecorrido.fitBounds([origen, destino], { padding: [28, 28] });
+
+      const ruta = await rutaPorCalles(origen, destino);
+      if (recorridoPedidoId !== pedido.id_pedido) return; // se abrió otro pedido mientras se calculaba
+
+      L.polyline(ruta.puntos, { color: '#00E58F', weight: 4, opacity: 0.9 }).addTo(capaRecorrido);
+      mapaRecorrido.fitBounds(L.latLngBounds(ruta.puntos), { padding: [28, 28] });
+
+      const distancia = ruta.metros < 1000 ? `${Math.round(ruta.metros)} m` : `${(ruta.metros / 1000).toFixed(1)} km`;
+      info.innerText = ruta.porCalles
+        ? `Del retiro (amarillo) a la entrega (verde) • ${distancia} por calles`
+        : `Del retiro (amarillo) a la entrega (verde) • ${distancia} en línea recta`;
+    }
 
     window.closeDetailModal = function() {
       const modal = document.getElementById('tripDetailModal');

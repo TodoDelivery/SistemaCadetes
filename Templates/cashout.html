@@ -95,7 +95,7 @@
       <div class="absolute -top-12 -right-12 w-32 h-32 bg-brand-warning/10 rounded-full blur-2xl pointer-events-none"></div>
 
       <span class="text-[11px] font-extrabold uppercase tracking-widest text-brand-warning bg-brand-warning/10 px-3 py-1 rounded-full border border-brand-warning/20 inline-block mb-3">
-        Monto Total a Rendir (<span data-comision-empresa>40%</span>)
+        Monto Total a Rendir (<span data-comision-empresa>—</span>)
       </span>
 
       <div id="cashoutTotalAmount" class="text-4xl font-black text-white tracking-tight my-1">
@@ -129,7 +129,7 @@
 
       <!-- Monto a Rendir -->
       <div class="flex justify-between items-center text-xs">
-        <span class="text-brand-textMuted font-medium">Monto a rendir en la empresa (<span data-comision-empresa>40%</span>)</span>
+        <span class="text-brand-textMuted font-medium">Monto a rendir en la empresa (<span data-comision-empresa>—</span>)</span>
         <span id="cashoutCompanySpan" class="font-extrabold text-brand-warning text-sm">- $0</span>
       </div>
 
@@ -137,7 +137,7 @@
       <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
         <div>
           <span class="text-xs font-bold text-white block">Tus ganancias el día de hoy</span>
-          <span class="text-[10px] text-brand-textMuted"><span data-comision-cadete>60%</span> del total facturado</span>
+          <span class="text-[10px] text-brand-textMuted"><span data-comision-cadete>—</span> del total facturado</span>
         </div>
         <span id="cashoutEarningsSpan" class="text-base font-black text-brand-accent">+$0</span>
       </div>
@@ -164,7 +164,7 @@
   <!-- LÓGICA DE CIERRE & SUPABASE -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision } from '../Scripts/comision.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { iniciarAvisoPedidoEntrante, detenerAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
     import { mostrarPantallaCarga } from '../Scripts/pantalla_carga.js';
 
@@ -208,7 +208,8 @@
 
     window.addEventListener('DOMContentLoaded', async () => {
       iniciarAvisoPedidoEntrante(cadeteActual);
-      await calcularRendicionDiaria();
+      // Calcula la rendición al entrar y la recalcula si el admin cambia la comisión en Ajustes
+      seguirComision(() => calcularRendicionDiaria());
     });
 
     async function calcularRendicionDiaria() {

@@ -474,7 +474,7 @@
   <!-- ======================================================== -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartir } from '../Scripts/comision.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, seguirComision } from '../Scripts/comision.js';
     import {
       iniciarSuscripcionPedidoActivo,
       enviarMensajeChat,
@@ -486,6 +486,13 @@
     let stage = 1; // 1: Al local, 2: Retirado / Al cliente
     let comision = COMISION_POR_DEFECTO; // % que se rinde a la empresa (lo edita el admin)
     let orderTotal = 8500;
+
+    // Si el admin cambia la comisión durante el viaje, la ganancia mostrada se recalcula
+    seguirComision(c => {
+      comision = c;
+      const el = document.getElementById('checkoutEarningsAmount');
+      if (el) el.innerText = `+$${repartir(orderTotal, comision).cadete.toLocaleString('es-AR')} ganancia acreditada a tu cuenta`;
+    });
     let inputCashStr = "0";
     let isChatOpen = false;
     const chatBubbles = new Map();   // id_mensaje -> { row, timeLabel, hora }
