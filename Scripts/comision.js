@@ -33,10 +33,41 @@ export async function obtenerComision() {
 /** Reparto de un monto: { empresa } es lo que se rinde y { cadete } lo que se queda el cadete */
 export function repartir(monto, comision) {
   const total = Number(monto) || 0;
-  return {
-    empresa: Math.round(total * comision / 100),
-    cadete: Math.round(total * (100 - comision) / 100)
-  };
+  const empresa = Math.round(total * comision / 100);
+  return { empresa, cadete: Math.round(total - empresa) };
+}
+
+/**
+ * % de un pedido: Pedidos.porc_comision, que la BD congela cuando el cadete lo acepta.
+ * Si el pedido todavía no lo tiene (oferta sin aceptar), se usa el vigente.
+ */
+export function comisionDelPedido(pedido, comisionVigente) {
+  const n = Number(pedido?.porc_comision);
+  return pedido?.porc_comision != null && Number.isFinite(n) ? n : comisionVigente;
+}
+
+/** Reparto de un pedido con su propia comisión */
+export function repartirPedido(pedido, comisionVigente) {
+  return repartir(pedido?.coste_pedido, comisionDelPedido(pedido, comisionVigente));
+}
+
+/** Suma { empresa, cadete, facturado } de una lista de pedidos, cada uno con su comisión */
+export function repartirPedidos(pedidos, comisionVigente) {
+  return (pedidos || []).reduce((acc, p) => {
+    const { empresa, cadete } = repartirPedido(p, comisionVigente);
+    acc.empresa += empresa;
+    acc.cadete += cadete;
+    acc.facturado += Number(p.coste_pedido) || 0;
+    return acc;
+  }, { empresa: 0, cadete: 0, facturado: 0 });
+}
+
+/** "60%" si todos los pedidos tienen la misma comisión, "varios %" si se mezclan */
+export function textoComisionPedidos(pedidos, comisionVigente, deCadete = false) {
+  const pcts = [...new Set((pedidos || []).map(p => comisionDelPedido(p, comisionVigente)))];
+  if (pcts.length > 1) return 'varios %';
+  const pct = pcts.length ? pcts[0] : comisionVigente;
+  return formatoPorcentaje(deCadete ? 100 - pct : pct);
 }
 
 /**

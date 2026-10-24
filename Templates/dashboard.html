@@ -686,7 +686,7 @@
   <!-- LÓGICA DE INTERACCIÓN & REALTIME -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision, seguirComision } from '../Scripts/comision.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, repartirPedidos, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { mostrarPantallaCarga } from '../Scripts/pantalla_carga.js';
     import {
       iniciarSuscripcionesDashboard,
@@ -1024,7 +1024,7 @@
         if (cadeteActual && cadeteActual.id_cad) {
           const { data: pedidos, error } = await supabase
             .from('Pedidos')
-            .select('coste_pedido, tiempo_pedido')
+            .select('coste_pedido, tiempo_pedido, porc_comision')
             .eq('id_cadete', cadeteActual.id_cad)
             .eq('estado_pedido', 'entregado')
             .gte('fecha_pedido', hoyInicio.toISOString());
@@ -1032,17 +1032,11 @@
           if (error) throw error;
 
           const list = pedidos || [];
-          let totalFacturado = 0;
-          let totalMinutos = 0;
-
-          list.forEach(p => {
-            totalFacturado += (Number(p.coste_pedido) || 0);
-            totalMinutos += (Number(p.tiempo_pedido) || 0);
-          });
+          const totalMinutos = list.reduce((acc, p) => acc + (Number(p.tiempo_pedido) || 0), 0);
 
           comision = await obtenerComision();
           pintarComision(comision);
-          const { cadete: totalGanancias, empresa: totalRendir } = repartir(totalFacturado, comision);
+          const { cadete: totalGanancias, empresa: totalRendir } = repartirPedidos(list, comision);
           const totalPedidos = list.length;
           const horasReales = totalMinutos > 0 ? (totalMinutos / 60).toFixed(1) : (totalPedidos * 0.35).toFixed(1);
 

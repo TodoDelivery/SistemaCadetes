@@ -474,7 +474,7 @@
   <!-- ======================================================== -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartir, seguirComision } from '../Scripts/comision.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartir, comisionDelPedido, seguirComision } from '../Scripts/comision.js';
     import {
       iniciarSuscripcionPedidoActivo,
       enviarMensajeChat,
@@ -487,11 +487,12 @@
     let comision = COMISION_POR_DEFECTO; // % que se rinde a la empresa (lo edita el admin)
     let orderTotal = 8500;
 
-    // Si el admin cambia la comisión durante el viaje, la ganancia mostrada se recalcula
+    // La ganancia sale del % congelado en el pedido al aceptarlo; el vigente solo si el pedido no lo tiene
+    const gananciaDelViaje = () => repartir(orderTotal, comisionDelPedido(pedidoActivo, comision)).cadete;
     seguirComision(c => {
       comision = c;
       const el = document.getElementById('checkoutEarningsAmount');
-      if (el) el.innerText = `+$${repartir(orderTotal, comision).cadete.toLocaleString('es-AR')} ganancia acreditada a tu cuenta`;
+      if (el) el.innerText = `+$${gananciaDelViaje().toLocaleString('es-AR')} ganancia acreditada a tu cuenta`;
     });
     let inputCashStr = "0";
     let isChatOpen = false;
@@ -669,7 +670,7 @@
 
     function renderizarDatosPedido() {
       const storeName = pedidoActivo.inform_pedido ? pedidoActivo.inform_pedido.split('-')[0].trim() : 'Local Comercial';
-      const ganancia = repartir(orderTotal, comision).cadete;
+      const ganancia = gananciaDelViaje();
 
       // Paso 1: Local / Retiro
       document.getElementById('destinationTitle').innerText = storeName;

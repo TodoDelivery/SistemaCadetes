@@ -238,7 +238,7 @@
   <!-- ============================================== -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartir, pintarComision, seguirComision } from '../Scripts/comision.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartirPedido, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
 
     // Rango elegido en el calendario ('YYYY-MM-DD' en hora local). Arranca en el día de hoy.
@@ -356,11 +356,12 @@
 
         pedidosCache.forEach(p => {
           const costo = Number(p.coste_pedido) || 0;
+          const reparto = repartirPedido(p, comision);
           totalFacturado += costo;
-          totalGanancias += repartir(costo, comision).cadete;
+          totalGanancias += reparto.cadete;
           totalMinutos += Number(p.tiempo_pedido) || 0;
           if (p.estado_pedido === 'entregado') {
-            totalPendienteRendir += repartir(costo, comision).empresa;
+            totalPendienteRendir += reparto.empresa;
           }
         });
 
@@ -391,7 +392,7 @@
 
         pedidosCache.forEach(p => {
           const costo = Number(p.coste_pedido) || 0;
-          const ganancia = repartir(costo, comision).cadete;
+          const ganancia = repartirPedido(p, comision).cadete;
           const storeName = p.inform_pedido ? p.inform_pedido.split('-')[0].trim() : 'Local Comercial';
           const fecha = new Date(p.fecha_pedido);
           const horaStr = fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -452,7 +453,7 @@
       if (!pedido) return;
 
       const costo = Number(pedido.coste_pedido) || 0;
-      const ganancia = repartir(costo, comision).cadete;
+      const ganancia = repartirPedido(pedido, comision).cadete;
       const storeName = pedido.inform_pedido ? pedido.inform_pedido.split('-')[0].trim() : 'Local Comercial';
       const fecha = new Date(pedido.fecha_pedido);
       const duracionModal = pedido.tiempo_pedido ? `${pedido.tiempo_pedido} min` : '15 min';
