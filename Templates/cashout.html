@@ -164,9 +164,8 @@
   <!-- LÓGICA DE CIERRE & SUPABASE -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartirPedidos, textoComisionPedidos, pintarComision, seguirComision } from '../Scripts/comision.js';
-    import { iniciarAvisoPedidoEntrante, detenerAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
-    import { mostrarPantallaCarga } from '../Scripts/pantalla_carga.js';
+    import { obtenerComision, repartirPedidos, textoComisionPedidos, pintarComision, seguirComision } from '../Scripts/comision.js';
+    import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
 
     const urlParams = new URLSearchParams(window.location.search);
     const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
@@ -198,14 +197,7 @@
       throw new Error("Sesión no iniciada");
     }
 
-    let summaryData = {
-      totalFacturado: 0,
-      montoRendir: 0,
-      gananciaCadete: 0,
-      totalEnvios: 0,
-      token: ''
-    };
-
+    // Resumen de solo lectura: la rendición la hace la administradora desde la Caja del Dashboard-Admin
     window.addEventListener('DOMContentLoaded', async () => {
       iniciarAvisoPedidoEntrante(cadeteActual);
       // Calcula la rendición al entrar y la recalcula si el admin cambia la comisión en Ajustes
@@ -220,18 +212,22 @@
 
       document.getElementById('headerSubtitle').innerText = `${diaTexto}, ${fechaTexto}`;
 
-      const hoyInicio = new Date();
-      hoyInicio.setHours(0, 0, 0, 0);
-
       try {
-        // Consultar pedidos entregados de hoy para este cadete
-        const { data: pedidos, error } = await supabase
-          .from('Pedidos')
-          .select('*')
-          .eq('id_cadete', cadeteActual.id_cad)
-          .eq('estado_pedido', 'entregado')
-          .gte('fecha_pedido', hoyInicio.toISOString())
-          .order('fecha_pedido', { ascending: false });
+        // Todo lo entregado y todavía sin rendir (no solo hoy): es lo que la administradora le va a cobrar
+        const [{ data: pedidos, error }, { data: cotiz }] = await Promise.all([
+          supabase
+            .from('Pedidos')
+            .select('*')
+            .eq('id_cadete', cadeteActual.id_cad)
+            .eq('estado_pedido', 'entregado')
+            .order('fecha_pedido', { ascending: false }),
+          supabase
+            .from('Datos_cotiz')
+            .select('whatsapp_central')
+            .order('id', { ascending: true })
+            .limit(1)
+            .maybeSingle()
+        ]);
 
         if (error) throw error;
 
@@ -246,26 +242,13 @@
         const totalEnvios = list.length;
         const horasReales = totalMinutos > 0 ? (totalMinutos / 60).toFixed(1) : (totalEnvios * 0.35).toFixed(1);
 
-        // Generar Token de Liquidación
-        const fechaToken = now.toISOString().slice(0,10).replace(/-/g, '');
-        const token = `TD-${cadeteActual.id_cad}-${fechaToken}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-        summaryData = {
-          totalFacturado,
-          montoRendir,
-          gananciaCadete,
-          totalEnvios,
-          token
-        };
-
         // Renderizar en UI
         document.getElementById('cashoutTotalAmount').innerText = `$${montoRendir.toLocaleString('es-AR')}`;
-        document.getElementById('cashoutOrderCountLabel').innerText = `Total facturado en el día (${totalEnvios} envíos)`;
+        document.getElementById('cashoutOrderCountLabel').innerText = `Total facturado sin rendir (${totalEnvios} envíos)`;
         document.getElementById('cashoutBilledSpan').innerText = `+ $${totalFacturado.toLocaleString('es-AR')}`;
         document.getElementById('cashoutHoursSpan').innerText = `${horasReales} hs`;
         document.getElementById('cashoutCompanySpan').innerText = `- $${montoRendir.toLocaleString('es-AR')}`;
         document.getElementById('cashoutEarningsSpan').innerText = `+$${gananciaCadete.toLocaleString('es-AR')}`;
-        document.getElementById('cashoutToken').innerText = `TOKEN: #${token}`;
 
         const badge = document.getElementById('cashoutStatusBadge');
         if (badge) {
@@ -278,75 +261,26 @@
           }
         }
 
-        // Configurar Enlace de WhatsApp
+        // Resumen por WhatsApp a la central (número que la administradora carga en Ajustes)
         const msg = encodeURIComponent(
-          `*Todo Delivery - Rendición de Turno*\n` +
+          `*Todo Delivery - Resumen para rendir*\n` +
           `👤 Cadete: ${cadeteActual.nombre_cad || 'Cadete #' + cadeteActual.id_cad}\n` +
-          `🔑 Token: #${token}\n` +
-          `📦 Total Envíos a Rendir: ${totalEnvios}\n` +
+          `📦 Envíos sin rendir: ${totalEnvios}\n` +
           `💵 Facturación Total: $${totalFacturado.toLocaleString('es-AR')}\n` +
           `🏢 *Efectivo a Rendir (${pctEmpresa}): $${montoRendir.toLocaleString('es-AR')}*\n` +
           `🛵 Ganancia Cadete (${pctCadete}): $${gananciaCadete.toLocaleString('es-AR')}\n` +
           `📅 Fecha: ${now.toLocaleString('es-AR')}`
         );
 
-        document.getElementById('whatsappLink').href = `https://wa.me/5492640000000?text=${msg}`;
+        const numeroCentral = String(cotiz?.whatsapp_central || '').replace(/\D/g, '');
+        document.getElementById('whatsappLink').href = numeroCentral
+          ? `https://wa.me/${numeroCentral}?text=${msg}`
+          : `https://wa.me/?text=${msg}`;
 
       } catch (err) {
         console.error('Error calculando rendición de Supabase:', err);
       }
     }
-
-    window.confirmCashout = async function() {
-      if (summaryData.totalEnvios === 0) {
-        alert("No tienes pedidos pendientes de rendición en este turno.");
-        return;
-      }
-
-      if (confirm(`¿Confirmas la rendición de $${summaryData.montoRendir.toLocaleString('es-AR')} con Token #${summaryData.token}?\n\nLos pedidos pendientes se marcarán como 'rendidos' y se cerrará tu sesión de cadete.`)) {
-        if ("vibrate" in navigator) navigator.vibrate([100, 50, 100]);
-        mostrarPantallaCarga('Cerrando sesión...');
-        try { await detenerAvisoPedidoEntrante(); } catch (e) { }
-
-        try {
-          const hoyInicio = new Date();
-          hoyInicio.setHours(0, 0, 0, 0);
-
-          // 1. Actualizar todos los pedidos entregados de hoy a estado 'rendido'
-          const { error } = await supabase
-            .from('Pedidos')
-            .update({ estado_pedido: 'rendido' })
-            .eq('id_cadete', cadeteActual.id_cad)
-            .eq('estado_pedido', 'entregado')
-            .gte('fecha_pedido', hoyInicio.toISOString());
-
-          if (error) {
-            console.error('Error actualizando estado a rendido:', error);
-          }
-
-          // 2. Marcar cadete como desconectado en la base de datos
-          if (cadeteActual && cadeteActual.id_cad) {
-            await supabase
-              .from('Cadetes')
-              .update({ estado_cad: 'desconectado' })
-              .eq('id_cad', cadeteActual.id_cad);
-          }
-        } catch (e) {
-          console.warn('Excepción al rendir pedidos:', e);
-        }
-
-        // 3. Cerrar sesión y limpiar almacenamiento local/sesión
-        localStorage.removeItem('cadet_session');
-        sessionStorage.removeItem('cadet_session');
-        sessionStorage.removeItem('cadet_tab_id');
-        localStorage.removeItem('active_order');
-        sessionStorage.removeItem('active_order');
-        sessionStorage.removeItem('rejected_orders');
-
-        alert(`¡Rendición confirmada exitosamente!\nToken registrado: #${summaryData.token}\n\nLos cobros han sido liquidados y tu sesión ha sido cerrada. ¡Buen descanso!`);
-        window.location.href = '../index.html';
-      }
-    };
   </script>
 </body>
 </html>
