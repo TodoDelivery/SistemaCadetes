@@ -221,9 +221,15 @@
           <span id="modalPaymentType" class="font-bold text-brand-warning text-right">Efectivo: $0</span>
         </div>
         <div class="pt-2 border-t border-brand-border/60 flex justify-between items-center">
-          <span class="font-bold text-white">Tu Ganancia acreditada (<span data-comision-cadete>—</span>):</span>
+          <span class="font-bold text-white">Tu Ganancia acreditada (<span id="modalPctCadete">—</span>):</span>
           <span id="modalEarnings" class="text-lg font-black text-brand-accent">+$0</span>
         </div>
+      </div>
+
+      <!-- Chat del pedido (solo lectura, sale de Pedidos.Chat_pedido) -->
+      <div>
+        <h4 class="text-[10px] font-black uppercase tracking-wider text-brand-textMuted mb-2">Chat con el cliente</h4>
+        <div id="modalChat" class="max-h-56 overflow-y-auto space-y-2 bg-brand-surfaceLight/40 border border-brand-border rounded-2xl p-3"></div>
       </div>
 
       <button onclick="closeDetailModal()" class="w-full py-3.5 rounded-xl bg-brand-surfaceLight border border-brand-border text-white font-extrabold text-xs uppercase tracking-wider active:scale-98 transition-all">
@@ -238,8 +244,9 @@
   <!-- ============================================== -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
-    import { COMISION_POR_DEFECTO, obtenerComision, repartirPedido, pintarComision, seguirComision } from '../Scripts/comision.js';
+    import { COMISION_POR_DEFECTO, obtenerComision, repartirPedido, textoComisionPedidos, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
+    import { leerChat } from '../Scripts/chat_pedido.js';
 
     // Rango elegido en el calendario ('YYYY-MM-DD' en hora local). Arranca en el día de hoy.
     const fechaLocalISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -468,9 +475,11 @@
       document.getElementById('modalAddress').innerText = dirDest;
       
       document.getElementById('modalEarnings').innerText = `+$${ganancia.toLocaleString('es-AR')}`;
+      document.getElementById('modalPctCadete').innerText = textoComisionPedidos([pedido], comision, true);
       document.getElementById('modalTime').innerText = fecha.toLocaleString('es-AR');
       document.getElementById('modalDistance').innerText = `${pedido.tipo_paquete || 'Bolsa de Comida'} • Duración: ${duracionModal}`;
       document.getElementById('modalPaymentType').innerText = `Efectivo: $${costo.toLocaleString('es-AR')}`;
+      pintarChat(pedido);
 
       const modal = document.getElementById('tripDetailModal');
       const content = document.getElementById('tripDetailContent');
@@ -483,6 +492,40 @@
       // El mapa necesita que el modal ya tenga tamaño: se dibuja cuando terminó de abrirse
       setTimeout(() => dibujarRecorrido(pedido), 320);
     };
+
+    // Burbujas armadas con textContent: el texto lo escribe el cliente y no se interpreta como HTML
+    function pintarChat(pedido) {
+      const contenedor = document.getElementById('modalChat');
+      contenedor.replaceChildren();
+      const mensajes = leerChat(pedido.Chat_pedido);
+
+      if (mensajes.length === 0) {
+        const vacio = document.createElement('p');
+        vacio.className = 'text-[11px] text-brand-textMuted text-center py-2';
+        vacio.textContent = 'No hubo mensajes en este pedido.';
+        contenedor.append(vacio);
+        return;
+      }
+
+      mensajes.forEach(m => {
+        const propio = m.remitente === 'cadete';
+        const fila = document.createElement('div');
+        fila.className = `flex ${propio ? 'justify-end' : 'justify-start'}`;
+        const burbuja = document.createElement('div');
+        burbuja.className = `max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-snug break-words ${propio
+          ? 'bg-brand-accent/15 border border-brand-accent/30 text-white rounded-br-md'
+          : 'bg-brand-surface border border-brand-border text-white rounded-bl-md'}`;
+        const texto = document.createElement('p');
+        texto.textContent = m.texto;
+        const hora = document.createElement('span');
+        hora.className = 'block mt-1 text-[10px] text-brand-textMuted text-right';
+        hora.textContent = `${propio ? 'Vos' : 'Cliente'} · ${m.hora}`;
+        burbuja.append(texto, hora);
+        fila.append(burbuja);
+        contenedor.append(fila);
+      });
+      contenedor.scrollTop = contenedor.scrollHeight;
+    }
 
     // -------------------------------------------------------------------------
     // RECORRIDO DEL PEDIDO (retiro -> entrega)
