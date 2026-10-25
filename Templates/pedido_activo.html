@@ -1161,6 +1161,9 @@
       scrollChatToBottom();
     };
 
+    // Llegó tocando el aviso de un mensaje del cliente: abrir el chat
+    if (new URLSearchParams(window.location.search).get('chat') === '1') setTimeout(() => window.openChatModal(), 600);
+
     window.closeChatModal = function() {
       isChatOpen = false;
       const modal = document.getElementById('chatModal');
