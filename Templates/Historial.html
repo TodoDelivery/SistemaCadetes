@@ -247,6 +247,7 @@
     import { COMISION_POR_DEFECTO, obtenerComision, repartirPedido, textoComisionPedidos, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
     import { leerChat } from '../Scripts/chat_pedido.js';
+    import { textoTiempoActivo, textoDuracionViaje } from '../Scripts/tiempo_activo.js';
 
     // Rango elegido en el calendario ('YYYY-MM-DD' en hora local). Arranca en el día de hoy.
     const fechaLocalISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -373,11 +374,10 @@
         });
 
         const totalViajes = pedidosCache.length;
-        const horasReales = totalMinutos > 0 ? (totalMinutos / 60).toFixed(1) : (totalViajes * 0.35).toFixed(1);
 
         document.getElementById('statTotalEarnings').innerText = `$${totalGanancias.toLocaleString('es-AR')}`;
         document.getElementById('statTripCount').innerText = `${totalViajes}`;
-        document.getElementById('statHours').innerText = `${horasReales} hs`;
+        document.getElementById('statHours').innerText = textoTiempoActivo(totalMinutos);
         document.getElementById('statTips').innerText = `$${totalPendienteRendir.toLocaleString('es-AR')}`;
         document.getElementById('listCountLabel').innerText = `${totalViajes} entregas registradas`;
 
@@ -404,7 +404,7 @@
           const fecha = new Date(p.fecha_pedido);
           const horaStr = fecha.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           const fechaStr = fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
-          const duracionStr = p.tiempo_pedido ? `${p.tiempo_pedido} min` : '15 min';
+          const duracionStr = textoDuracionViaje(p);
 
           const statusBadge = p.estado_pedido === 'rendido'
             ? `<span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-brand-surfaceLight border border-brand-border text-brand-textMuted shrink-0">Rendido</span>`
@@ -463,7 +463,7 @@
       const ganancia = repartirPedido(pedido, comision).cadete;
       const storeName = pedido.inform_pedido ? pedido.inform_pedido.split('-')[0].trim() : 'Local Comercial';
       const fecha = new Date(pedido.fecha_pedido);
-      const duracionModal = pedido.tiempo_pedido ? `${pedido.tiempo_pedido} min` : '15 min';
+      const duracionModal = textoDuracionViaje(pedido);
 
       const statusTxt = pedido.estado_pedido === 'rendido' ? ' • RENDIDO' : ' • PENDIENTE RENDIR';
       document.getElementById('modalOrderTag').innerText = `ORDEN #${pedido.id_pedido}${statusTxt}`;

@@ -123,7 +123,7 @@
 
       <!-- Tiempo / Envíos -->
       <div class="flex justify-between items-center text-xs">
-        <span class="text-brand-textMuted font-medium">Tiempo activo estimado</span>
+        <span class="text-brand-textMuted font-medium">Tiempo activo registrado</span>
         <span id="cashoutHoursSpan" class="font-extrabold text-white text-sm">0.0 hs</span>
       </div>
 
@@ -166,6 +166,7 @@
     import { supabase } from '../Scripts/conexion_supabase.js';
     import { obtenerComision, repartirPedidos, textoComisionPedidos, pintarComision, seguirComision } from '../Scripts/comision.js';
     import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
+    import { minutosActivos, textoTiempoActivo } from '../Scripts/tiempo_activo.js';
 
     const urlParams = new URLSearchParams(window.location.search);
     const urlCadId = urlParams.get('id_cad') || urlParams.get('cadete');
@@ -232,7 +233,7 @@
         if (error) throw error;
 
         const list = pedidos || [];
-        const totalMinutos = list.reduce((acc, p) => acc + (Number(p.tiempo_pedido) || 0), 0);
+        const totalMinutos = minutosActivos(list);
 
         const comision = await obtenerComision();
         pintarComision(comision);
@@ -240,13 +241,12 @@
         const pctEmpresa = textoComisionPedidos(list, comision);
         const pctCadete = textoComisionPedidos(list, comision, true);
         const totalEnvios = list.length;
-        const horasReales = totalMinutos > 0 ? (totalMinutos / 60).toFixed(1) : (totalEnvios * 0.35).toFixed(1);
 
         // Renderizar en UI
         document.getElementById('cashoutTotalAmount').innerText = `$${montoRendir.toLocaleString('es-AR')}`;
         document.getElementById('cashoutOrderCountLabel').innerText = `Total facturado sin rendir (${totalEnvios} envíos)`;
         document.getElementById('cashoutBilledSpan').innerText = `+ $${totalFacturado.toLocaleString('es-AR')}`;
-        document.getElementById('cashoutHoursSpan').innerText = `${horasReales} hs`;
+        document.getElementById('cashoutHoursSpan').innerText = textoTiempoActivo(totalMinutos);
         document.getElementById('cashoutCompanySpan').innerText = `- $${montoRendir.toLocaleString('es-AR')}`;
         document.getElementById('cashoutEarningsSpan').innerText = `+$${gananciaCadete.toLocaleString('es-AR')}`;
 

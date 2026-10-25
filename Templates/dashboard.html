@@ -704,6 +704,7 @@
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
     import { COMISION_POR_DEFECTO, obtenerComision, repartir, repartirPedidos, pintarComision, seguirComision } from '../Scripts/comision.js';
+    import { minutosActivos, textoTiempoActivo } from '../Scripts/tiempo_activo.js';
     import { mostrarPantallaCarga } from '../Scripts/pantalla_carga.js';
     import {
       iniciarSuscripcionesDashboard,
@@ -1074,23 +1075,33 @@
 
       try {
         if (cadeteActual && cadeteActual.id_cad) {
-          const { data: pedidos, error } = await supabase
-            .from('Pedidos')
-            .select('coste_pedido, tiempo_pedido, porc_comision')
-            .eq('id_cadete', cadeteActual.id_cad)
-            .eq('estado_pedido', 'entregado')
-            .gte('fecha_pedido', hoyInicio.toISOString());
+          // Turno de hoy: lo entregado hoy, ya esté rendido o no (la admin puede rendir en el día).
+          // Efectivo a rendir: todo lo entregado y sin rendir, de cualquier fecha (igual que el cashout).
+          const [hoy, sinRendir] = await Promise.all([
+            supabase
+              .from('Pedidos')
+              .select('coste_pedido, tiempo_pedido, porc_comision')
+              .eq('id_cadete', cadeteActual.id_cad)
+              .in('estado_pedido', ['entregado', 'rendido'])
+              .gte('fecha_pedido', hoyInicio.toISOString()),
+            supabase
+              .from('Pedidos')
+              .select('coste_pedido, porc_comision')
+              .eq('id_cadete', cadeteActual.id_cad)
+              .eq('estado_pedido', 'entregado')
+          ]);
 
-          if (error) throw error;
+          if (hoy.error) throw hoy.error;
+          if (sinRendir.error) throw sinRendir.error;
 
-          const list = pedidos || [];
-          const totalMinutos = list.reduce((acc, p) => acc + (Number(p.tiempo_pedido) || 0), 0);
+          const list = hoy.data || [];
+          const totalMinutos = minutosActivos(list);
 
           comision = await obtenerComision();
           pintarComision(comision);
-          const { cadete: totalGanancias, empresa: totalRendir } = repartirPedidos(list, comision);
+          const { cadete: totalGanancias } = repartirPedidos(list, comision);
+          const { empresa: totalRendir } = repartirPedidos(sinRendir.data, comision);
           const totalPedidos = list.length;
-          const horasReales = totalMinutos > 0 ? (totalMinutos / 60).toFixed(1) : (totalPedidos * 0.35).toFixed(1);
 
           const elEarnings = document.getElementById('dashMetricsEarnings');
           const elTrips = document.getElementById('dashMetricsTrips');
@@ -1100,7 +1111,7 @@
 
           if (elEarnings) elEarnings.innerText = `$${totalGanancias.toLocaleString('es-AR')}`;
           if (elTrips) elTrips.innerText = `${totalPedidos}`;
-          if (elHours) elHours.innerText = `${horasReales} hs`;
+          if (elHours) elHours.innerText = textoTiempoActivo(totalMinutos);
           if (elCashOwed) elCashOwed.innerText = `$${totalRendir.toLocaleString('es-AR')}`;
           if (elHistorySub) elHistorySub.innerHTML = `${totalPedidos} entregas hoy &bull; <strong class="text-brand-accent">+$${totalGanancias.toLocaleString('es-AR')}</strong>`;
         }
