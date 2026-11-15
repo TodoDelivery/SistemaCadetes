@@ -1680,18 +1680,22 @@
 
       const orderToReject = hayOfertaAbierta() ? currentActiveOrder : null;
       if (orderToReject) currentActiveOrder = null;
+      // Se anota el rechazo ANTES de cualquier espera: mientras viaja la respuesta del servidor el pedido
+      // sigue a nombre de este cadete en la BD, y el verificador o un eco de realtime reabrían el modal
+      // unos segundos (a la vez que el pedido ya se le mostraba al siguiente cadete).
+      if (orderToReject && orderToReject.id_pedido) recordarRechazoLocal(orderToReject.id_pedido);
 
       // Limpiar datos de orden local
       localStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
       sessionStorage.removeItem(`active_order_${cadeteActual.id_cad}`);
 
-      // Vuelve a la pool: 'en_confirmacion' -> 'disponible' (si otra pestaña ya aceptó un viaje, queda 'ocupado')
-      await escribirEstadoCad('disponible', 'en_confirmacion');
-      actualizarEstadoPresencia('disponible');
-
+      // Primero se devuelve la oferta (el servidor la pasa en el momento al siguiente cadete) y después
+      // se vuelve a la pool: 'en_confirmacion' -> 'disponible' (si otra pestaña ya aceptó un viaje, queda 'ocupado')
       if (orderToReject && orderToReject.id_pedido) {
         await devolverOfertaAlCliente(Number(orderToReject.id_pedido));
       }
+      await escribirEstadoCad('disponible', 'en_confirmacion');
+      actualizarEstadoPresencia('disponible');
     };
 
     // Rechaza una oferta dirigida a este cadete: el asignador del servidor la pasa en el momento al
