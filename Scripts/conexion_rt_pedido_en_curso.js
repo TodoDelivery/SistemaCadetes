@@ -3,6 +3,7 @@
 // =========================================================================
 import { supabase } from './conexion_supabase.js';
 import { crearHistorialChat } from './chat_pedido.js';
+import { iniciarLatidoCadete, detenerLatidoCadete, actualizarUbicacionLatido } from './latido_cadete.js';
 
 let channelPedidoActivo = null;
 let historialChat = null; // chat del pedido: en vivo + guardado en Pedidos.Chat_pedido
@@ -145,6 +146,8 @@ export async function iniciarSuscripcionPedidoActivo(pedido, callbacks = {}) {
  * Inicia el seguimiento del GPS del cadete y transmite su posición y patente al cliente
  */
 function iniciarTransmisionGPS(idPedido, idCadete) {
+  // En viaje el cadete sigue en turno para el asignador (cuenta como ocupado), con o sin GPS
+  iniciarLatidoCadete(idCadete);
   if (!('geolocation' in navigator)) return;
 
   if (geoWatchId !== null) {
@@ -161,6 +164,7 @@ function iniciarTransmisionGPS(idPedido, idCadete) {
         speed: pos.coords.speed || 0,
         timestamp: new Date().toISOString()
       };
+      actualizarUbicacionLatido(coords.lat, coords.lng, pos.timestamp || Date.now());
 
       const patente = pedidoActual?.patente_cadete || pedidoActual?.patente || '';
       const vehiculo = pedidoActual?.vehiculo_cadete || pedidoActual?.vehiculo_cad || '';
@@ -297,6 +301,7 @@ export function actualizarDatosCadetePedidoActivo(datos) {
  * Desconecta el canal del pedido activo y detiene el GPS
  */
 export async function desconectarPedidoActivo() {
+  detenerLatidoCadete();
   if (geoWatchId !== null && 'geolocation' in navigator) {
     navigator.geolocation.clearWatch(geoWatchId);
     geoWatchId = null;

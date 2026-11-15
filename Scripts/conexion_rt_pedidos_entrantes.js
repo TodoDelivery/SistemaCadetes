@@ -2,6 +2,7 @@
 // CONEXIÓN REALTIME: PRESENCIA DE CADETES & RECEPCIÓN DE PEDIDOS ENTRANTES
 // =========================================================================
 import { supabase } from './conexion_supabase.js';
+import { iniciarLatidoCadete, detenerLatidoCadete, actualizarUbicacionLatido } from './latido_cadete.js';
 
 let channelPresence = null;
 let channelPedidos = null;
@@ -10,7 +11,7 @@ let cadeteSession = null;
 let currentCadetState = 'disponible';
 let currentCoords = { lat: -31.5375, lng: -68.5364 }; // San Juan (Fallback)
 // Hora (ms) del último fix GPS real; null mientras currentCoords es el fallback.
-// La app de clientes solo usa coords con coords_ts para asignar el pedido al cadete más cercano.
+// El asignador del servidor solo usa la ubicación con hora de fix para ofrecer el pedido al cadete más cercano.
 let currentCoordsTs = null;
 
 // Reconexión: si el canal se cae (red, pantalla bloqueada, pestaña en segundo plano) el cadete tiene que
@@ -55,6 +56,10 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
   currentCadetState = cadete.estado_cad || 'disponible';
   const idCadete = Number(cadete.id_cad);
   const nombreCadete = cadete.nombre_cad || cadete.alias_cad || `Cadete #${idCadete}`;
+
+  // Señal de vida para el asignador del servidor (no depende de que los canales estén unidos)
+  iniciarLatidoCadete(idCadete);
+  if (currentCoordsTs) actualizarUbicacionLatido(currentCoords.lat, currentCoords.lng, currentCoordsTs);
 
   console.log(`[Realtime] Inicializando suscripciones para cadete ID: ${idCadete} (${nombreCadete}) - Estado: ${currentCadetState}`);
 
@@ -112,6 +117,7 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
                 lng: position.coords.longitude
               };
               currentCoordsTs = position.timestamp || Date.now();
+              actualizarUbicacionLatido(currentCoords.lat, currentCoords.lng, currentCoordsTs);
               // El GPS puede disparar varias lecturas por segundo: publicar todas satura el límite de mensajes
               // del canal y el servidor lo cierra. Las coords quedan en memoria y el latido publica la última.
               if (Date.now() - ultimoTrackGpsMs < MIN_TRACK_GPS_MS) return;
@@ -218,7 +224,7 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
 
       procesarNuevoPedido(payload, onNuevoPedido);
     })
-    // D) El cliente retiró la oferta (no respondió a tiempo, se pasó al siguiente cadete o se canceló)
+    // D) El asignador retiró la oferta (no respondió a tiempo, se pasó al siguiente cadete o se canceló)
     .on('broadcast', { event: 'pedido_retirado' }, ({ payload }) => {
       console.log('[Realtime Broadcast Canal Privado] Oferta retirada:', payload);
       if (!payload || Number(payload.id_cadete) !== idCadete) return;
@@ -299,6 +305,7 @@ function procesarNuevoPedido(pedido, callback) {
 export async function desconectarSuscripcionesDashboard() {
   quiereConexion = false;
   generacion++;
+  detenerLatidoCadete();
   soltarPantallaEncendida();
   await limpiarSuscripciones();
 }
