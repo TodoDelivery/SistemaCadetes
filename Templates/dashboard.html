@@ -745,7 +745,9 @@
     let colaEstadoCad = Promise.resolve();
     function escribirEstadoCad(estado, soloSiEstaba = null) {
       const escritura = colaEstadoCad.then(() => {
-        let consulta = supabase.from('Cadetes').update({ estado_cad: estado }).eq('id_cad', cadeteActual.id_cad);
+        // Con tope de 8 s: con mala señal una escritura colgada trababa todas las siguientes (van en fila)
+        let consulta = supabase.from('Cadetes').update({ estado_cad: estado }).eq('id_cad', cadeteActual.id_cad)
+          .abortSignal(AbortSignal.timeout(8000));
         if (soloSiEstaba) consulta = consulta.eq('estado_cad', soloSiEstaba);
         return consulta;
       });
@@ -1074,9 +1076,9 @@
       const banner = document.getElementById('activeTripBanner');
       if (banner) banner.classList.add('hidden');
 
-      // Liberar cadete
-      await actualizarEstadoPresencia('disponible');
-      await escribirEstadoCad('disponible');
+      // Liberar cadete (la presencia es solo para el radar del admin: no se la espera)
+      actualizarEstadoPresencia('disponible').catch(() => {});
+      await escribirEstadoCad('disponible').catch(() => {});
     };
 
     // -------------------------------------------------------------------------
@@ -1599,11 +1601,6 @@
       triggerIncomingOrderModal(pedido);
     };
 
-    window.addEventListener('nuevoPedidoEntrante', (e) => {
-      console.log('[Dashboard] Evento nuevoPedidoEntrante capturado:', e.detail);
-      triggerIncomingOrderModal(e.detail);
-    });
-
     window.rejectOrder = async function () {
       clearTimeout(timerTimeout);
       closeModal();
@@ -1715,7 +1712,7 @@
         const { data: respuesta, error } = await supabase.rpc('cadete_aceptar_pedido', {
           p_id_pedido: Number(orderToSave.id_pedido),
           p_id_cad: Number(cadeteActual.id_cad)
-        });
+        }).abortSignal(AbortSignal.timeout(12000));
         if (error) throw error;
         if (respuesta?.ok && respuesta.en_cola) {
           // Era una oferta de cola (el servidor ve un viaje en curso que esta pantalla no tenía cargado):
@@ -1736,6 +1733,9 @@
         }
       } catch (err) {
         console.warn('[Dashboard] Error al tomar el pedido:', err);
+        // Sin respuesta (red lenta o cortada): el servidor pudo haberlo asignado igual. Se mira la BD una vez
+        // para no dejar al cadete afuera de un viaje que ya es suyo
+        pedidoTomado = await pedidoYaAsignadoAMi(orderToSave.id_pedido);
       }
 
       if (!pedidoTomado && viajeEnCurso) {
@@ -1751,8 +1751,8 @@
         aceptandoPedido = false;
         if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
         recordarRechazoLocal(orderToSave.id_pedido);
-        await escribirEstadoCad('disponible', 'en_confirmacion');
-        actualizarEstadoPresencia('disponible');
+        escribirEstadoCad('disponible', 'en_confirmacion');
+        actualizarEstadoPresencia('disponible').catch(() => {});
         alert(`El pedido #${orderToSave.id_pedido} ya no está disponible (se ofreció a otro cadete o fue cancelado).`);
         return;
       }
@@ -1774,7 +1774,11 @@
         console.warn('Error guardando active_order en storage:', e);
       }
 
-      // 3. Pedido ya asignado en BD: marcar cadete ocupado y notificar al cliente vía Realtime Broadcast
+      // 3. El pedido ya es de este cadete en la BD (lo decidió el servidor). Lo que sigue es secundario:
+      //    marcarlo ocupado, publicarlo en la presencia (la usa el radar del admin) y avisarle al cliente.
+      //    Se espera como mucho 1.5 s y se entra al viaje igual: antes se esperaba sin tope a la presencia
+      //    (herencia del modelo P2P) y, si ese canal no respondía, la pantalla quedaba trabada en
+      //    "Confirmando asignación con la Central". pedido_activo.html vuelve a marcar 'ocupado' al abrir.
       const syncPromises = [
         escribirEstadoCad('ocupado'),
         actualizarEstadoPresencia('ocupado'),
@@ -1794,7 +1798,10 @@
         ])
       ];
 
-      await Promise.all(syncPromises).catch(err => console.warn('[Dashboard] Error al actualizar en Supabase:', err));
+      await Promise.race([
+        Promise.allSettled(syncPromises),
+        new Promise(resolve => setTimeout(resolve, 1500))
+      ]);
 
       if (loadingSub) loadingSub.innerText = "Cargando mapa en vivo y navegación satelital...";
       if (progressBar) progressBar.style.width = "100%";
@@ -1806,6 +1813,23 @@
       // 4. Redirigir de forma instantánea a la vista de viaje
       window.location.href = `pedido_activo.html?id_cad=${cadeteActual.id_cad}`;
     };
+
+    // Respaldo cuando la aceptación no respondió: el pedido es de este cadete si ya está en viaje a su nombre
+    async function pedidoYaAsignadoAMi(idPedido) {
+      try {
+        const { data } = await supabase
+          .from('Pedidos')
+          .select('*')
+          .eq('id_pedido', Number(idPedido))
+          .eq('id_cadete', Number(cadeteActual.id_cad))
+          .in('estado_pedido', ['asignado', 'en_camino_entrega'])
+          .abortSignal(AbortSignal.timeout(8000))
+          .maybeSingle();
+        return data || null;
+      } catch (e) {
+        return null;
+      }
+    }
 
     window.closeModal = function () {
       const modal = document.getElementById('orderModal');

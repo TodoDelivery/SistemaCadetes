@@ -31,8 +31,9 @@ let wakeLock = null;                 // mantiene la pantalla encendida mientras 
 
 /**
  * Inicia la doble suscripción en Supabase Realtime:
- * 1. Canal 'cadetes-disponibles' (Presence): Transmite conexión, estado y ubicación GPS al backend.
- * 2. Canal 'pedidos-cadete-${idCadete}' (Postgres Changes & Broadcast): Escucha pedidos asignados a id_cadete.
+ * 1. Canal 'cadetes-disponibles' (Presence): publica conexión, estado y ubicación para el radar del admin.
+ *    Ya no decide nada: el asignador del servidor usa el latido en la BD (latido_cadete.js).
+ * 2. Canal 'pedidos-cadete-${idCadete}' (Postgres Changes & Broadcast): ofertas que manda el servidor.
  * 
  * @param {Object} cadete - Objeto con datos del cadete (id_cad, nombre_cad, etc.)
  * @param {Function} [onNuevoPedido] - Callback ejecutado al recibir un nuevo pedido
@@ -79,15 +80,8 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
       const state = channelPresence.presenceState();
       console.log('[Realtime Presence] Estado sincronizado:', state);
     })
-    // Escuchar Broadcasts emitidos globalmente al canal de cadetes.
-    // Solo se atienden los dirigidos a este cadete: un pedido sin id_cadete NO se abre en todos a la vez
-    .on('broadcast', { event: 'nuevo_pedido' }, ({ payload }) => {
-      console.log('[Realtime Presence Broadcast] Evento recibido:', payload, 'Mi ID:', idCadete);
-      if (payload && Number(payload.id_cadete) === idCadete) {
-        console.log('[Realtime Presence Broadcast] ¡Pedido recibido para atender! Abriendo modal:', payload);
-        procesarNuevoPedido(payload, onNuevoPedido);
-      }
-    })
+    // (Sin escucha de 'nuevo_pedido' en este canal global: era del asignador P2P del navegador. Cualquiera con
+    // la clave pública podía abrirle ofertas a todos los cadetes. El servidor ofrece solo por el canal privado.)
     .subscribe(async (status, err) => {
       console.log(`[Realtime Presence] Estado suscripción "cadetes-disponibles": ${status}`);
       if (status === 'SUBSCRIBED') {
@@ -169,7 +163,7 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
 
         const destId = Number(payload.new.id_cadete);
         if (destId !== idCadete) {
-          console.error(`[FUEGO P2P] INTENTO DE INVASIÓN INSERT! Destinado a ${destId}, pero yo soy ${idCadete}! Bloqueando.`);
+          console.warn(`[Realtime Pedidos] INSERT de otro cadete (#${destId}) ignorado.`);
           return;
         }
 
@@ -201,24 +195,25 @@ export async function iniciarSuscripcionesDashboard(cadete, onNuevoPedido) {
         }
 
         if (destId !== idCadete) {
-          console.error(`[FUEGO P2P] INTENTO DE INVASIÓN UPDATE! Destinado a ${destId}, pero yo soy ${idCadete}! Bloqueando.`);
+          console.warn(`[Realtime Pedidos] UPDATE de otro cadete (#${destId}) ignorado.`);
           return;
         }
 
-        // Permitir tanto 'libre' (reasignación de cliente) como 'en_confirmacion'
+        // Oferta del servidor ('libre' recién ofrecida o 'en_confirmacion' ya vista)
         if (payload.new.estado_pedido === 'libre' || payload.new.estado_pedido === 'en_confirmacion') {
           procesarNuevoPedido(payload.new, onNuevoPedido);
         }
       }
     )
-    // C) Escuchar mensajes directos por Broadcast emitidos al canal privado
+    // C) Oferta enviada por el asignador del servidor (realtime.send). El modal igual la confirma con
+    //    cadete_ver_oferta antes de dejarla abierta, así que un mensaje viejo o falso se cierra solo
     .on('broadcast', { event: 'nuevo_pedido' }, ({ payload }) => {
       console.log('[Realtime Broadcast Canal Privado] Pedido recibido:', payload);
       if (!payload) return;
 
       const destId = Number(payload.id_cadete);
       if (destId !== idCadete) {
-        console.error(`[FUEGO P2P] INTENTO DE INVASIÓN BROADCAST! Destinado a ${destId}, pero yo soy ${idCadete}! Bloqueando.`);
+        console.warn(`[Realtime Pedidos] Oferta para otro cadete (#${destId}) ignorada.`);
         return;
       }
 

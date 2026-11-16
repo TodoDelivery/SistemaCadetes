@@ -852,9 +852,17 @@
         if (targetCadId) {
           const { data: dbCad } = await supabase
             .from('Cadetes')
-            .select('id_cad, nombre_cad, alias_cad, vehiculo_cad, patente')
+            .select('id_cad, nombre_cad, alias_cad, vehiculo_cad, patente, estado_cad')
             .eq('id_cad', targetCadId)
             .maybeSingle();
+
+          // Con un viaje en curso el cadete figura 'ocupado'. Al aceptar, el dashboard ya no espera a que esa
+          // escritura termine antes de abrir esta pantalla (podía quedar cortada al cambiar de página): se repite acá
+          const enViaje = ['asignado', 'en_camino_entrega'].includes(String(pedidoActivo.estado_pedido));
+          if (dbCad && enViaje && dbCad.estado_cad !== 'ocupado') {
+            supabase.from('Cadetes').update({ estado_cad: 'ocupado' }).eq('id_cad', targetCadId)
+              .then(({ error }) => { if (error) console.warn('[Viaje] No se pudo marcar ocupado:', error); });
+          }
 
           if (dbCad) {
             cadeteActual = { ...cadeteActual, ...dbCad };
