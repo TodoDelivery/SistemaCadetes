@@ -767,6 +767,7 @@
       desconectarSuscripcionesDashboard
     } from '../Scripts/conexion_rt_pedidos_entrantes.js';
     import { permisoAvisos, activarAvisos, sincronizarAvisos, desactivarAvisos } from '../Scripts/avisos_push.js';
+    import { iniciarColaCadete, detenerColaCadete } from '../Scripts/cola_cadete.js';
 
     let isOnline = true;
     let timerTimeout;
@@ -1232,6 +1233,8 @@
       verificarPedidoActivoPendiente();
       actualizarMetricasDashboard();
       iniciarBuscadorColaDashboard();
+      // Ofertas de "siguiente pedido" mientras tiene un viaje, y cartel del pedido en cola
+      iniciarColaCadete(cadeteActual.id_cad);
     });
 
     // Detectar cuando el usuario vuelve a la pestaña o app
@@ -1362,6 +1365,7 @@
 
         // 2. Este celular deja de recibir los avisos de este cadete
         await desactivarAvisos();
+        detenerColaCadete();
 
         // 3. Desconectar suscripciones Realtime
         try {
@@ -1534,7 +1538,14 @@
         return;
       }
 
-      // Ocupado (otra oferta abierta, aceptando una o viaje en curso): devolverla para que el cliente pase al siguiente
+      // Con un viaje en curso, una oferta nueva es para la cola ("siguiente pedido"): la muestra y la responde
+      // cola_cadete.js. Acá no se toca, así no se rechaza sola.
+      if (currentActiveOrder && !hayOfertaAbierta() && !aceptandoPedido
+          && ['asignado', 'en_camino_entrega'].includes(String(currentActiveOrder.estado_pedido))) {
+        return;
+      }
+
+      // Ocupado (otra oferta abierta o aceptando una): devolverla para que el servidor pase al siguiente
       if (currentActiveOrder || aceptandoPedido) {
         console.log(`[Dashboard Cadete #${cadeteActual.id_cad}] Ocupado (${currentActiveOrder ? `con #${currentActiveOrder.id_pedido}` : 'aceptando otro pedido'}): devolviendo oferta #${orderId}.`);
         devolverOfertaAlCliente(orderId);
@@ -1787,6 +1798,16 @@
           p_id_cad: Number(cadeteActual.id_cad)
         });
         if (error) throw error;
+        if (respuesta?.ok && respuesta.en_cola) {
+          // Era una oferta de cola (el servidor ve un viaje en curso que esta pantalla no tenía cargado):
+          // el pedido queda para después de ese viaje, no es el viaje actual
+          aceptandoPedido = false;
+          if (loadingScreen) loadingScreen.classList.add('opacity-0', 'pointer-events-none');
+          recordarRechazoLocal(orderToSave.id_pedido);
+          alert(`El pedido #${orderToSave.id_pedido} quedó en tu cola: empieza cuando termines el pedido #${respuesta.id_pedido_en_curso}.`);
+          verificarPedidoActivoPendiente();
+          return;
+        }
         if (respuesta?.ok) {
           pedidoTomado = respuesta.pedido;
         } else if (respuesta?.motivo === 'viaje_en_curso') {

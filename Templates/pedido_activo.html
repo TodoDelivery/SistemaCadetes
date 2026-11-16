@@ -482,6 +482,7 @@
       actualizarEstadoPedidoEnCurso,
       desconectarPedidoActivo
     } from '../Scripts/conexion_rt_pedido_en_curso.js';
+    import { iniciarColaCadete } from '../Scripts/cola_cadete.js';
 
     let stage = 1; // 1: Al local, 2: Retirado / Al cliente
     let comision = COMISION_POR_DEFECTO; // % que se rinde a la empresa (lo edita el admin)
@@ -549,6 +550,8 @@
       
       if (cadeteActual) {
         storageKey = `active_order_${cadeteActual.id_cad}`;
+        // Durante el viaje le pueden ofrecer el siguiente pedido (queda en su cola hasta que entregue este)
+        iniciarColaCadete(cadeteActual.id_cad);
       }
 
       // 1. Cargar desde localStorage / sessionStorage
