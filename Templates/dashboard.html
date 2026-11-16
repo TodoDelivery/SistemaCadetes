@@ -22,34 +22,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              bg: '#0E1118',
-              surface: '#161B26',
-              surfaceLight: '#1F2635',
-              accent: '#00E58F',
-              accentHover: '#00C77B',
-              accentGlow: 'rgba(0, 229, 143, 0.25)',
-              danger: '#FF4D4D',
-              dangerGlow: 'rgba(255, 77, 77, 0.25)',
-              warning: '#FFB800',
-              textMuted: '#8E9AA8',
-              border: '#283044'
-            }
-          }
-        }
-      }
-    }
-  </script>
 
   <style>
     * {
@@ -243,6 +215,8 @@
       opacity: 1;
     }
   </style>
+  <!-- Tailwind compilado (npm run css). Va último en el <head>, igual que lo dejaba el CDN -->
+  <link rel="stylesheet" href="../Styles/tailwind-inicio.css" />
 </head>
 
 <body class="flex flex-col min-h-[100dvh] max-w-md mx-auto bg-brand-bg relative pb-8">

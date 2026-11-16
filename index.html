@@ -18,31 +18,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              bg: '#090B10',
-              surface: '#121620',
-              surfaceLight: '#1A202E',
-              accent: '#00E58F',
-              accentHover: '#00C77B',
-              accentGlow: 'rgba(0, 229, 143, 0.25)',
-              textMuted: '#8E9AA8',
-              border: '#1F2636'
-            }
-          }
-        }
-      }
-    }
-  </script>
 
   <style>
     /* Estilos base y ajustes de scroll PWA */
@@ -113,6 +88,8 @@
       pointer-events: none;
     }
   </style>
+  <!-- Tailwind compilado (npm run css). Va último en el <head>, igual que lo dejaba el CDN -->
+  <link rel="stylesheet" href="Styles/tailwind-ingreso.css" />
 </head>
 
 <body class="flex items-center justify-center p-0 m-0 font-sans antialiased">

@@ -18,31 +18,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              black: '#000000',
-              surface: '#111318',
-              surfaceLight: '#1C2029',
-              accent: '#00E58F',
-              accentDark: '#00B36B',
-              warning: '#FFC800',
-              danger: '#FF3B30',
-              textMuted: '#9CA3AF',
-              border: '#262C3A'
-            }
-          }
-        }
-      }
-    }
-  </script>
 
   <style>
     * {
@@ -111,6 +86,8 @@
       opacity: 1;
     }
   </style>
+  <!-- Tailwind compilado (npm run css). Va último en el <head>, igual que lo dejaba el CDN -->
+  <link rel="stylesheet" href="../Styles/tailwind-viaje.css" />
 </head>
 <body class="font-sans antialiased bg-black flex justify-center items-center min-h-[100dvh] w-full p-0 m-0">
 

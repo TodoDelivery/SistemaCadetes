@@ -14,31 +14,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&display=swap" rel="stylesheet">
   
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          },
-          colors: {
-            brand: {
-              bg: '#090B10',
-              surface: '#121620',
-              surfaceLight: '#1A202E',
-              accent: '#00E58F',
-              accentHover: '#00C77B',
-              warning: '#FFB800',
-              danger: '#FF4D4D',
-              textMuted: '#8E9AA8',
-              border: '#1F2636'
-            }
-          }
-        }
-      }
-    }
-  </script>
 
   <style>
     * {
@@ -56,6 +31,8 @@
       min-height: 100dvh;
     }
   </style>
+  <!-- Tailwind compilado (npm run css). Va último en el <head>, igual que lo dejaba el CDN -->
+  <link rel="stylesheet" href="../Styles/tailwind-listas.css" />
 </head>
 <body class="flex flex-col min-h-[100dvh] max-w-md mx-auto bg-brand-bg relative pb-10">
 
