@@ -32,14 +32,24 @@
       min-height: 100dvh;
     }
   </style>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- MapLibre GL: mismo mapa 3D que la pantalla del viaje -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <link rel="stylesheet" href="../Styles/mapa_td.css" />
   <style>
-    .leaflet-container { background: #090B10 !important; font-family: inherit; }
-    /* Mismo modo oscuro de mosaicos que en el viaje activo */
-    .leaflet-tile { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important; }
-    .leaflet-control-attribution { font-size: 9px; background: rgba(0,0,0,.5) !important; color: #888 !important; }
-    .leaflet-control-attribution a { color: #aaa !important; }
+    /* Recorrido del pedido: mapa 3D con controles flotantes (2D/3D y reencuadrar) */
+    .recorrido-mapa { position: relative; height: 15rem; border-radius: 22px; overflow: hidden; background: #0B0E14; border: 1px solid rgba(255, 255, 255, .07); }
+    .recorrido-mapa > #modalRouteMap { position: absolute; inset: 0; }
+    .recorrido-controles { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; flex-direction: column; gap: 8px; }
+    .recorrido-btn {
+      width: 40px; height: 40px; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
+      background: rgba(17, 19, 24, .94); border: 1px solid rgba(255, 255, 255, .09); color: #fff;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, .45); font-size: 12px; font-weight: 900; transition: transform .15s, color .2s, border-color .2s;
+    }
+    .recorrido-btn:active { transform: scale(.9); }
+    .recorrido-btn.activo { color: #00E58F; border-color: rgba(0, 229, 143, .55); }
+    .recorrido-mapa.sin-mapa { height: auto; border: 0; background: transparent; }
+    .recorrido-mapa.sin-mapa > * { display: none; }
   </style>
   <!-- Tailwind compilado (npm run css). Va último en el <head>, igual que lo dejaba el CDN -->
   <link rel="stylesheet" href="../Styles/tailwind-listas.css" />
@@ -179,7 +189,15 @@
 
       <!-- Recorrido del pedido: retiro -> entrega por calles -->
       <div>
-        <div id="modalRouteMap" class="h-48 w-full rounded-2xl overflow-hidden border border-brand-border bg-brand-surfaceLight"></div>
+        <div id="recorridoMapa" class="recorrido-mapa">
+          <div id="modalRouteMap"></div>
+          <div class="recorrido-controles">
+            <button type="button" id="btnRecorridoTilt" onclick="alternarInclinacionRecorrido()" class="recorrido-btn activo" aria-label="Cambiar vista 2D / 3D">3D</button>
+            <button type="button" onclick="reencuadrarRecorrido()" class="recorrido-btn" aria-label="Ver el recorrido completo" title="Ver el recorrido completo">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"></path></svg>
+            </button>
+          </div>
+        </div>
         <p id="modalRouteInfo" class="text-[11px] text-brand-textMuted mt-1.5">Cargando recorrido...</p>
       </div>
 
@@ -224,6 +242,7 @@
     import { iniciarAvisoPedidoEntrante } from '../Scripts/aviso_pedido_entrante.js';
     import { leerChat } from '../Scripts/chat_pedido.js';
     import { textoTiempoActivo, textoDuracionViaje } from '../Scripts/tiempo_activo.js';
+    import { crearMapaOferta, mostrarOfertaEnMapa, encuadrarRecorrido, mostrarDireccion } from '../Scripts/mapa_td.js';
 
     // Rango elegido en el calendario ('YYYY-MM-DD' en hora local). Arranca en el día de hoy.
     const fechaLocalISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -445,10 +464,8 @@
       document.getElementById('modalOrderTag').innerText = `ORDEN #${pedido.id_pedido}${statusTxt}`;
       document.getElementById('modalStoreName').innerText = storeName;
       
-      const dirDest = pedido.latitud_dest && pedido.longitud_dest
-        ? `Coordenadas Destino: ${Number(pedido.latitud_dest).toFixed(4)}, ${Number(pedido.longitud_dest).toFixed(4)}`
-        : 'San Juan Capital';
-      document.getElementById('modalAddress').innerText = dirDest;
+      // Dirección del punto de entrega (los pedidos guardan solo coordenadas)
+      mostrarDireccion(document.getElementById('modalAddress'), pedido.latitud_dest, pedido.longitud_dest);
       
       document.getElementById('modalEarnings').innerText = `+$${ganancia.toLocaleString('es-AR')}`;
       document.getElementById('modalPctCadete').innerText = textoComisionPedidos([pedido], comision, true);
@@ -508,65 +525,80 @@
     // -------------------------------------------------------------------------
     // No se guarda el rastro GPS real del viaje: se muestra la ruta por calles entre el retiro y la entrega.
     let mapaRecorrido = null;
-    let capaRecorrido = null;
+    let creandoMapaRecorrido = null;
     let recorridoPedidoId = null;
+    let recorridoInclinado = localStorage.getItem('td_recorrido_2d') !== '1'; // 3D por defecto
 
-    async function rutaPorCalles(origen, destino) {
-      try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${origen[1]},${origen[0]};${destino[1]},${destino[0]}?overview=full&geometries=geojson`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const ruta = (await res.json())?.routes?.[0];
-          if (ruta) return { puntos: ruta.geometry.coordinates.map(c => [c[1], c[0]]), metros: ruta.distance, porCalles: true };
-        }
-      } catch (err) {
-        console.warn('[Recorrido] No se pudo calcular la ruta por calles, se muestra línea recta:', err);
-      }
-      return { puntos: [origen, destino], metros: L.latLng(origen).distanceTo(L.latLng(destino)), porCalles: false };
-    }
+    const distanciaRecta = (o, d) => {
+      const rad = Math.PI / 180;
+      const a = Math.sin((d.lat - o.lat) * rad / 2) ** 2 + Math.cos(o.lat * rad) * Math.cos(d.lat * rad) * Math.sin((d.lng - o.lng) * rad / 2) ** 2;
+      return 2 * 6371e3 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
 
     async function dibujarRecorrido(pedido) {
       const info = document.getElementById('modalRouteInfo');
-      const contenedor = document.getElementById('modalRouteMap');
-      const origen = [Number(pedido.latitud_org), Number(pedido.longitud_org)];
-      const destino = [Number(pedido.latitud_dest), Number(pedido.longitud_dest)];
+      const caja = document.getElementById('recorridoMapa');
+      const origen = { lat: Number(pedido.latitud_org), lng: Number(pedido.longitud_org) };
+      const destino = { lat: Number(pedido.latitud_dest), lng: Number(pedido.longitud_dest) };
       const hayCoords = [pedido.latitud_org, pedido.longitud_org, pedido.latitud_dest, pedido.longitud_dest].every(v => v != null)
-        && [...origen, ...destino].every(Number.isFinite);
+        && [origen.lat, origen.lng, destino.lat, destino.lng].every(Number.isFinite);
 
-      if (!hayCoords || typeof L === 'undefined') {
-        contenedor.classList.add('hidden');
-        info.innerText = hayCoords ? 'No se pudo cargar el mapa.' : 'Este pedido no tiene ubicaciones guardadas.';
+      recorridoPedidoId = pedido.id_pedido;
+      if (!hayCoords) {
+        caja.classList.add('sin-mapa');
+        info.innerText = 'Este pedido no tiene ubicaciones guardadas.';
         return;
       }
-      contenedor.classList.remove('hidden');
+      caja.classList.remove('sin-mapa');
       info.innerText = 'Cargando recorrido...';
-      recorridoPedidoId = pedido.id_pedido;
 
       if (!mapaRecorrido) {
-        mapaRecorrido = L.map(contenedor, { zoomControl: false });
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(mapaRecorrido);
-        capaRecorrido = L.layerGroup().addTo(mapaRecorrido);
+        creandoMapaRecorrido ??= crearMapaOferta(document.getElementById('modalRouteMap'), { interactivo: true });
+        mapaRecorrido = await creandoMapaRecorrido;
+        creandoMapaRecorrido = null;
       }
-      mapaRecorrido.invalidateSize();
-      capaRecorrido.clearLayers();
+      if (recorridoPedidoId !== pedido.id_pedido) return; // se abrió otro pedido mientras se creaba el mapa
+      if (!mapaRecorrido) {
+        caja.classList.add('sin-mapa');
+        info.innerText = 'No se pudo cargar el mapa.';
+        return;
+      }
+      pintarBotonInclinacion();
 
-      const punto = (coords, color, texto) => L.circleMarker(coords, { radius: 7, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 })
-        .bindTooltip(texto).addTo(capaRecorrido);
-      punto(origen, '#FFB800', 'Retiro');
-      punto(destino, '#00E58F', 'Entrega');
-      mapaRecorrido.fitBounds([origen, destino], { padding: [28, 28] });
+      const nombreLocal = pedido.inform_pedido ? pedido.inform_pedido.split('-')[0].trim() : 'Local';
+      const ruta = await mostrarOfertaEnMapa(mapaRecorrido, pedido, {
+        nombreLocal, nombreCliente: 'Entrega', pitch: recorridoInclinado ? 50 : 0
+      });
+      if (recorridoPedidoId !== pedido.id_pedido) return;
 
-      const ruta = await rutaPorCalles(origen, destino);
-      if (recorridoPedidoId !== pedido.id_pedido) return; // se abrió otro pedido mientras se calculaba
-
-      L.polyline(ruta.puntos, { color: '#00E58F', weight: 4, opacity: 0.9 }).addTo(capaRecorrido);
-      mapaRecorrido.fitBounds(L.latLngBounds(ruta.puntos), { padding: [28, 28] });
-
-      const distancia = ruta.metros < 1000 ? `${Math.round(ruta.metros)} m` : `${(ruta.metros / 1000).toFixed(1)} km`;
-      info.innerText = ruta.porCalles
+      const metros = ruta ? ruta.distance : distanciaRecta(origen, destino);
+      const distancia = metros < 1000 ? `${Math.round(metros)} m` : `${(metros / 1000).toFixed(1)} km`;
+      info.innerText = ruta
         ? `Del retiro (amarillo) a la entrega (verde) • ${distancia} por calles`
         : `Del retiro (amarillo) a la entrega (verde) • ${distancia} en línea recta`;
     }
+
+    function pintarBotonInclinacion() {
+      const boton = document.getElementById('btnRecorridoTilt');
+      boton.textContent = recorridoInclinado ? '3D' : '2D';
+      boton.classList.toggle('activo', recorridoInclinado);
+    }
+
+    window.alternarInclinacionRecorrido = function() {
+      if (!mapaRecorrido) return;
+      recorridoInclinado = !recorridoInclinado;
+      localStorage.setItem('td_recorrido_2d', recorridoInclinado ? '0' : '1');
+      pintarBotonInclinacion();
+      mapaRecorrido.easeTo({ pitch: recorridoInclinado ? 50 : 0, duration: 600 });
+      if ("vibrate" in navigator) navigator.vibrate(20);
+    };
+
+    // Vuelve a mostrar todo el recorrido (después de moverlo, girarlo o hacer zoom con los dedos)
+    window.reencuadrarRecorrido = function() {
+      if (!mapaRecorrido) return;
+      encuadrarRecorrido(mapaRecorrido, { pitch: recorridoInclinado ? 50 : 0 });
+      if ("vibrate" in navigator) navigator.vibrate(20);
+    };
 
     window.closeDetailModal = function() {
       const modal = document.getElementById('tripDetailModal');

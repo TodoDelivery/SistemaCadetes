@@ -14,9 +14,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&display=swap" rel="stylesheet">
   
-  <!-- Leaflet Maps CSS & JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- MapLibre GL: mapa vectorial con inclinación (3D) y rotación por brújula -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <link rel="stylesheet" href="../Styles/mapa_td.css" />
 
 
   <style>
@@ -39,51 +40,256 @@
       width: 100%;
     }
 
-    .leaflet-container {
-      background: #090B10 !important;
-      font-family: inherit;
-    }
-    /* Estilo Dark Mode vía CSS para mosaicos de OpenStreetMap (OSM) */
-    .leaflet-tile {
-      filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
-    }
-    .custom-gps-marker {
-      background: transparent;
-      border: none;
-    }
-    .leaflet-control-zoom {
-      display: none !important;
-    }
-    .leaflet-control-attribution {
-      background: rgba(0,0,0,0.7) !important;
-      color: #666 !important;
-      font-size: 8px !important;
-    }
-    .leaflet-control-attribution a {
-      color: #888 !important;
-    }
-    
-    @keyframes gpsPulse {
-      0% { transform: scale(1); opacity: 0.9; }
-      100% { transform: scale(2.6); opacity: 0; }
-    }
-    .gps-glow {
-      animation: gpsPulse 1.8s infinite ease-out;
-    }
+    /* Color de la etapa: verde al local, amarillo al cliente (lo cambia data-etapa en <body>) */
+    body { --etapa: #00E58F; --etapa-rgb: 0, 229, 143; }
+    body[data-etapa="2"] { --etapa: #FFC800; --etapa-rgb: 255, 200, 0; }
 
-    .route-glow {
-      filter: drop-shadow(0 0 8px rgba(0, 229, 143, 0.8));
-    }
+    /* ---------- Mapa ---------- */
+    #liveMap { background: #0B0E14; }
+    /* Sin mapa (sin WebGL o sin red): aviso discreto en lugar del lienzo vacío */
+    #mapFallback { display: none; }
+    #liveMap.sin-mapa + #mapFallback { display: flex; }
 
-    /* Control de Vistas */
-    .view-screen {
-      display: none;
-      opacity: 0;
-      transition: opacity 0.25s ease-out;
+    /* ---------- Banner de navegación ---------- */
+    .nav-card {
+      background: rgba(17, 19, 24, .97);
+      border: 1px solid rgba(255, 255, 255, .07);
+      border-radius: 28px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, .55);
     }
-    .view-screen.active {
-      display: flex;
-      opacity: 1;
+    .nav-maniobra { background: var(--etapa); transition: background-color .4s; }
+    .nav-etapa-texto { color: var(--etapa); transition: color .4s; }
+    .maniobra-pop { animation: tdPop .45s cubic-bezier(.34, 1.56, .64, 1); }
+    .texto-entra { animation: tdTextoEntra .35s ease-out; }
+
+    /* ---------- Controles flotantes del mapa ---------- */
+    .map-btn {
+      width: 48px; height: 48px; border-radius: 9999px;
+      background: rgba(17, 19, 24, .96); border: 1px solid rgba(255, 255, 255, .09);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .5);
+      display: flex; align-items: center; justify-content: center; color: #fff;
+      transition: transform .15s, border-color .25s, background-color .25s, color .25s;
+    }
+    .map-btn:active { transform: scale(.9); }
+    .map-btn.activo { border-color: rgba(var(--etapa-rgb), .6); color: var(--etapa); }
+    .map-btn.lleno { background: var(--etapa); color: #000; border-color: transparent; }
+    #compassNeedle { transition: transform .12s linear; }
+    /* Selector 2D / 3D: la opción activa queda resaltada y la marca se desliza entre las dos */
+    .tilt-switch {
+      position: relative; width: 48px; height: 84px; padding: 4px; border-radius: 9999px;
+      background: rgba(17, 19, 24, .96); border: 1px solid rgba(255, 255, 255, .09);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .5);
+      display: flex; flex-direction: column;
+      transition: transform .15s;
+    }
+    .tilt-switch:active { transform: scale(.94); }
+    .tilt-switch__marca {
+      position: absolute; left: 4px; right: 4px; top: 4px; height: 37px; border-radius: 9999px;
+      background: var(--etapa);
+      transition: transform .3s cubic-bezier(.34, 1.4, .64, 1), background-color .4s;
+    }
+    .tilt-switch.plano .tilt-switch__marca { transform: translateY(37px); }
+    .tilt-switch__op {
+      position: relative; flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 900; letter-spacing: -.01em; color: #8E9AA8;
+      transition: color .25s;
+    }
+    .tilt-switch:not(.plano) [data-op="3d"], .tilt-switch.plano [data-op="2d"] { color: #000; }
+    .vel-chip {
+      background: rgba(17, 19, 24, .96); border: 1px solid rgba(255, 255, 255, .09);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .5);
+      transition: opacity .3s, transform .3s;
+    }
+    .vel-chip.oculto { opacity: 0; transform: translateY(6px); pointer-events: none; }
+
+    /* Aviso corto sobre el mapa (brújula no disponible, etc.) */
+    #mapToast { transition: opacity .25s, transform .25s; }
+    #mapToast.oculto { opacity: 0; transform: translate(-50%, -6px); pointer-events: none; }
+
+    /* ---------- Hoja inferior ---------- */
+    /* Tarjeta flotante (como el banner): separada de los bordes para que se vean las esquinas redondeadas */
+    .sheet-card {
+      position: relative; z-index: 10;
+      width: auto; max-width: calc(28rem - 24px);
+      margin: 0 12px max(12px, env(safe-area-inset-bottom));
+      padding: 18px 16px 16px;
+      background: #13161D;
+      border: 1px solid rgba(255, 255, 255, .09);
+      border-radius: 28px;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .04);
+    }
+    .sheet-card > :not(.vel-pos):not(.map-controles) + * { margin-top: 16px; }
+    /* Controles y velocidad: flotan sobre la tarjeta con aire alrededor */
+    .map-controles { position: absolute; right: 2px; bottom: calc(100% + 16px); display: flex; flex-direction: column; gap: 12px; margin: 0 !important; }
+    .vel-pos { position: absolute; left: 2px; bottom: calc(100% + 16px); margin: 0 !important; }
+    .td-action {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+      height: 60px; border-radius: 18px; position: relative;
+      background: #1C2029; border: 1px solid rgba(255, 255, 255, .06);
+      font-size: 11px; font-weight: 800; color: #E5E7EB;
+      transition: transform .15s, border-color .2s, background-color .2s;
+    }
+    .td-action:active { transform: scale(.94); }
+    .td-action svg { width: 22px; height: 22px; }
+    .td-action--chat svg { color: #00E58F; }
+    .td-action--llamar svg { color: #60A5FA; }
+    .td-action--reclamo { background: rgba(255, 59, 48, .08); border-color: rgba(255, 59, 48, .22); color: #FFB4AE; }
+    .td-action--reclamo svg { color: #FF3B30; }
+    .td-badge {
+      position: absolute; top: 6px; right: calc(50% - 22px);
+      min-width: 16px; height: 16px; border-radius: 9999px; padding: 0 4px;
+      background: #00E58F; color: #000; font-size: 9px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid #1C2029;
+    }
+    .td-badge::after {
+      content: ''; position: absolute; inset: -2px; border-radius: inherit;
+      border: 2px solid #00E58F; animation: tdPulso 1.6s ease-out infinite;
+    }
+    /* Progreso de las 2 etapas */
+    .etapa-barra { height: 4px; border-radius: 9999px; background: #262C3A; overflow: hidden; }
+    .etapa-barra > i { display: block; height: 100%; width: 100%; background: var(--etapa); transform-origin: left; transform: scaleX(0); transition: transform .6s cubic-bezier(.16, 1, .3, 1), background-color .4s; }
+    .etapa-barra.llena > i { transform: scaleX(1); }
+
+    /* Deslizador: brillo que recorre el texto y flecha que invita a deslizar */
+    .swipe-brillo {
+      position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .08), transparent);
+      animation: tdBrillo 2.6s ease-in-out infinite; pointer-events: none;
+    }
+    .swipe-flecha { animation: tdEmpuje 1.4s ease-in-out infinite; }
+    #swipeHandle { background: var(--etapa); transition: background-color .4s; }
+    #swipeFill { background: var(--etapa); }
+
+    /* ---------- Chat: hoja inferior (CSS propio, no depende del Tailwind compilado) ---------- */
+    .chat-velo {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; align-items: flex-end; justify-content: center;
+      background: rgba(0, 0, 0, .62);
+      transition: opacity .3s;
+    }
+    .chat-sheet {
+      width: 100%; max-width: 28rem; height: 82dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+      background: #111318;
+      border: 1px solid rgba(255, 255, 255, .07); border-bottom: 0;
+      border-radius: 28px 28px 0 0;
+      box-shadow: 0 -20px 50px rgba(0, 0, 0, .6);
+      transition: transform .38s cubic-bezier(.16, 1, .3, 1);
+    }
+    .chat-sheet.translate-y-full { transform: translateY(100%); }
+
+    .chat-cabecera {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 16px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, .06);
+    }
+    .chat-avatar {
+      position: relative; flex-shrink: 0; width: 44px; height: 44px; border-radius: 9999px;
+      background: rgba(0, 229, 143, .12); border: 2px solid #00E58F;
+      display: flex; align-items: center; justify-content: center;
+      color: #00E58F; font-size: 14px; font-weight: 900;
+    }
+    .chat-avatar i {
+      position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 9999px;
+      background: #00E58F; border: 2.5px solid #111318;
+    }
+    .chat-titulo { flex: 1; min-width: 0; }
+    .chat-titulo h3 { font-size: 16px; font-weight: 800; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-titulo p { margin-top: 2px; font-size: 11px; font-weight: 600; color: #8E9AA8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-boton {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 9999px;
+      display: flex; align-items: center; justify-content: center;
+      background: #1C2029; color: #9CA3AF;
+      transition: transform .15s, background-color .2s;
+    }
+    .chat-boton:active { transform: scale(.9); background: #262C3A; }
+    .chat-boton svg { width: 19px; height: 19px; }
+    .chat-boton--llamar { color: #60A5FA; }
+
+    .chat-lista {
+      flex: 1; overflow-y: auto; overscroll-behavior: contain;
+      padding: 14px 14px 8px;
+      display: flex; flex-direction: column; gap: 6px;
+      font-size: 14px;
+    }
+    .chat-aviso { text-align: center; margin: auto 0 10px; } /* con pocos mensajes, quedan abajo, cerca del teclado */
+    .chat-aviso span {
+      display: inline-block; padding: 5px 12px; border-radius: 9999px;
+      background: #1A1E27; color: #8E9AA8; font-size: 11px; font-weight: 700;
+    }
+    /* Burbujas: la hora va adentro, abajo a la derecha */
+    .chat-fila { display: flex; }
+    .chat-fila--mia { justify-content: flex-end; }
+    .chat-burbuja {
+      max-width: 82%; padding: 8px 12px 6px; border-radius: 18px;
+      background: #1F2430; color: #F3F4F6; font-weight: 500; line-height: 1.4;
+    }
+    .chat-fila--mia .chat-burbuja { background: #00E58F; color: #04140D; font-weight: 600; border-bottom-right-radius: 6px; }
+    .chat-fila--suya .chat-burbuja { border-bottom-left-radius: 6px; }
+    .chat-burbuja p { word-break: break-word; white-space: pre-wrap; }
+    .chat-hora { display: block; text-align: right; margin-top: 2px; font-size: 10px; font-weight: 700; opacity: .55; }
+    .chat-burbuja .chat-hora { color: inherit; }
+    .chat-burbuja .chat-hora.text-brand-danger { color: #B42318; opacity: 1; }
+    .chat-fila--suya .chat-hora.text-brand-danger { color: #FF6B60; }
+
+    .chat-pie {
+      padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+      border-top: 1px solid rgba(255, 255, 255, .06);
+      background: #111318;
+    }
+    .chat-rapidas { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; }
+    .chat-rapidas button {
+      flex-shrink: 0; white-space: nowrap; padding: 7px 13px; border-radius: 9999px;
+      background: transparent; border: 1px solid rgba(255, 255, 255, .12);
+      color: #D1D5DB; font-size: 12px; font-weight: 700;
+      transition: transform .15s, border-color .2s, color .2s;
+    }
+    .chat-rapidas button:active { transform: scale(.94); border-color: #00E58F; color: #00E58F; }
+    .chat-redactar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 5px 5px 18px; border-radius: 9999px;
+      background: #1C2029; border: 1px solid rgba(255, 255, 255, .06);
+      transition: border-color .2s;
+    }
+    .chat-redactar:focus-within { border-color: rgba(0, 229, 143, .5); }
+    .chat-redactar input {
+      flex: 1; min-width: 0; height: 40px; background: transparent; border: 0; outline: none;
+      color: #fff; font-size: 14px; font-weight: 500;
+    }
+    .chat-redactar input::placeholder { color: rgba(156, 163, 175, .6); }
+    .chat-redactar button {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 9999px;
+      background: #00E58F; color: #000;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .15s;
+    }
+    .chat-redactar button:active { transform: scale(.88); }
+    .chat-redactar button svg { width: 18px; height: 18px; margin-right: -2px; }
+    .no-scrollbar { scrollbar-width: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+
+    /* ---------- Vistas, modales y chat ---------- */
+    .view-screen { display: none; }
+    .view-screen.active { display: flex; animation: tdVistaEntra .35s cubic-bezier(.16, 1, .3, 1); }
+    #incidentModalContent, #chatModalContent { transition-timing-function: cubic-bezier(.16, 1, .3, 1) !important; }
+    .burbuja-entra { animation: tdBurbuja .28s cubic-bezier(.16, 1, .3, 1); }
+    .entra-abajo { animation: tdEntraAbajo .5s cubic-bezier(.16, 1, .3, 1) both; }
+    .entra-arriba { animation: tdEntraArriba .5s cubic-bezier(.16, 1, .3, 1) both; }
+
+    @keyframes tdPulso { 0% { transform: scale(.8); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
+    @keyframes tdOnda { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
+    @keyframes tdPop { 0% { transform: scale(.6) rotate(-8deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+    @keyframes tdTextoEntra { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes tdBrillo { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(260%); } }
+    @keyframes tdEmpuje { 0%, 100% { transform: translateX(-2px); } 50% { transform: translateX(3px); } }
+    @keyframes tdVistaEntra { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @keyframes tdBurbuja { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+    @keyframes tdEntraAbajo { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+    @keyframes tdEntraArriba { from { opacity: 0; transform: translateY(-24px); } to { opacity: 1; transform: none; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
   </style>
   <!-- Tailwind compilado (npm run css). Va último en el <head>, igual que lo dejaba el CDN -->
@@ -97,91 +303,137 @@
     <!-- TEMPLATE 1: MODO RUTA NAVEGACIÓN (GPS EN VIVO)           -->
     <!-- ======================================================== -->
     <main id="view-route" class="view-screen active flex-col flex-1 h-[100dvh] relative overflow-hidden justify-between">
-      
-      <!-- Fondo Mapa Real Interactivo (OpenStreetMap Dark Mode vía CSS) -->
-      <div id="liveMap" class="absolute inset-0 z-0 w-full h-full"></div>
 
-      <!-- Banner de Navegación Superior -->
-      <header class="relative z-10 mx-3 mt-3 bg-brand-surface/95 backdrop-blur-xl border border-brand-border rounded-3xl p-4 shadow-2xl flex items-center gap-3">
-        <div id="navManeuverBox" class="w-16 h-16 rounded-2xl bg-brand-accent flex items-center justify-center text-brand-black shrink-0 shadow-lg">
-          <svg id="navManeuverIcon" class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
-          </svg>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-baseline gap-2">
-            <span id="navDistance" class="text-2xl font-black text-white tracking-tight">--</span>
-            <span id="navEstTime" class="text-xs font-bold text-brand-accent uppercase tracking-wider">Calculando ruta...</span>
+      <!-- Mapa vectorial (MapLibre): se inclina como un GPS y puede girar con la brújula -->
+      <div id="liveMap" class="absolute inset-0 z-0 w-full h-full"></div>
+      <div id="mapFallback" class="absolute inset-0 z-0 items-center justify-center text-center px-10 text-xs font-bold text-brand-textMuted">
+        No se pudo cargar el mapa. La navegación por texto sigue funcionando.
+      </div>
+
+      <!-- Banner de navegación: próxima maniobra, calle y llegada estimada -->
+      <header id="navBanner" class="nav-card entra-arriba relative z-10 mx-3 mt-[max(0.75rem,env(safe-area-inset-top))] p-3">
+        <div class="flex items-stretch gap-3">
+          <div id="navManeuverBox" class="nav-maniobra w-[76px] shrink-0 rounded-[20px] flex flex-col items-center justify-center gap-1 py-2.5 text-brand-black shadow-lg">
+            <svg id="navManeuverIcon" class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M12 20V4m-6 6 6-6 6 6"></path>
+            </svg>
+            <span id="navStepDistance" class="text-[13px] font-black leading-none tracking-tight">--</span>
           </div>
-          <p id="navStreet" class="text-sm font-extrabold text-brand-textMuted truncate mt-0.5">Iniciando navegación GPS...</p>
+
+          <div class="flex-1 min-w-0 flex flex-col justify-center py-0.5">
+            <p id="navAction" class="text-[11px] font-extrabold uppercase tracking-wider nav-etapa-texto truncate">Calculando ruta</p>
+            <p id="navStreet" class="text-[17px] font-black text-white leading-snug mt-0.5 line-clamp-2 break-words">Iniciando navegación GPS...</p>
+          </div>
+
+          <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery" class="self-start h-7 w-auto max-w-[30px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0 mt-0.5" title="Todo Delivery" />
         </div>
-        <div class="flex items-center gap-1.5 shrink-0 pl-1">
-          <img src="../pruebas_pedidos/images/logo.svg" alt="Todo Delivery Logo" class="h-8 sm:h-9 w-auto max-w-[34px] object-contain drop-shadow-[0_2px_8px_rgba(255,122,0,0.25)] shrink-0" title="Todo Delivery" />
-          <span class="hidden sm:inline-block text-[11px] font-black text-white whitespace-nowrap">TD <span class="text-[#FF7A00]">Ruta</span></span>
+
+        <div class="mt-2.5 pt-2.5 border-t border-white/5 flex items-center justify-between gap-2 px-1">
+          <div class="flex items-baseline gap-2 min-w-0">
+            <span id="navEstTime" class="text-sm font-black text-white whitespace-nowrap">-- min</span>
+            <span class="w-1 h-1 rounded-full bg-brand-textMuted/50 self-center"></span>
+            <span id="navDistance" class="text-sm font-bold text-brand-textMuted whitespace-nowrap">--</span>
+            <span id="navArrival" class="text-[11px] font-bold text-brand-textMuted/70 whitespace-nowrap hidden min-[360px]:inline"></span>
+          </div>
+          <div id="navNextStep" class="hidden items-center gap-1.5 text-[11px] font-bold text-brand-textMuted shrink-0">
+            <span>Luego</span>
+            <span id="navNextIcon" class="w-6 h-6 rounded-lg bg-brand-surfaceLight flex items-center justify-center text-white"></span>
+          </div>
         </div>
       </header>
 
-      <!-- Bottom Sheet de Operación -->
-      <footer class="relative z-10 bg-brand-surface/95 backdrop-blur-2xl border-t border-brand-border rounded-t-[32px] p-4 sm:p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl space-y-3.5 sm:space-y-4 max-w-md mx-auto w-full">
-        <!-- Botón Recentrar GPS: pegado arriba de la hoja, sea cual sea su alto -->
-        <button
-          type="button"
-          onclick="recenterMap()"
-          class="absolute right-4 -top-16 w-12 h-12 rounded-2xl bg-brand-surface/90 border border-brand-border backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform shadow-xl hover:border-brand-accent/50"
-          title="Centrar mi GPS"
-        >
-          <svg class="w-6 h-6 text-brand-accent" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-          </svg>
-        </button>
+      <!-- Aviso corto sobre el mapa -->
+      <div id="mapToast" class="oculto absolute z-20 left-1/2 -translate-x-1/2 top-40 px-4 py-2 rounded-full bg-brand-surface border border-white/10 text-xs font-bold text-white shadow-xl whitespace-nowrap"></div>
 
-        <div class="w-12 h-1 bg-brand-border rounded-full mx-auto -mt-1 mb-2"></div>
+      <!-- Hoja inferior de operación -->
+      <footer class="sheet-card entra-abajo">
 
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
+        <!-- Velocidad (solo si el GPS la informa) -->
+        <div id="speedChip" class="vel-chip vel-pos oculto h-12 px-3.5 rounded-full flex items-baseline gap-1">
+          <span id="speedValue" class="text-lg font-black text-white self-center">0</span>
+          <span class="text-[10px] font-bold text-brand-textMuted self-center">km/h</span>
+        </div>
+
+        <!-- Controles del mapa, pegados arriba de la hoja sea cual sea su alto -->
+        <div class="map-controles">
+          <button type="button" id="btnCompass" onclick="toggleCompassMode()" class="map-btn" title="Seguir la brújula" aria-label="Seguir la brújula" aria-pressed="false">
+            <svg id="compassNeedle" class="w-7 h-7" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2.5 15.2 12H8.8z" fill="#FF3B30"></path>
+              <path d="M12 21.5 8.8 12h6.4z" fill="currentColor" opacity=".75"></path>
+              <circle cx="12" cy="12" r="1.6" fill="#111318"></circle>
+            </svg>
+          </button>
+          <button type="button" id="btnTilt" onclick="toggleTilt()" class="tilt-switch" title="Vista del mapa: 2D o 3D" aria-label="Vista del mapa en 3D" aria-pressed="true">
+            <i class="tilt-switch__marca" aria-hidden="true"></i>
+            <span class="tilt-switch__op" data-op="3d">3D</span>
+            <span class="tilt-switch__op" data-op="2d">2D</span>
+          </button>
+          <button type="button" id="btnRecenter" onclick="recenterMap()" class="map-btn" title="Centrar mi GPS" aria-label="Centrar mi GPS">
+            <svg id="recenterIcon" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Etapa y destino -->
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between gap-3">
             <span id="phaseTag" class="inline-block whitespace-nowrap text-[10px] font-black uppercase tracking-wider min-[360px]:tracking-widest px-2.5 py-1 rounded-md bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
               PASO 1 DE 2 &bull; RETIRO
             </span>
-            <h2 id="destinationTitle" class="text-lg sm:text-xl font-black text-white mt-1.5 tracking-tight leading-tight break-words">Empanadas Don Luis</h2>
-            <p id="orderIdText" class="text-xs font-bold text-brand-textMuted mt-0.5">Orden #4820 &bull; 2 ítems</p>
+            <div class="flex items-center gap-1.5 w-20 shrink-0" aria-hidden="true">
+              <div id="stageBar1" class="etapa-barra flex-1"><i></i></div>
+              <div id="stageBar2" class="etapa-barra flex-1"><i></i></div>
+            </div>
           </div>
-
-          <div class="flex items-center gap-2 shrink-0">
-            <!-- Botón Reportar Problema Rápido -->
-            <button onclick="openIncidentModal()" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-brand-surfaceLight border border-brand-danger/40 flex items-center justify-center text-brand-danger active:scale-90 transition-transform" title="Reportar Incidencia">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-              </svg>
-            </button>
-
-            <!-- Botón Chat con el Cliente en Tiempo Real -->
-            <button onclick="openChatModal()" class="relative w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-brand-surfaceLight border border-brand-accent/40 flex items-center justify-center text-brand-accent active:scale-90 transition-transform shadow-lg shadow-brand-accent/10" title="Chat con Cliente">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-              </svg>
-              <span id="chatUnreadDot" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-brand-accent text-brand-black text-[9px] font-black rounded-full flex items-center justify-center border-2 border-brand-bg animate-pulse">!</span>
-            </button>
-
-            <!-- Botón Llamar -->
-            <a id="clientPhoneLink" href="tel:549264000000" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-brand-surfaceLight border border-brand-border flex items-center justify-center text-brand-accent active:scale-90 transition-transform" title="Llamar">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-              </svg>
-            </a>
+          <div class="min-w-0">
+            <h2 id="destinationTitle" class="text-xl font-black text-white tracking-tight leading-tight break-words">Empanadas Don Luis</h2>
+            <p id="orderIdText" class="text-xs font-bold text-brand-textMuted mt-1">Orden #4820 &bull; 2 ítems</p>
           </div>
         </div>
 
-        <div id="cashBanner" class="p-3.5 bg-brand-surfaceLight rounded-2xl border border-brand-warning/30 flex items-center justify-between gap-2 flex-wrap">
+        <!-- Acciones rápidas: chat, llamar y reclamo -->
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="openChatModal()" class="td-action td-action--chat" title="Chat con el cliente">
+            <svg fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+              <path d="M8 12h.01M12 12h.01M16 12h.01" stroke-width="3"></path>
+            </svg>
+            <span>Chat</span>
+            <span id="chatUnreadDot" class="td-badge hidden">!</span>
+          </button>
+
+          <a id="clientPhoneLink" href="tel:549264000000" class="td-action td-action--llamar" title="Llamar al cliente">
+            <svg fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+            </svg>
+            <span>Llamar</span>
+          </a>
+
+          <button type="button" onclick="openIncidentModal()" class="td-action td-action--reclamo" title="Reportar un problema">
+            <svg fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path>
+            </svg>
+            <span>Reclamo</span>
+          </button>
+        </div>
+
+        <div id="cashBanner" class="px-3.5 py-3 bg-brand-surfaceLight rounded-2xl border border-brand-warning/25 flex items-center justify-between gap-2">
           <div class="flex items-center gap-2.5">
-            <span class="w-2.5 h-2.5 rounded-full bg-brand-warning shrink-0"></span>
-            <span class="text-xs font-bold text-brand-textMuted uppercase tracking-wide">Cobro en Destino:</span>
+            <span class="w-7 h-7 rounded-lg bg-brand-warning/15 text-brand-warning flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle><path d="M6 12h.01M18 12h.01"></path>
+              </svg>
+            </span>
+            <span class="text-xs font-bold text-brand-textMuted uppercase tracking-wide whitespace-nowrap">A cobrar</span>
           </div>
           <span id="cashBannerAmount" class="text-sm font-black text-brand-warning tracking-tight whitespace-nowrap">$8.500 EFECTIVO</span>
         </div>
 
         <!-- Botón Deslizante con Rastro -->
-        <div class="relative w-full h-16 bg-brand-surfaceLight border border-brand-border rounded-2xl overflow-hidden flex items-center p-1.5 select-none touch-none" id="swipeTrack">
-          <div id="swipeFill" class="absolute left-0 top-0 bottom-0 w-0 bg-brand-accent rounded-2xl pointer-events-none transition-none"></div>
+        <div class="relative w-full h-16 bg-brand-surfaceLight border border-white/5 rounded-2xl overflow-hidden flex items-center p-1.5 select-none touch-none" id="swipeTrack">
+          <div class="swipe-brillo"></div>
+          <div id="swipeFill" class="absolute left-0 top-0 bottom-0 w-0 rounded-2xl pointer-events-none transition-none"></div>
 
           <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span id="swipeLabelBase" class="text-[11px] sm:text-xs leading-tight font-black tracking-wider sm:tracking-widest text-center text-brand-textMuted/70 uppercase pl-[4.5rem] pr-3">
@@ -195,8 +447,8 @@
             </span>
           </div>
 
-          <div id="swipeHandle" class="relative z-10 w-14 h-full bg-brand-accent rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all touch-none">
-            <svg id="swipeHandleIcon" class="w-6 h-6 transform pointer-events-none" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+          <div id="swipeHandle" class="relative z-10 w-14 h-full rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all touch-none">
+            <svg id="swipeHandleIcon" class="swipe-flecha w-6 h-6 pointer-events-none" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
             </svg>
           </div>
@@ -378,68 +630,45 @@
     <!-- ======================================================== -->
     <!-- MODAL DE CHAT EN TIEMPO REAL CON EL CLIENTE             -->
     <!-- ======================================================== -->
-    <div id="chatModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-      <div id="chatModalContent" class="w-full max-w-md h-[85dvh] sm:h-[600px] bg-brand-surface border-t sm:border border-brand-border rounded-t-3xl sm:rounded-3xl flex flex-col justify-between transform translate-y-full sm:translate-y-0 transition-transform duration-300 overflow-hidden">
-        
-        <!-- Header del Chat -->
-        <div class="p-4 border-b border-brand-border/60 flex items-center justify-between bg-brand-surfaceLight/50">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent font-extrabold text-xs shrink-0">
-              <span id="chatClientInitials">CL</span>
-            </div>
-            <div class="min-w-0">
-              <h3 id="chatClientName" class="text-sm font-extrabold text-white truncate">Lucas Benítez (Cliente)</h3>
-              <p class="text-[10px] text-brand-accent flex items-center gap-1 font-bold">
-                <span class="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse"></span>
-                Chat en vivo &bull; queda guardado en el pedido
-              </p>
-            </div>
+    <div id="chatModal" onclick="if (event.target === this) closeChatModal()" class="chat-velo opacity-0 pointer-events-none">
+      <div id="chatModalContent" role="dialog" aria-modal="true" aria-labelledby="chatClientName" class="chat-sheet translate-y-full">
+
+        <!-- Cabecera: cliente, llamar y cerrar -->
+        <header class="chat-cabecera">
+          <div class="chat-avatar"><span id="chatClientInitials">CL</span><i></i></div>
+          <div class="chat-titulo">
+            <h3 id="chatClientName">Cliente</h3>
+            <p>Cliente &bull; el chat queda guardado en el pedido</p>
           </div>
-          <button onclick="closeChatModal()" aria-label="Cerrar chat" class="w-10 h-10 rounded-full bg-brand-surface border border-brand-border flex items-center justify-center text-lg text-brand-textMuted hover:text-white shrink-0">
-            &times;
-          </button>
-        </div>
-
-        <!-- Lista de Mensajes con Scroll -->
-        <div id="chatMessagesList" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-          <div class="text-center my-2">
-            <span class="px-3 py-1 rounded-full bg-brand-surfaceLight border border-brand-border text-[10px] text-brand-textMuted font-semibold">
-              Chat privado iniciado para este pedido
-            </span>
-          </div>
-        </div>
-
-        <!-- Respuestas Rápidas -->
-        <div class="px-3 py-1.5 bg-brand-surfaceLight/30 border-t border-brand-border/40 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <button onclick="sendQuickReply('¡Hola! Ya estoy en camino con tu pedido 🛵')" class="whitespace-nowrap px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
-            🛵 En camino
-          </button>
-          <button onclick="sendQuickReply('¡Ya estoy en la puerta! 📍')" class="whitespace-nowrap px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
-            📍 En la puerta
-          </button>
-          <button onclick="sendQuickReply('Esperando que preparen el pedido ⏳')" class="whitespace-nowrap px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-[11px] font-semibold text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/40 active:scale-95 transition-all">
-            ⏳ Esperando pedido
-          </button>
-        </div>
-
-        <!-- Input y Botón de Envío -->
-        <form onsubmit="handleSendChat(event)" class="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-brand-border/60 bg-brand-surface flex items-center gap-2">
-          <input 
-            id="chatInput" 
-            type="text" 
-            placeholder="Escribe un mensaje al cliente..." 
-            autocomplete="off"
-            class="flex-1 min-w-0 px-4 py-3 bg-brand-surfaceLight border border-brand-border rounded-xl text-white placeholder-brand-textMuted/50 text-sm font-medium focus:outline-none focus:border-brand-accent"
-          />
-          <button 
-            type="submit" 
-            class="w-11 h-11 rounded-xl bg-brand-accent text-brand-black flex items-center justify-center font-bold active:scale-95 transition-transform shrink-0"
-          >
-            <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+          <a id="chatCallLink" href="tel:549264000000" aria-label="Llamar al cliente" class="chat-boton chat-boton--llamar">
+            <svg fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
             </svg>
+          </a>
+          <button type="button" onclick="closeChatModal()" aria-label="Cerrar chat" class="chat-boton">
+            <svg fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg>
           </button>
-        </form>
+        </header>
+
+        <!-- Mensajes -->
+        <div id="chatMessagesList" class="chat-lista">
+          <div class="chat-aviso"><span>Chat privado de este pedido</span></div>
+        </div>
+
+        <!-- Respuestas rápidas + escribir -->
+        <div class="chat-pie">
+          <div class="chat-rapidas no-scrollbar">
+            <button type="button" onclick="sendQuickReply('¡Hola! Ya estoy en camino con tu pedido 🛵')">🛵 En camino</button>
+            <button type="button" onclick="sendQuickReply('¡Ya estoy en la puerta! 📍')">📍 En la puerta</button>
+            <button type="button" onclick="sendQuickReply('Esperando que preparen el pedido ⏳')">⏳ Esperando pedido</button>
+          </div>
+          <form onsubmit="handleSendChat(event)" class="chat-redactar">
+            <input id="chatInput" type="text" placeholder="Escribí un mensaje…" autocomplete="off" enterkeyhint="send" />
+            <button type="submit" aria-label="Enviar">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M3.4 20.4 21 12 3.4 3.6l-.01 6.53L15 12 3.39 13.87z"></path></svg>
+            </button>
+          </form>
+        </div>
 
       </div>
     </div>
@@ -447,7 +676,7 @@
   </div>
 
   <!-- ======================================================== -->
-  <!-- LÓGICA DE CONTROL, MAPA LEAFLET, REALTIME & NAVEGACIÓN   -->
+  <!-- LÓGICA DE CONTROL, MAPA, REALTIME & NAVEGACIÓN   -->
   <!-- ======================================================== -->
   <script type="module">
     import { supabase } from '../Scripts/conexion_supabase.js';
@@ -460,6 +689,7 @@
       desconectarPedidoActivo
     } from '../Scripts/conexion_rt_pedido_en_curso.js';
     import { iniciarColaCadete } from '../Scripts/cola_cadete.js';
+    import { cargarEstiloMapa, crearPin, mostrarDireccion } from '../Scripts/mapa_td.js';
 
     let stage = 1; // 1: Al local, 2: Retirado / Al cliente
     let comision = COMISION_POR_DEFECTO; // % que se rinde a la empresa (lo edita el admin)
@@ -478,14 +708,6 @@
     const chatNoEnviados = new Set(); // mensajes propios que no salieron ni en vivo ni a la BD
     let chatMensajes = [];           // última lista completa del chat
     let chatVistoHasta = '';         // timestamp del último mensaje del cliente que el cadete ya vio
-
-    // Mapa Leaflet y Capas
-    let map = null;
-    let cadetMarker = null;
-    let originMarker = null;
-    let destMarker = null;
-    let routeLine = null;
-    let geoWatchId = null;
 
     // Coordenadas actuales del cadete (San Juan por defecto)
     let currentCadetCoords = { lat: -31.5375, lng: -68.5364 };
@@ -558,8 +780,9 @@
       // 3. Renderizar textos e interfaz
       renderizarDatosPedido();
 
-      // 4. Iniciar GPS y Mapa Real Leaflet
+      // 4. Iniciar GPS y Mapa (MapLibre)
       iniciarRastreoGPSYMapa();
+      setTimeout(() => document.getElementById('stageBar1')?.classList.add('llena'), 350);
 
       // 5. Iniciar suscripción Realtime (Canal privado de chat y estado)
       chatVistoHasta = localStorage.getItem(`chat_visto_${pedidoActivo.id_pedido}`) || '';
@@ -663,28 +886,66 @@
       if (phoneLink && pedidoActivo.cliente_telefono) {
         phoneLink.href = `tel:${pedidoActivo.cliente_telefono}`;
       }
+      const chatCall = document.getElementById('chatCallLink');
+      if (chatCall && pedidoActivo.cliente_telefono) chatCall.href = `tel:${pedidoActivo.cliente_telefono}`;
 
       // Checkout Info
       document.getElementById('checkoutTotalAmount').innerText = `$${orderTotal.toLocaleString('es-AR')}`;
       document.getElementById('checkoutEarningsAmount').innerText = `+$${ganancia.toLocaleString('es-AR')} ganancia acreditada a tu cuenta`;
       document.getElementById('checkoutClientName').innerText = pedidoActivo.cliente_nombre || 'Cliente';
       
-      const dirDestino = pedidoActivo.latitud_dest && pedidoActivo.longitud_dest 
-        ? `Coordenadas: ${Number(pedidoActivo.latitud_dest).toFixed(4)}, ${Number(pedidoActivo.longitud_dest).toFixed(4)}`
-        : 'San Juan Capital';
-      document.getElementById('checkoutClientAddress').innerText = pedidoActivo.cliente_direccion || dirDestino;
+      // Dirección escrita si la hay; si no, la del punto de entrega (nunca las coordenadas)
+      const elDireccion = document.getElementById('checkoutClientAddress');
+      if (pedidoActivo.cliente_direccion) elDireccion.innerText = pedidoActivo.cliente_direccion;
+      else mostrarDireccion(elDireccion, pedidoActivo.latitud_dest, pedidoActivo.longitud_dest);
       document.getElementById('checkoutOrderDetails').innerText = `#${pedidoActivo.id_pedido} (${pedidoActivo.inform_pedido || 'Pedido General'})`;
       
       // Chat Header Info
       const clientName = pedidoActivo.cliente_nombre || 'Cliente';
-      document.getElementById('chatClientName').innerText = `${clientName} (Cliente)`;
+      document.getElementById('chatClientName').innerText = clientName;
       document.getElementById('chatClientInitials').innerText = clientName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'CL';
     }
 
     // -------------------------------------------------------------------------
-    // 2. MAPA REAL LEAFLET & NAVEGACIÓN GPS PASO A PASO (OSRM)
+    // 2. MAPA (MapLibre) & NAVEGACIÓN GPS PASO A PASO (OSRM)
     // -------------------------------------------------------------------------
-    let routeLayerGroup = null;
+    // Cámara: 'vista' encuadra toda la ruta, 'seguir' va pegada al cadete (inclinada como un GPS y,
+    // con la brújula, girando según su rumbo) y 'libre' es cuando el cadete movió el mapa con el dedo.
+    // Todo lo animado pasa por un solo requestAnimationFrame que se apaga solo cuando no hay nada que mover.
+    const PREFS_MAPA = 'td_mapa_prefs';
+    const prefsMapa = (() => { try { return JSON.parse(localStorage.getItem(PREFS_MAPA)) || {}; } catch { return {}; } })();
+    const cam = {
+      modo: 'vista',
+      inclinado: prefsMapa.inclinado !== false,   // 3D por defecto
+      seguirAlIniciar: prefsMapa.seguir !== false,
+      brujula: false,
+      transicion: 0                               // >0 mientras corre un easeTo/fitBounds propio
+    };
+    const PITCH_GPS = 55;
+    const PITCH_VISTA = 50;   // vista de la ruta completa en 3D: apenas menos inclinada para que entre entera
+    const ZOOM_GPS = 17;
+
+    let map = null;
+    let mapaListo = false;
+    let sinMapa = false;            // sin WebGL o sin MapLibre: la navegación sigue solo con texto
+    let cadetMarker = null;
+    let puckEl = null;
+    let pinLocal = null;
+    let pinCliente = null;
+    let geoWatchId = null;
+    let ultimaRuta = null;
+    let secuenciaRuta = 0;          // descarta respuestas de OSRM que llegan fuera de orden
+    let rumboCadete = null;         // grados desde el norte, o null si todavía no se sabe
+    let rumboGPS = { valor: null, t: 0 };
+    let ultimoIconoManiobra = '';
+
+    const colorEtapa = () => (stage === 1 ? '#00E58F' : '#FFC800');
+    const normAngulo = (a) => ((a % 360) + 360) % 360;
+    const difAngulo = (a, b) => ((a - b + 540) % 360) - 180; // de b hacia a, por el lado corto
+
+    function guardarPrefsMapa() {
+      localStorage.setItem(PREFS_MAPA, JSON.stringify({ inclinado: cam.inclinado, seguir: cam.seguirAlIniciar }));
+    }
 
     function iniciarRastreoGPSYMapa() {
       const latOrg = Number(pedidoActivo.latitud_org) || -31.5375;
@@ -695,6 +956,7 @@
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             currentCadetCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            leerRumboGPS(pos);
             inicializarMapa(currentCadetCoords);
           },
           () => {
@@ -709,9 +971,12 @@
         geoWatchId = navigator.geolocation.watchPosition(
           (pos) => {
             currentCadetCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            if (cadetMarker) {
-              cadetMarker.setLatLng([currentCadetCoords.lat, currentCadetCoords.lng]);
-              actualizarRutaYNavegacion();
+            leerRumboGPS(pos);
+            mostrarVelocidad(pos.coords.speed);
+            if (cadetMarker || sinMapa) {
+              anim.puckDestino = [currentCadetCoords.lng, currentCadetCoords.lat];
+              despertarAnimacion();
+              pedirRutaSiHaceFalta();
             }
           },
           (err) => console.warn('[GPS Watch Error]:', err.message),
@@ -723,91 +988,442 @@
       }
     }
 
-    function inicializarMapa(coordsInicio) {
-      if (map) return;
+    let inicializandoMapa = false;
+    async function inicializarMapa(coordsInicio) {
+      if (map || inicializandoMapa) return;
+      inicializandoMapa = true;
 
       const latOrg = Number(pedidoActivo.latitud_org) || -31.5375;
       const lngOrg = Number(pedidoActivo.longitud_org) || -68.5364;
       const latDest = Number(pedidoActivo.latitud_dest) || -31.5390;
       const lngDest = Number(pedidoActivo.longitud_dest) || -68.5320;
 
-      // Inicializar Leaflet centrado entre el cadete y el local
-      const centerLat = (coordsInicio.lat + latOrg) / 2;
-      const centerLng = (coordsInicio.lng + lngOrg) / 2;
+      if (typeof maplibregl === 'undefined') return mapaNoDisponible();
+      const estilo = await cargarEstiloMapa();
 
-      map = L.map('liveMap', {
-        center: [centerLat, centerLng],
-        zoom: 15,
-        zoomControl: false,
-        attributionControl: true
+      try {
+        map = new maplibregl.Map({
+          container: 'liveMap',
+          style: estilo,
+          center: [(coordsInicio.lng + lngOrg) / 2, (coordsInicio.lat + latOrg) / 2],
+          zoom: 15,
+          pitch: cam.inclinado ? PITCH_VISTA : 0,   // arranca ya con la vista elegida
+          maxPitch: 65,
+          attributionControl: false,
+          fadeDuration: 150
+        });
+      } catch (e) {
+        console.warn('[Mapa] No se pudo crear (¿sin WebGL?):', e);
+        return mapaNoDisponible();
+      }
+
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+      vigilarAltoDePaneles();
+
+      // Si el cadete mueve, gira o inclina el mapa con el dedo, la cámara deja de seguirlo
+      ['dragstart', 'rotatestart', 'pitchstart', 'zoomstart'].forEach(ev =>
+        map.on(ev, (e) => { if (e.originalEvent && cam.modo !== 'libre') pasarAModoLibre(); })
+      );
+      map.on('rotate', actualizarAgujaBrujula);
+      // Si inclina el mapa con dos dedos, el selector 2D/3D acompaña lo que se ve
+      map.on('pitchend', (e) => {
+        if (!e.originalEvent) return;
+        const inclinado = map.getPitch() > 15;
+        if (inclinado === cam.inclinado) return;
+        cam.inclinado = inclinado;
+        guardarPrefsMapa();
+        actualizarBotonesMapa();
       });
 
-      // Capa oficial OpenStreetMap (OSM) - 100% público, gratuito y sin API Key
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
-      }).addTo(map);
+      // 1. Puck del cadete: punto con flecha, apoyado sobre el plano del mapa (se inclina y gira con él)
+      const raizPuck = document.createElement('div');
+      raizPuck.innerHTML = `
+        <div class="td-puck${rumboCadete == null ? ' sin-rumbo' : ''}">
+          <div class="td-puck__halo"></div>
+          <div class="td-puck__cono"></div>
+          <div class="td-puck__punto"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5 18.5 19 12 15.2 5.5 19z"/></svg></div>
+        </div>`;
+      puckEl = raizPuck.firstElementChild;
+      anim.puck = [coordsInicio.lng, coordsInicio.lat];
+      anim.puckDestino = [currentCadetCoords.lng, currentCadetCoords.lat];
+      cadetMarker = new maplibregl.Marker({ element: raizPuck, rotationAlignment: 'map', pitchAlignment: 'map' })
+        .setLngLat(anim.puck)
+        .addTo(map);
 
-      routeLayerGroup = L.layerGroup().addTo(map);
-
-      // 1. Marcador Cadete (Pulsante Verde)
-      const cadetIcon = L.divIcon({
-        className: 'custom-gps-marker',
-        html: `
-          <div class="relative flex items-center justify-center w-12 h-12 -ml-6 -mt-6">
-            <div class="absolute w-10 h-10 bg-brand-accent rounded-full gps-glow opacity-50"></div>
-            <div class="relative w-8 h-8 bg-black border-2 border-brand-accent rounded-full flex items-center justify-center text-brand-accent shadow-2xl font-black">
-              🛵
-            </div>
-          </div>
-        `,
-        iconSize: [48, 48],
-        iconAnchor: [24, 24]
-      });
-      cadetMarker = L.marker([coordsInicio.lat, coordsInicio.lng], { icon: cadetIcon }).addTo(map);
-
-      // 2. Marcador Local / Origen (Naranja)
+      // 2. Local (retiro) y 3. Cliente (entrega): pines que quedan parados aunque el mapa se incline
       const storeName = pedidoActivo.inform_pedido ? pedidoActivo.inform_pedido.split('-')[0].trim() : 'Local';
-      const originIcon = L.divIcon({
-        className: 'custom-gps-marker',
-        html: `
-          <div class="relative flex flex-col items-center -ml-8 -mt-11">
-            <span class="bg-brand-surface/95 text-brand-warning text-[10px] font-black px-2 py-0.5 rounded-lg border border-brand-warning/40 shadow-xl whitespace-nowrap mb-1">
-              🏪 ${storeName}
-            </span>
-            <div class="w-8 h-8 bg-brand-warning text-black rounded-full flex items-center justify-center font-black border-2 border-white shadow-2xl">
-              📍
-            </div>
-          </div>
-        `,
-        iconSize: [60, 60],
-        iconAnchor: [30, 44]
-      });
-      originMarker = L.marker([latOrg, lngOrg], { icon: originIcon }).addTo(map);
-
-      // 3. Marcador Destino / Cliente (Verde/Azul)
       const clientName = pedidoActivo.cliente_nombre || 'Cliente';
-      const destIcon = L.divIcon({
-        className: 'custom-gps-marker',
-        html: `
-          <div class="relative flex flex-col items-center -ml-8 -mt-11">
-            <span class="bg-brand-surface/95 text-white text-[10px] font-black px-2 py-0.5 rounded-lg border border-brand-border shadow-xl whitespace-nowrap mb-1">
-              🏠 ${clientName}
-            </span>
-            <div class="w-8 h-8 bg-brand-accent text-black rounded-full flex items-center justify-center font-black border-2 border-white shadow-2xl">
-              🏁
-            </div>
-          </div>
-        `,
-        iconSize: [60, 60],
-        iconAnchor: [30, 44]
-      });
-      destMarker = L.marker([latDest, lngDest], { icon: destIcon }).addTo(map);
+      const local = crearPin('local', '🏪', storeName);
+      const cliente = crearPin('cliente', '🏠', clientName);
+      pinLocal = local.pin;
+      pinCliente = cliente.pin;
+      new maplibregl.Marker({ element: local.raiz, anchor: 'bottom' }).setLngLat([lngOrg, latOrg]).addTo(map);
+      new maplibregl.Marker({ element: cliente.raiz, anchor: 'bottom' }).setLngLat([lngDest, latDest]).addTo(map);
+      actualizarMarcadoresEtapa();
 
-      // Actualizar trazo de navegación y cálculo de rutas por calles
+      map.on('load', () => {
+        mapaListo = true;
+        agregarCapasRuta();
+        if (ultimaRuta) dibujarRuta(ultimaRuta);
+        actualizarRutaYNavegacion();
+      });
+
+      actualizarBotonesMapa();
+      despertarAnimacion();
+    }
+
+    function actualizarMarcadoresEtapa() {
+      pinLocal?.classList.toggle('apagado', stage !== 1);
+      pinCliente?.classList.toggle('apagado', stage !== 2);
+    }
+
+    function mapaNoDisponible() {
+      sinMapa = true;
+      document.getElementById('liveMap').classList.add('sin-mapa');
+      ['btnCompass', 'btnTilt', 'btnRecenter'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
       actualizarRutaYNavegacion();
     }
 
+    // La zona útil del mapa es la que queda entre el banner y la hoja: se usa como padding fijo de la cámara
+    function vigilarAltoDePaneles() {
+      const banner = document.getElementById('navBanner');
+      const hoja = document.querySelector('#view-route > footer');
+      const aplicar = () => {
+        if (!map) return;
+        const cont = document.getElementById('liveMap').getBoundingClientRect();
+        if (!cont.height) return; // pantalla oculta (cobro)
+        const arriba = Math.max(0, banner.getBoundingClientRect().bottom - cont.top + 8);
+        const abajo = Math.max(0, cont.bottom - hoja.getBoundingClientRect().top + 8);
+        map.setPadding({ top: arriba, bottom: abajo, left: 16, right: 64 });
+        document.getElementById('liveMap').style.setProperty('--alto-hoja', `${abajo}px`);
+      };
+      aplicar();
+      if ('ResizeObserver' in window) {
+        const ro = new ResizeObserver(() => aplicar());
+        ro.observe(banner);
+        ro.observe(hoja);
+      }
+      window.addEventListener('resize', aplicar);
+    }
+
+    function agregarCapasRuta() {
+      if (!map || map.getSource('ruta')) return;
+      // Encima de todas las calles y debajo de los nombres, para que se sigan leyendo
+      const capas = map.getStyle().layers;
+      const ultimaCalle = capas.findLastIndex(l => l.type !== 'symbol' && /transportation|building/.test(l['source-layer'] || ''));
+      const primeraEtiqueta = capas.slice(ultimaCalle + 1).find(l => l.type === 'symbol')?.id;
+      const ancho = (a, b) => ['interpolate', ['linear'], ['zoom'], 12, a, 18, b];
+      map.addSource('ruta', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addLayer({
+        id: 'ruta-brillo', type: 'line', source: 'ruta',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': colorEtapa(), 'line-width': ancho(12, 26), 'line-blur': 10, 'line-opacity': 0.3 }
+      }, primeraEtiqueta);
+      map.addLayer({
+        id: 'ruta-borde', type: 'line', source: 'ruta',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#000000', 'line-width': ancho(7, 15), 'line-opacity': 0.7 }
+      }, primeraEtiqueta);
+      map.addLayer({
+        id: 'ruta-linea', type: 'line', source: 'ruta',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': colorEtapa(), 'line-width': ancho(4, 9) }
+      }, primeraEtiqueta);
+    }
+
+    function dibujarRuta(ruta) {
+      if (!mapaListo) return;
+      const fuente = map.getSource('ruta');
+      if (!fuente) return;
+      fuente.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: ruta.coordinates.map(([lat, lng]) => [lng, lat]) }
+      });
+    }
+
+    function pintarRutaSegunEtapa() {
+      if (!mapaListo) return;
+      ['ruta-linea', 'ruta-brillo'].forEach(id => map.getLayer(id) && map.setPaintProperty(id, 'line-color', colorEtapa()));
+    }
+
+    // ---------------- Cámara ----------------
+    function nuevaTransicion() {
+      const token = ++cam.transicion;
+      map.once('moveend', () => {
+        if (cam.transicion === token) cam.transicion = 0;
+        despertarAnimacion();
+      });
+    }
+
+    function encuadrarRuta() {
+      if (!map || !ultimaRuta) return;
+      const caja = new maplibregl.LngLatBounds();
+      ultimaRuta.coordinates.forEach(([lat, lng]) => caja.extend([lng, lat]));
+      caja.extend([currentCadetCoords.lng, currentCadetCoords.lat]);
+      // El encuadre se calcula plano; inclinado, el fondo de la ruta se aleja, así que se abre un poco más
+      const camara = map.cameraForBounds(caja, { padding: 40, bearing: 0 });
+      const pitch = cam.inclinado ? PITCH_VISTA : 0;
+      nuevaTransicion();
+      // Si la ruta no entra (pantalla muy chica), al menos se respeta la inclinación elegida
+      if (!camara) return map.easeTo({ pitch, bearing: 0, duration: 700 });
+      map.easeTo({
+        center: camara.center,
+        zoom: Math.min(16, camara.zoom - (cam.inclinado ? 0.6 : 0)),
+        bearing: 0, pitch, duration: 900, essential: true
+      });
+    }
+
+    // Punto "adelantado" en la dirección del mapa: el cadete queda en el tercio bajo, mirando hacia adelante
+    function centroSeguimiento(pos, bearing, zoom, pitch) {
+      const [lng, lat] = pos;
+      const pad = map.getPadding();
+      const libre = Math.max(120, map.getContainer().clientHeight - pad.top - pad.bottom);
+      const metrosPorPx = (40075016.686 * Math.cos((lat * Math.PI) / 180)) / (512 * Math.pow(2, zoom));
+      const metros = (libre * 0.24 * metrosPorPx) / Math.max(0.4, Math.cos((pitch * Math.PI) / 180));
+      const b = (bearing * Math.PI) / 180;
+      const dLat = (metros * Math.cos(b)) / 111320;
+      const dLng = (metros * Math.sin(b)) / (111320 * Math.cos((lat * Math.PI) / 180));
+      return [lng + dLng, lat + dLat];
+    }
+
+    const bearingSeguimiento = () => (cam.brujula && anim.rumbo != null ? anim.rumbo : 0);
+
+    function entrarModoSeguir() {
+      if (!map) return;
+      cam.modo = 'seguir';
+      const bearing = bearingSeguimiento();
+      const pitch = cam.inclinado ? PITCH_GPS : 0;
+      nuevaTransicion();
+      map.easeTo({
+        center: centroSeguimiento(anim.puck || [currentCadetCoords.lng, currentCadetCoords.lat], bearing, ZOOM_GPS, pitch),
+        zoom: ZOOM_GPS, pitch, bearing, duration: 1100, essential: true
+      });
+      actualizarBotonesMapa();
+    }
+
+    function entrarModoVista() {
+      cam.modo = 'vista';
+      encuadrarRuta();
+      actualizarBotonesMapa();
+    }
+
+    function pasarAModoLibre() {
+      cam.modo = 'libre';
+      cam.transicion = 0;
+      actualizarBotonesMapa();
+    }
+
+    // Botón de abajo: si sigue al cadete muestra la ruta entera; si no, vuelve a seguirlo
+    window.recenterMap = function() {
+      if (!map) return;
+      if ("vibrate" in navigator) navigator.vibrate(30);
+      if (cam.modo === 'seguir') {
+        cam.seguirAlIniciar = false;
+        entrarModoVista();
+      } else {
+        cam.seguirAlIniciar = true;
+        entrarModoSeguir();
+      }
+      guardarPrefsMapa();
+    };
+
+    window.toggleTilt = function() {
+      if (!map) return;
+      if ("vibrate" in navigator) navigator.vibrate(20);
+      cam.inclinado = !cam.inclinado;
+      guardarPrefsMapa();
+      // Cambia la inclinación sin salir del modo en que está (y sin tocar el zoom que eligió)
+      if (cam.modo === 'seguir') {
+        const pitch = cam.inclinado ? PITCH_GPS : 0;
+        const bearing = bearingSeguimiento();
+        nuevaTransicion();
+        map.easeTo({
+          pitch, bearing, duration: 700, essential: true,
+          center: centroSeguimiento(anim.puck || [currentCadetCoords.lng, currentCadetCoords.lat], bearing, map.getZoom(), pitch)
+        });
+      } else if (cam.modo === 'vista') {
+        encuadrarRuta();
+      } else {
+        nuevaTransicion();
+        map.easeTo({ pitch: cam.inclinado ? PITCH_GPS : 0, duration: 700 });
+      }
+      actualizarBotonesMapa();
+    };
+
+    window.toggleCompassMode = async function() {
+      if (!map) return;
+      if ("vibrate" in navigator) navigator.vibrate(20);
+      if (!cam.brujula) {
+        const ok = await activarBrujula();
+        if (!ok) return;
+        cam.brujula = true;
+        if (rumboCadete == null) mostrarAvisoMapa('Buscando tu dirección…');
+        entrarModoSeguir();
+      } else {
+        cam.brujula = false;
+        desactivarBrujula();
+        if (cam.modo === 'seguir') entrarModoSeguir();
+        else { nuevaTransicion(); map.easeTo({ bearing: 0, duration: 600 }); }
+      }
+      actualizarBotonesMapa();
+    };
+
+    const ICONO_SEGUIR = '<polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>';
+    const ICONO_RUTA = '<circle cx="6" cy="19" r="2.2"></circle><circle cx="18" cy="5" r="2.2"></circle><path d="M8.2 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.8"></path>';
+
+    function actualizarBotonesMapa() {
+      const brujula = document.getElementById('btnCompass');
+      const tilt = document.getElementById('btnTilt');
+      const centrar = document.getElementById('btnRecenter');
+      if (!brujula) return;
+      brujula.classList.toggle('lleno', cam.brujula);
+      brujula.setAttribute('aria-pressed', String(cam.brujula));
+      tilt.classList.toggle('plano', !cam.inclinado);
+      tilt.setAttribute('aria-pressed', String(cam.inclinado));
+      centrar.classList.toggle('activo', cam.modo === 'libre');
+      centrar.title = cam.modo === 'seguir' ? 'Ver toda la ruta' : 'Centrar mi GPS';
+      document.getElementById('recenterIcon').innerHTML = cam.modo === 'seguir' ? ICONO_RUTA : ICONO_SEGUIR;
+    }
+
+    function actualizarAgujaBrujula() {
+      const aguja = document.getElementById('compassNeedle');
+      if (aguja && map) aguja.style.transform = `rotate(${-map.getBearing()}deg)`;
+    }
+
+    let avisoMapaTimer = null;
+    function mostrarAvisoMapa(texto) {
+      const aviso = document.getElementById('mapToast');
+      if (!aviso) return;
+      aviso.textContent = texto;
+      aviso.classList.remove('oculto');
+      clearTimeout(avisoMapaTimer);
+      avisoMapaTimer = setTimeout(() => aviso.classList.add('oculto'), 2600);
+    }
+
+    // ---------------- Rumbo: brújula del teléfono y dirección del GPS ----------------
+    let escuchandoBrujula = null; // nombre del evento que se escucha
+    let brujulaRecibida = false;
+
+    async function activarBrujula() {
+      if (escuchandoBrujula) return true;
+      const DOE = window.DeviceOrientationEvent;
+      if (DOE && typeof DOE.requestPermission === 'function') {
+        // iOS: hay que pedir permiso desde el toque del botón
+        try {
+          if (await DOE.requestPermission() !== 'granted') {
+            mostrarAvisoMapa('Permití el acceso a la brújula para usarla');
+            return false;
+          }
+        } catch {
+          mostrarAvisoMapa('No se pudo activar la brújula');
+          return false;
+        }
+      }
+      if (DOE) {
+        escuchandoBrujula = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+        window.addEventListener(escuchandoBrujula, alGirarDispositivo);
+      }
+      brujulaRecibida = false;
+      setTimeout(() => {
+        if (cam.brujula && !brujulaRecibida) mostrarAvisoMapa('Sin brújula: el mapa gira con tu dirección al moverte');
+      }, 2500);
+      return true;
+    }
+
+    function desactivarBrujula() {
+      if (escuchandoBrujula) window.removeEventListener(escuchandoBrujula, alGirarDispositivo);
+      escuchandoBrujula = null;
+    }
+
+    function alGirarDispositivo(e) {
+      let rumbo = null;
+      if (typeof e.webkitCompassHeading === 'number') rumbo = e.webkitCompassHeading;              // iOS
+      else if ((e.absolute || e.type === 'deviceorientationabsolute') && typeof e.alpha === 'number') rumbo = 360 - e.alpha; // Android
+      if (rumbo == null) return;
+      brujulaRecibida = true;
+      const anguloPantalla = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+      rumbo = normAngulo(rumbo + anguloPantalla);
+      // En movimiento manda el GPS: en el soporte de la moto la brújula se desvía
+      if (Date.now() - rumboGPS.t < 3000) return;
+      if (rumboCadete == null || Math.abs(difAngulo(rumbo, rumboCadete)) >= 1) fijarRumbo(rumbo);
+    }
+
+    function leerRumboGPS(pos) {
+      const { heading, speed } = pos.coords;
+      if (typeof heading === 'number' && !Number.isNaN(heading) && (speed ?? 0) > 1.5) {
+        rumboGPS = { valor: heading, t: Date.now() };
+        fijarRumbo(heading);
+      }
+    }
+
+    function fijarRumbo(rumbo) {
+      rumboCadete = normAngulo(rumbo);
+      puckEl?.classList.remove('sin-rumbo');
+      despertarAnimacion();
+    }
+
+    function mostrarVelocidad(mps) {
+      const chip = document.getElementById('speedChip');
+      if (!chip) return;
+      if (typeof mps !== 'number' || Number.isNaN(mps)) return chip.classList.add('oculto');
+      document.getElementById('speedValue').textContent = Math.round(mps * 3.6);
+      chip.classList.remove('oculto');
+    }
+
+    // ---------------- Bucle de animación (se detiene solo cuando todo llegó a destino) ----------------
+    const anim = { activo: false, puck: null, puckDestino: null, rumbo: null };
+
+    function despertarAnimacion() {
+      if (anim.activo || !map) return;
+      anim.activo = true;
+      requestAnimationFrame(pasoAnimacion);
+    }
+
+    function pasoAnimacion() {
+      let seguir = false;
+
+      // 1. El puck se desliza hacia la última posición del GPS en lugar de saltar
+      if (anim.puck && anim.puckDestino) {
+        const dx = anim.puckDestino[0] - anim.puck[0];
+        const dy = anim.puckDestino[1] - anim.puck[1];
+        if (Math.abs(dx) + Math.abs(dy) > 1e-7) {
+          anim.puck = [anim.puck[0] + dx * 0.12, anim.puck[1] + dy * 0.12];
+          seguir = true;
+        } else {
+          anim.puck = anim.puckDestino.slice();
+        }
+        cadetMarker?.setLngLat(anim.puck);
+      }
+
+      // 2. El rumbo gira suave, siempre por el lado corto
+      if (rumboCadete != null) {
+        if (anim.rumbo == null) anim.rumbo = rumboCadete;
+        const d = difAngulo(rumboCadete, anim.rumbo);
+        if (Math.abs(d) > 0.3) {
+          anim.rumbo = normAngulo(anim.rumbo + d * 0.15);
+          seguir = true;
+        } else {
+          anim.rumbo = rumboCadete;
+        }
+        cadetMarker?.setRotation(anim.rumbo);
+      }
+
+      // 3. La cámara acompaña al puck (y gira con él si la brújula está activa)
+      if (cam.modo === 'seguir' && !cam.transicion && mapaListo && anim.puck) {
+        const bearing = bearingSeguimiento();
+        const centro = centroSeguimiento(anim.puck, bearing, map.getZoom(), map.getPitch());
+        const actual = map.getCenter();
+        const mover = Math.abs(actual.lng - centro[0]) + Math.abs(actual.lat - centro[1]) > 1e-7;
+        const girar = Math.abs(difAngulo(map.getBearing(), bearing)) > 0.05;
+        if (mover || girar) map.jumpTo({ center: centro, bearing });
+      }
+
+      anim.activo = seguir;
+      if (seguir) requestAnimationFrame(pasoAnimacion);
+    }
+
+    // ---------------- Ruta y banner de maniobras ----------------
     function calcularDistanciaM(lat1, lon1, lat2, lon2) {
       const R = 6371e3;
       const φ1 = (lat1 * Math.PI) / 180;
@@ -915,38 +1531,93 @@
       };
     }
 
-    // Renderiza el icono visual SVG de la maniobra de giro en el banner
+    // Flechas de maniobra (trazo redondeado, estilo GPS)
+    const ICONOS_MANIOBRA = {
+      'straight': '<path d="M12 20V4m-6 6 6-6 6 6"></path>',
+      'right': '<path d="M7 20v-6a4 4 0 0 1 4-4h8m-4-4 4 4-4 4"></path>',
+      'left': '<path d="M17 20v-6a4 4 0 0 0-4-4H5m4-4-4 4 4 4"></path>',
+      'slight-right': '<path d="M9 20v-5.5a3 3 0 0 1 .9-2.1L16.5 6m-5 0h5v5"></path>',
+      'slight-left': '<path d="M15 20v-5.5a3 3 0 0 0-.9-2.1L7.5 6m5 0h-5v5"></path>',
+      'sharp-right': '<path d="M8 20V6l9.5 9.5m0-6v6h-6"></path>',
+      'sharp-left': '<path d="M16 20V6l-9.5 9.5m0-6v6h6"></path>',
+      'uturn': '<path d="M15 20V9a4 4 0 0 0-8 0v7m-3-3 3 3 3-3"></path>',
+      'roundabout': '<circle cx="12" cy="9" r="4"></circle><path d="M12 13v8m3-15 4-3m0 0h-3.5M19 3v3.5"></path>',
+      'arrive': '<path d="M5 21V4m0 0h11l-2 4 2 4H5"></path>'
+    };
+    const svgManiobra = (tipo) => ICONOS_MANIOBRA[tipo] || ICONOS_MANIOBRA.straight;
+
+    // Renderiza el icono visual SVG de la maniobra de giro en el banner (con un "pop" cuando cambia)
     function renderizarIconoManiobra(iconType) {
-      const iconBox = document.getElementById('navManeuverBox');
-      if (!iconBox) return;
+      const icono = document.getElementById('navManeuverIcon');
+      if (!icono || iconType === ultimoIconoManiobra) return;
+      ultimoIconoManiobra = iconType;
+      icono.innerHTML = svgManiobra(iconType);
+      reanimar(icono, 'maniobra-pop');
+    }
 
-      let svgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>'; // default straight
+    function reanimar(el, clase) {
+      el.classList.remove(clase);
+      void el.offsetWidth; // reinicia la animación CSS
+      el.classList.add(clase);
+    }
 
-      if (iconType === 'right' || iconType === 'sharp-right') {
-        svgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7m0 0l-7 7m7-7H3"></path>';
-      } else if (iconType === 'slight-right') {
-        svgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 7l9 2-2 9m2-9L7 17"></path>';
-      } else if (iconType === 'left' || iconType === 'sharp-left') {
-        svgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7m0 0l7-7m-7 7h18"></path>';
-      } else if (iconType === 'slight-left') {
-        svgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M16 7l-9 2 2 9m-2-9l10 10"></path>';
-      } else if (iconType === 'arrive') {
-        svgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>';
-      } else if (iconType === 'roundabout') {
-        svgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>';
-      } else if (iconType === 'uturn') {
-        svgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M9 14l-4-4m0 0l4-4m-4 4h10.5a5.5 5.5 0 010 11H11"></path>';
+    function ponerTexto(id, texto, animar = false) {
+      const el = document.getElementById(id);
+      if (!el || el.textContent === texto) return;
+      el.textContent = texto;
+      if (animar) reanimar(el, 'texto-entra');
+    }
+
+    const formatoDistancia = (m) => (m < 1000 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1)} km`);
+
+    // El GPS avisa cada pocos segundos: pedirle la ruta a OSRM en cada aviso gasta datos y batería.
+    // Se recalcula solo si se movió de verdad y pasó un rato, si se salió de la ruta, o cada minuto
+    // para refrescar la llegada. El cambio de etapa y la carga del mapa recalculan siempre, sin esperar.
+    const RUTA_MIN_MS = 4000;        // nunca más seguido que esto
+    const RUTA_NORMAL_MS = 10000;    // recálculo normal mientras avanza
+    const RUTA_REFRESCO_MS = 60000;  // aunque esté quieto
+    const RUTA_MOVIDO_M = 30;
+    const RUTA_DESVIO_M = 40;
+    let calculoRuta = { t: 0, lat: null, lng: null, enCurso: false };
+
+    function pedirRutaSiHaceFalta() {
+      const ahora = Date.now();
+      const pasado = ahora - calculoRuta.t;
+      // Si una consulta quedó colgada más de 15 s, no bloquea las siguientes
+      if (calculoRuta.enCurso && pasado < 15000) return;
+      if (!ultimaRuta || calculoRuta.lat == null) return actualizarRutaYNavegacion();
+      if (pasado < RUTA_MIN_MS) return;
+
+      const { lat, lng } = currentCadetCoords;
+      const movido = calcularDistanciaM(calculoRuta.lat, calculoRuta.lng, lat, lng);
+      const desviado = distanciaALaRutaM(lat, lng, ultimaRuta.coordinates) > RUTA_DESVIO_M;
+      if (desviado || (movido >= RUTA_MOVIDO_M && pasado >= RUTA_NORMAL_MS) || pasado >= RUTA_REFRESCO_MS) {
+        actualizarRutaYNavegacion();
       }
+    }
 
-      iconBox.innerHTML = `
-        <svg id="navManeuverIcon" class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-          ${svgPath}
-        </svg>
-      `;
+    // Distancia en metros del punto al tramo más cercano de la ruta ([lat, lng]), en proyección plana local
+    function distanciaALaRutaM(lat, lng, coords) {
+      if (!coords || coords.length < 2) return Infinity;
+      const kx = 111320 * Math.cos((lat * Math.PI) / 180);
+      const ky = 110540;
+      let minimo = Infinity;
+      for (let i = 1; i < coords.length; i++) {
+        const ax = (coords[i - 1][1] - lng) * kx, ay = (coords[i - 1][0] - lat) * ky;
+        const bx = (coords[i][1] - lng) * kx, by = (coords[i][0] - lat) * ky;
+        const dx = bx - ax, dy = by - ay;
+        const largo2 = dx * dx + dy * dy;
+        const t = largo2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / largo2)) : 0;
+        const px = ax + t * dx, py = ay + t * dy;
+        minimo = Math.min(minimo, Math.hypot(px, py));
+      }
+      return minimo;
     }
 
     async function actualizarRutaYNavegacion() {
-      if (!map) return;
+      if (!map && !sinMapa) return;
+      const secuencia = ++secuenciaRuta;
+      calculoRuta = { t: Date.now(), lat: currentCadetCoords.lat, lng: currentCadetCoords.lng, enCurso: true };
 
       const latOrg = Number(pedidoActivo.latitud_org) || -31.5375;
       const lngOrg = Number(pedidoActivo.longitud_org) || -68.5364;
@@ -955,71 +1626,63 @@
 
       // Objetivo actual: En etapa 1 es el local, en etapa 2 es el cliente
       const targetCoord = stage === 1 ? { lat: latOrg, lng: lngOrg } : { lat: latDest, lng: lngDest };
-      const targetNombre = stage === 1 
-        ? (pedidoActivo.inform_pedido?.split('-')[0]?.trim() || 'el local') 
+      const targetNombre = stage === 1
+        ? (pedidoActivo.inform_pedido?.split('-')[0]?.trim() || 'el local')
         : (pedidoActivo.cliente_nombre || 'el cliente');
 
       // 1. Obtener la ruta vehicular real desde el motor OSRM
       const ruta = await obtenerRutaVehicularOSRM(currentCadetCoords, targetCoord);
+      if (secuencia !== secuenciaRuta) return; // ya pidió una más nueva
+      calculoRuta.enCurso = false;
 
-      // 2. Limpiar trazos anteriores
-      if (routeLayerGroup) {
-        routeLayerGroup.clearLayers();
-      }
+      // 2. Dibujar la ruta (una sola fuente GeoJSON: solo se reemplazan los datos)
+      const primeraRuta = !ultimaRuta;
+      ultimaRuta = ruta;
+      dibujarRuta(ruta);
 
-      // 3. Dibujar doble capa de ruta (Borde oscuro de contraste + Trazo brillante)
-      const shadowLine = L.polyline(ruta.coordinates, {
-        color: '#000000',
-        weight: 9,
-        opacity: 0.7
-      });
-
-      const mainLine = L.polyline(ruta.coordinates, {
-        color: stage === 1 ? '#00E58F' : '#FFC800',
-        weight: 5,
-        opacity: 0.95,
-        dashArray: '8, 8'
-      });
-
-      routeLayerGroup.addLayer(shadowLine);
-      routeLayerGroup.addLayer(mainLine);
-
-      // 4. Calcular distancia y tiempo total de la ruta
+      // 3. Distancia, tiempo y hora de llegada
       const distM = Math.round(ruta.distance);
-      const distStr = distM < 1000 ? `${distM} m` : `${(distM / 1000).toFixed(1)} km`;
       const mins = Math.max(1, Math.round(ruta.duration / 60));
+      const llegada = new Date(Date.now() + ruta.duration * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      ponerTexto('navDistance', distM < 1000 ? `${distM} m` : `${(distM / 1000).toFixed(1)} km`);
+      ponerTexto('navEstTime', `${mins} min`);
+      ponerTexto('navArrival', `· llega ${llegada}`);
 
-      const distEl = document.getElementById('navDistance');
-      const timeEl = document.getElementById('navEstTime');
-      const streetEl = document.getElementById('navStreet');
-
-      if (distEl) distEl.innerText = distStr;
-      if (timeEl) timeEl.innerText = `En ${mins} min`;
-
-      // 5. Determinar la siguiente maniobra de giro
-      let activeStep = null;
-      if (ruta.steps && ruta.steps.length > 0) {
-        // Seleccionar la maniobra relevante actual
-        activeStep = ruta.steps.find(s => s.distance > 10 && s.maneuver.type !== 'depart') || ruta.steps[0];
-      }
-
+      // 4. Próxima maniobra, cuánto falta para ella y la que viene después
+      const pasos = ruta.steps || [];
+      let indice = pasos.findIndex(s => s.distance > 10 && s.maneuver.type !== 'depart');
+      if (indice < 0) indice = 0;
+      const activeStep = pasos[indice] || null;
       const { instruccion, iconType } = traducirManiobraOSRM(activeStep, targetNombre);
-      if (streetEl) streetEl.innerText = instruccion;
-      renderizarIconoManiobra(iconType);
+      const hastaManiobra = pasos.length ? pasos.slice(0, indice).reduce((t, s) => t + s.distance, 0) : distM;
 
-      // 6. Auto-encuadrar la cámara del mapa
-      try {
-        const bounds = L.latLngBounds(ruta.coordinates);
-        map.fitBounds(bounds, { padding: [90, 90], maxZoom: 16 });
-      } catch (e) {}
-    }
+      const llegando = distM < 40;
+      const accion = llegando ? 'Llegaste' : instruccion.replace(/ (en|hacia) .*$/, '');
+      const calle = llegando ? targetNombre : (activeStep?.name || targetNombre);
+      ponerTexto('navAction', accion);
+      ponerTexto('navStreet', calle, true);
+      ponerTexto('navStepDistance', llegando ? 'ya' : formatoDistancia(hastaManiobra || distM));
+      renderizarIconoManiobra(llegando ? 'arrive' : iconType);
 
-    window.recenterMap = function() {
-      if (map && cadetMarker) {
-        map.setView([currentCadetCoords.lat, currentCadetCoords.lng], 16, { animate: true });
-        if ("vibrate" in navigator) navigator.vibrate(30);
+      const siguiente = !llegando && pasos[indice + 1];
+      const cajaSiguiente = document.getElementById('navNextStep');
+      if (cajaSiguiente) {
+        cajaSiguiente.classList.toggle('hidden', !siguiente);
+        cajaSiguiente.classList.toggle('flex', Boolean(siguiente));
+        if (siguiente) {
+          const tipo = traducirManiobraOSRM(siguiente, targetNombre).iconType;
+          document.getElementById('navNextIcon').innerHTML =
+            `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${svgManiobra(tipo)}</svg>`;
+        }
       }
-    };
+
+      // 5. Cámara: la vista general reencuadra; al entrar por primera vez pasa sola al modo GPS
+      if (!map) return;
+      if (cam.modo === 'vista') encuadrarRuta();
+      if (primeraRuta && cam.seguirAlIniciar) {
+        setTimeout(() => { if (cam.modo === 'vista') entrarModoSeguir(); }, 1800);
+      }
+    }
 
     // -------------------------------------------------------------------------
     // 3. CONTROL DE DESLIZAMIENTO & ETAPAS
@@ -1039,6 +1702,8 @@
       });
       const target = document.getElementById(screenId);
       if (target) target.classList.add('active');
+      // El mapa estuvo oculto mientras se veía el cobro: que vuelva a medir su lienzo
+      if (screenId === 'view-route' && map) requestAnimationFrame(() => map.resize());
     };
 
     handle.addEventListener('pointerdown', (e) => {
@@ -1115,8 +1780,13 @@
         document.getElementById('swipeLabelBase').innerText = 'Deslizar para confirmar entrega >>';
         document.getElementById('swipeLabelActive').innerText = 'Deslizar para confirmar entrega >>';
         
-        handle.className = 'relative z-10 w-14 h-full bg-brand-warning rounded-xl flex items-center justify-center text-brand-black cursor-pointer shadow-lg active:scale-95 transition-all touch-none';
-        fill.className = 'absolute left-0 top-0 bottom-0 w-0 bg-brand-warning rounded-2xl pointer-events-none transition-none';
+        // El color de la etapa (deslizador, banner, ruta) pasa a amarillo con una transición
+        document.body.dataset.etapa = '2';
+        document.getElementById('stageBar2')?.classList.add('llena');
+        reanimar(document.getElementById('phaseTag'), 'maniobra-pop');
+        reanimar(document.getElementById('destinationTitle'), 'texto-entra');
+        actualizarMarcadoresEtapa();
+        pintarRutaSegunEtapa();
 
         // Actualizar mapa para apuntar al cliente
         actualizarRutaYNavegacion();
@@ -1212,25 +1882,20 @@
       const hora = msg.hora || 'Ahora';
 
       const row = document.createElement('div');
-      row.className = `flex flex-col ${isMine ? 'items-end' : 'items-start'} space-y-1`;
+      row.className = `burbuja-entra chat-fila ${isMine ? 'chat-fila--mia' : 'chat-fila--suya'}`;
 
       const bubble = document.createElement('div');
-      bubble.className = `max-w-[80%] p-3 rounded-2xl ${
-        isMine
-          ? 'bg-brand-accent text-brand-black rounded-tr-sm font-bold'
-          : 'bg-brand-surfaceLight border border-brand-border text-white rounded-tl-sm'
-      }`;
+      bubble.className = 'chat-burbuja';
 
       const text = document.createElement('p');
-      text.className = 'leading-relaxed break-words whitespace-pre-wrap';
       text.textContent = String(msg.texto ?? '');
-      bubble.appendChild(text);
 
       const timeLabel = document.createElement('span');
-      timeLabel.className = 'text-[10px] text-brand-textMuted px-1';
+      timeLabel.className = 'chat-hora text-brand-textMuted';
       timeLabel.textContent = hora;
 
-      row.append(bubble, timeLabel);
+      bubble.append(text, timeLabel);
+      row.appendChild(bubble);
       return { row, timeLabel, hora };
     }
 
